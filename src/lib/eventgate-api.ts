@@ -12,6 +12,12 @@ type ApiListResponse<T> = {
   };
 };
 
+type ApiResponse<T> = {
+  success: true;
+  message: string;
+  data: T;
+};
+
 export type PublicTicketTier = {
   id: string;
   name: string;
@@ -50,6 +56,11 @@ export type EventDiscoveryResult =
   | { status: "ready"; events: PublicEvent[]; meta: ApiListResponse<PublicEvent>["meta"] }
   | { status: "unavailable" };
 
+export type PublicEventResult =
+  | { status: "ready"; event: PublicEvent }
+  | { status: "not-found" }
+  | { status: "unavailable" };
+
 export async function getPublicEvents(query: EventDiscoveryQuery): Promise<EventDiscoveryResult> {
   const parameters = new URLSearchParams({
     page: String(query.page),
@@ -73,6 +84,25 @@ export async function getPublicEvents(query: EventDiscoveryQuery): Promise<Event
     if (!payload.success || !Array.isArray(payload.data)) return { status: "unavailable" };
 
     return { status: "ready", events: payload.data, meta: payload.meta };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+export async function getPublicEvent(slug: string): Promise<PublicEventResult> {
+  try {
+    const response = await fetch(`${appConfig.apiBaseUrl}/events/${encodeURIComponent(slug)}`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (response.status === 404) return { status: "not-found" };
+    if (!response.ok) return { status: "unavailable" };
+
+    const payload = (await response.json()) as ApiResponse<PublicEvent>;
+    if (!payload.success || !payload.data) return { status: "unavailable" };
+
+    return { status: "ready", event: payload.data };
   } catch {
     return { status: "unavailable" };
   }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { CalendarDays, MapPin, Search, Ticket } from "lucide-react";
+import { ArrowUpRight, CalendarDays, MapPin, Search } from "lucide-react";
+import Link from "next/link";
 
 import { EmptyState } from "@/components/empty-state";
 import { SiteFooter } from "@/components/site-footer";
@@ -53,7 +54,7 @@ function EventCard({ event }: Readonly<{ event: PublicEvent }>) {
       <div className="event-date-block"><strong>{new Date(event.startAt).getDate()}</strong><span>{new Intl.DateTimeFormat("en-BD", { month: "short" }).format(new Date(event.startAt))}</span></div>
       <div className="event-card-main">
         <div className="event-card-labels"><span>{event.category}</span><span>{totalAvailable} left</span></div>
-        <h2>{event.title}</h2>
+        <h2><Link href={`/events/${event.slug}`}>{event.title}</Link></h2>
         <p className="event-description">{event.description}</p>
         <dl className="event-facts">
           <div><dt><CalendarDays size={15} /> When</dt><dd>{formatDate(event.startAt)} · {formatTime(event.startAt)}</dd></div>
@@ -64,7 +65,7 @@ function EventCard({ event }: Readonly<{ event: PublicEvent }>) {
         <span>From</span>
         <strong>{lowestPrice === undefined ? "Unavailable" : formatMoney(lowestPrice)}</strong>
         <small>{event.ticketTiers.length} ticket {event.ticketTiers.length === 1 ? "tier" : "tiers"}</small>
-        <Ticket size={25} aria-hidden="true" />
+        <Link className="event-detail-link" href={`/events/${event.slug}`}>Details <ArrowUpRight size={15} aria-hidden="true" /></Link>
       </aside>
     </article>
   );
