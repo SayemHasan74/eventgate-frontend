@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -27,6 +27,7 @@ export function SiteHeader() {
 
         <nav className="site-nav" aria-label="Main navigation">
           {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
+          <Link href="/auth/sign-in">Sign in</Link>
           <Link className="nav-pill" href="/events">Get tickets <ArrowRight size={15} /></Link>
         </nav>
 
@@ -46,6 +47,7 @@ export function SiteHeader() {
 
         <nav className="mobile-nav" id="mobile-navigation" aria-label="Mobile navigation" data-open={menuOpen}>
           {navigation.map((item) => <Link key={item.href} href={item.href} onClick={closeMenu}>{item.label}</Link>)}
+          <Link href="/auth/sign-in" onClick={closeMenu}>Sign in <UserRound size={15} /></Link>
           <Link className="nav-pill" href="/events" onClick={closeMenu}>Get tickets <ArrowRight size={15} /></Link>
         </nav>
       </header>
