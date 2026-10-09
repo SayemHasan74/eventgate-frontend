@@ -1,0 +1,4 @@
+.reserveButton { justify-content: center; width: calc(100% - 40px); margin: 0 20px 20px; cursor: pointer; }
+.reserveButton:disabled { cursor: wait; opacity: .72; }
+.spinner { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

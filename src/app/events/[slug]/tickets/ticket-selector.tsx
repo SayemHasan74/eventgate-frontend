@@ -1,11 +1,16 @@
 "use client";
 
-import { Minus, Plus, Ticket } from "lucide-react";
+import { ArrowRight, LoaderCircle, Minus, Plus, Ticket } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
+import { useAuth } from "@/components/auth-provider";
 import type { PublicTicketTier } from "@/lib/eventgate-api";
+import { OrderApiError, reserveTickets } from "@/lib/order-api";
 
 import styles from "./ticket-selector.module.css";
+import reservationStyles from "./reservation.module.css";
 
 type TicketSelectorProps = Readonly<{
   tiers: PublicTicketTier[];
@@ -21,6 +26,10 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
   const sellableTiers = tiers.filter((tier) => isOnSale(tier, now));
   const [selectedTierId, setSelectedTierId] = useState(sellableTiers[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
+  const [isReserving, setIsReserving] = useState(false);
+  const { isReady, session } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
   const selectedTier = sellableTiers.find((tier) => tier.id === selectedTierId);
   const quantityLimit = selectedTier ? Math.min(selectedTier.availableQuantity, 10) : 0;
   const total = selectedTier ? selectedTier.pricePaisa * quantity : 0;
@@ -34,6 +43,24 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
   const chooseTier = (id: string) => {
     setSelectedTierId(id);
     setQuantity(1);
+  };
+
+  const reserve = async () => {
+    if (!selectedTier) return;
+    if (!session) {
+      router.push(`/auth/sign-in?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    setIsReserving(true);
+    try {
+      const order = await reserveTickets(session.accessToken, selectedTier.id, quantity);
+      toast.success("Tickets reserved for 15 minutes.");
+      router.push(`/orders/${order.id}`);
+    } catch (error) {
+      toast.error(error instanceof OrderApiError ? error.message : "Could not reserve tickets. Please try again.");
+    } finally {
+      setIsReserving(false);
+    }
   };
 
   return (
@@ -82,6 +109,10 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
             </div>
             <div className={styles.total}><span>Total</span><strong>{price(total)}</strong></div>
             <p>Sign in is required before EventGate reserves tickets and starts the payment timer.</p>
+            <button className={`button button-primary ${reservationStyles.reserveButton}`} disabled={!isReady || isReserving} onClick={reserve} type="button">
+              {isReserving ? <LoaderCircle className={reservationStyles.spinner} size={17} /> : <ArrowRight size={17} />}
+              {!isReady ? "Checking account" : session ? isReserving ? "Reserving tickets" : "Reserve tickets" : "Sign in to reserve"}
+            </button>
           </>
         ) : <p className={styles.noAvailability}>{unavailableReason}</p>}
       </aside>
