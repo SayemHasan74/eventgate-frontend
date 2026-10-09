@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const navigation = [
+  { href: "/events", label: "Browse events" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/#organizers", label: "For organizers" },
 ];
@@ -26,7 +27,7 @@ export function SiteHeader() {
 
         <nav className="site-nav" aria-label="Main navigation">
           {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
-          <Link className="nav-pill" href="/#get-started">Get tickets <ArrowRight size={15} /></Link>
+          <Link className="nav-pill" href="/events">Get tickets <ArrowRight size={15} /></Link>
         </nav>
 
         <div className="header-actions">
@@ -45,7 +46,7 @@ export function SiteHeader() {
 
         <nav className="mobile-nav" id="mobile-navigation" aria-label="Mobile navigation" data-open={menuOpen}>
           {navigation.map((item) => <Link key={item.href} href={item.href} onClick={closeMenu}>{item.label}</Link>)}
-          <Link className="nav-pill" href="/#get-started" onClick={closeMenu}>Get tickets <ArrowRight size={15} /></Link>
+          <Link className="nav-pill" href="/events" onClick={closeMenu}>Get tickets <ArrowRight size={15} /></Link>
         </nav>
       </header>
     </>

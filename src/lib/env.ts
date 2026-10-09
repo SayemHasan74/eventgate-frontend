@@ -1,4 +1,4 @@
-const defaultApiBaseUrl = "http://localhost:4000/api/v1";
+const defaultApiBaseUrl = "https://eventgate-api.onrender.com/api/v1";
 
 export const appConfig = {
   apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? defaultApiBaseUrl,
