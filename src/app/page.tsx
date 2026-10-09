@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, Check, MoveUpRight, Ticket } from "lucide-react";
 
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
 
 const steps = [
   {
@@ -30,32 +31,22 @@ const promises = [
 
 export default function Home() {
   return (
-    <main className="site-shell">
-      <header className="site-header">
-        <Link className="brand" href="/" aria-label="EventGate home">
-          <i aria-hidden="true" />
-          <span>EventGate</span>
-        </Link>
-        <nav className="site-nav" aria-label="Main navigation">
-          <Link href="/events">Events</Link>
-          <Link href="/login">Sign in</Link>
-          <Link className="nav-pill" href="/register">Get tickets <ArrowRight size={15} /></Link>
-        </nav>
-        <ThemeToggle />
-      </header>
+    <div className="site-shell">
+      <SiteHeader />
 
       <div className="ticker" aria-hidden="true">
         <div>ADMIT ONE <em>✺</em> PAYMENTS VERIFIED <em>✺</em> EVERY QR WORKS ONCE <em>✺</em> EVENTGATE <em>✺</em> ADMIT ONE <em>✺</em> PAYMENTS VERIFIED <em>✺</em> EVERY QR WORKS ONCE <em>✺</em></div>
       </div>
 
+      <main id="main-content">
       <section className="hero wrap">
         <div className="hero-copy">
           <p className="eyebrow"><span /> Ticketing without the guesswork</p>
           <h1>Make plans.<br /><b>Make it in.</b></h1>
           <p className="hero-lede">EventGate is the calm, clear way to discover an event, secure your spot, and get through the gate.</p>
           <div className="hero-actions">
-            <Link className="button button-primary" href="/events">Explore events <ArrowRight size={17} /></Link>
-            <Link className="text-link" href="/register">I organize events <MoveUpRight size={16} /></Link>
+            <Link className="button button-primary" href="#how-it-works">Explore EventGate <ArrowRight size={17} /></Link>
+            <Link className="text-link" href="#organizers">I organize events <MoveUpRight size={16} /></Link>
           </div>
           <div className="hero-proof">
             <span className="proof-dots"><i /><i /><i /></span>
@@ -85,7 +76,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="how-section wrap" aria-labelledby="how-title">
+      <section className="how-section wrap" id="how-it-works" aria-labelledby="how-title">
         <div className="section-intro">
           <p className="eyebrow"><span /> A better route to the room</p>
           <h2 id="how-title">From “maybe” to <b>“I’m in.”</b></h2>
@@ -103,7 +94,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="promise-band">
+      <section className="promise-band" id="organizers">
         <div className="wrap promise-inner">
           <div>
             <p className="eyebrow eyebrow-light"><span /> What stays simple</p>
@@ -115,17 +106,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="closing wrap">
+      <section className="closing wrap" id="get-started">
         <p className="eyebrow"><span /> Your next event starts here</p>
         <h2>See you at the <b>gate.</b></h2>
-        <Link className="button button-primary" href="/events">Find an event <ArrowRight size={17} /></Link>
+        <Link className="button button-primary" href="#how-it-works">See how it works <ArrowRight size={17} /></Link>
       </section>
+      </main>
 
-      <footer className="site-footer wrap">
-        <Link className="brand" href="/"><i aria-hidden="true" /><span>EventGate</span></Link>
-        <p>Find the room. Keep the ticket. Make the moment.</p>
-        <span>© 2026 EventGate</span>
-      </footer>
-    </main>
+      <SiteFooter />
+    </div>
   );
 }
