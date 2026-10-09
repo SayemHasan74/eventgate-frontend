@@ -26,6 +26,7 @@
 .tier h3 { margin: 0; font: 400 32px/.95 var(--font-display), Impact, sans-serif; letter-spacing: .02em; text-transform: uppercase; }
 .tier div > p:last-child { margin: 7px 0 0; color: var(--soft); font-size: 13px; }
 .tier > strong { flex: 0 0 auto; color: var(--pink); font: 400 37px var(--font-display), Impact, sans-serif; }
+.selectTickets { margin-top: 20px; }
 .skeleton { animation: pulse 1.5s ease-in-out infinite; background: color-mix(in srgb, var(--soft) 20%, transparent); }
 .skeletonLink { width: 105px; height: 15px; }.skeletonHero { height: 328px; margin-top: 29px; }.skeletonInfo { height: 164px; margin-top: 30px; }.skeletonTiers { width: 55%; height: 230px; margin: 76px 0 0 auto; }
 @media (max-width: 820px) { .hero { grid-template-columns: 1fr 140px; }.copy { padding: 37px 34px 40px; }.information { grid-template-columns: 1fr 1fr; }.information > div:last-child { grid-column: 1 / -1; border-top: 2px dashed var(--ink); border-right: 0; }.tiers { grid-template-columns: 1fr; gap: 30px; margin-top: 58px; }.skeletonTiers { width: 100%; margin-top: 58px; } }

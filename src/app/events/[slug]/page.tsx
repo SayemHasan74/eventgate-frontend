@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, CalendarDays, Clock3, MapPin, Ticket } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Clock3, MapPin, Ticket } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -87,7 +87,10 @@ function EventDetails({ event }: Readonly<{ event: PublicEvent }>) {
         {event.ticketTiers.length === 0 ? (
           <p className={styles.noTiers}>The organiser has not released ticket tiers yet.</p>
         ) : (
-          <ul className={styles.list}>{event.ticketTiers.map((tier) => <TicketTier key={tier.id} tier={tier} />)}</ul>
+          <div>
+            <ul className={styles.list}>{event.ticketTiers.map((tier) => <TicketTier key={tier.id} tier={tier} />)}</ul>
+            <Link className={`${styles.selectTickets} button button-primary`} href={`/events/${event.slug}/tickets`}>Select tickets <ArrowRight size={17} aria-hidden="true" /></Link>
+          </div>
         )}
       </section>
     </main>

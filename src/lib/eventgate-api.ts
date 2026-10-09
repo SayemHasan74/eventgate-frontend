@@ -57,7 +57,7 @@ export type EventDiscoveryResult =
   | { status: "unavailable" };
 
 export type PublicEventResult =
-  | { status: "ready"; event: PublicEvent }
+  | { status: "ready"; event: PublicEvent; retrievedAt: number }
   | { status: "not-found" }
   | { status: "unavailable" };
 
@@ -102,7 +102,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventResult> {
     const payload = (await response.json()) as ApiResponse<PublicEvent>;
     if (!payload.success || !payload.data) return { status: "unavailable" };
 
-    return { status: "ready", event: payload.data };
+    return { status: "ready", event: payload.data, retrievedAt: Date.now() };
   } catch {
     return { status: "unavailable" };
   }
