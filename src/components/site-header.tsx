@@ -19,6 +19,7 @@ export function SiteHeader() {
   const closeMenu = () => setMenuOpen(false);
   const accountLink = isReady && session ? { href: "/account", label: "My account" } : { href: "/auth/sign-in", label: "Sign in" };
   const organizerLink = isReady && (session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN");
+  const ticketLink = isReady && session?.user.role === "ATTENDEE";
 
   return (
     <>
@@ -31,6 +32,7 @@ export function SiteHeader() {
 
         <nav className="site-nav" aria-label="Main navigation">
           {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
+          {ticketLink && <Link href="/tickets">My tickets</Link>}
           {organizerLink && <Link href="/organizer">Organizer</Link>}
           <Link href={accountLink.href}>{accountLink.label}</Link>
           <Link className="nav-pill" href="/events">Get tickets <ArrowRight size={15} /></Link>
@@ -52,6 +54,7 @@ export function SiteHeader() {
 
         <nav className="mobile-nav" id="mobile-navigation" aria-label="Mobile navigation" data-open={menuOpen}>
           {navigation.map((item) => <Link key={item.href} href={item.href} onClick={closeMenu}>{item.label}</Link>)}
+          {ticketLink && <Link href="/tickets" onClick={closeMenu}>My tickets</Link>}
           {organizerLink && <Link href="/organizer" onClick={closeMenu}>Organizer</Link>}
           <Link href={accountLink.href} onClick={closeMenu}>{accountLink.label} <UserRound size={15} /></Link>
           <Link className="nav-pill" href="/events" onClick={closeMenu}>Get tickets <ArrowRight size={15} /></Link>
