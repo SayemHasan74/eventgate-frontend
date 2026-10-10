@@ -1,17 +1,8 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
-};
+// EventGate uses CSS Modules and global CSS, not Tailwind. The starter's
+// Tailwind/Turbopack CSS override caused production CSS assets to be served as
+// page HTML on Vercel, leaving the application pages unstyled.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
