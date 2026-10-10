@@ -120,3 +120,35 @@ export async function checkInTicket(accessToken: string, eventId: string, qrToke
   }
   return payload.data;
 }
+
+export type EventReport = {
+  orders: Array<{ status: string; _count: { _all: number }; _sum: { totalAmountPaisaSnapshot: number | null } }>;
+  tiers: Array<{ id: string; name: string; capacity: number; soldQuantity: number; reservedQuantity: number }>;
+  paidRevenuePaisa: number;
+  paidOrderCount: number;
+  checkedIn: number;
+};
+
+export type EventOrder = {
+  id: string;
+  quantity: number;
+  totalAmountPaisaSnapshot: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  attendee: { displayName: string; email: string };
+  ticketTier: { name: string };
+};
+
+async function getReport<T>(accessToken: string, path: string) {
+  const response = await fetch(`/api/organizer/${path}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<T> & { meta?: { total: number } } | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrganizerApiError(error.errors?.[0]?.message ?? error.message ?? "Event reports could not be loaded.");
+  }
+  return payload;
+}
+
+export const getEventReport = async (accessToken: string, eventId: string) => (await getReport<EventReport>(accessToken, `events/${eventId}/reports/statistics`)).data;
+export const getEventOrders = async (accessToken: string, eventId: string) => (await getReport<EventOrder[]>(accessToken, `events/${eventId}/reports/orders`)).data;
