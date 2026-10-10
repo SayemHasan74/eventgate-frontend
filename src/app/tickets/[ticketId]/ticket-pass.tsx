@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, CheckCircle2, Clock3, MapPin, QrCode, Ticket } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, MapPin, QrCode, RotateCcw, Ticket } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -28,7 +28,7 @@ export function TicketPass() {
   const qrSource = qrQuery.data ? `data:image/svg+xml;utf8,${encodeURIComponent(qrQuery.data)}` : null;
   return <div className={styles.pass}>
     <header><p className="eyebrow"><span /> EventGate attendee pass</p><span className={styles.status}>{ticket.status.replaceAll("_", " ")}</span></header>
-    <section className={styles.body}><div className={styles.details}><h1>{ticket.event.title}</h1><p className={styles.tier}>{ticket.ticketTier.name} · Pass #{ticket.sequence}</p><dl><div><dt><CalendarDays size={16} /> Date</dt><dd>{date(ticket.event.startAt)}</dd></div><div><dt><Clock3 size={16} /> Time</dt><dd>{time(ticket.event.startAt)} – {time(ticket.event.endAt)}</dd></div><div><dt><MapPin size={16} /> Venue</dt><dd>{ticket.event.venue}, {ticket.event.city}</dd></div></dl></div><aside className={styles.qr}>{ticket.status === "ACTIVE" ? qrQuery.isLoading ? <><QrCode size={42} /><span>Loading QR…</span></> : qrSource ? <><Image alt={`QR pass for ${ticket.event.title}`} height={185} src={qrSource} unoptimized width={185} /><span>Present at entry</span></> : <><QrCode size={42} /><span>QR unavailable</span></> : <><CheckCircle2 size={45} /><strong>{ticket.status === "CHECKED_IN" ? "Checked in" : ticket.status.replaceAll("_", " ")}</strong>{ticket.checkedInAt && <span>{time(ticket.checkedInAt)}</span>}</>}</aside></section>
+    <section className={styles.body}><div className={styles.details}><h1>{ticket.event.title}</h1><p className={styles.tier}>{ticket.ticketTier.name} · Pass #{ticket.sequence}</p><dl><div><dt><CalendarDays size={16} /> Date</dt><dd>{date(ticket.event.startAt)}</dd></div><div><dt><Clock3 size={16} /> Time</dt><dd>{time(ticket.event.startAt)} – {time(ticket.event.endAt)}</dd></div><div><dt><MapPin size={16} /> Venue</dt><dd>{ticket.event.venue}, {ticket.event.city}</dd></div></dl><Link className={styles.manageOrder} href={`/orders/${ticket.orderId}`}><RotateCcw size={16} aria-hidden="true" /> Manage booking &amp; refund <ArrowRight size={16} aria-hidden="true" /></Link></div><aside className={styles.qr}>{ticket.status === "ACTIVE" ? qrQuery.isLoading ? <><QrCode size={42} /><span>Loading QR…</span></> : qrSource ? <><Image alt={`QR pass for ${ticket.event.title}`} height={185} src={qrSource} unoptimized width={185} /><span>Present at entry</span></> : <><QrCode size={42} /><span>QR unavailable</span></> : <><CheckCircle2 size={45} /><strong>{ticket.status === "CHECKED_IN" ? "Checked in" : ticket.status.replaceAll("_", " ")}</strong>{ticket.checkedInAt && <span>{time(ticket.checkedInAt)}</span>}</>}</aside></section>
     <footer><span>Keep this pass private until the event door.</span><span>Ticket ID {ticket.id.slice(0, 8).toUpperCase()}</span></footer>
   </div>;
 }
