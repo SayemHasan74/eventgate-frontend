@@ -83,3 +83,40 @@ export async function publishManagedEvent(accessToken: string, eventId: string) 
   }
   return payload.data;
 }
+
+export type CheckInRecord = {
+  id: string;
+  sequence: number;
+  checkedInAt: string;
+  attendee: { displayName: string; email: string };
+  ticketTier: { name: string };
+  checkedInBy: { displayName: string } | null;
+};
+
+type CheckInConfirmation = { id: string; status: string; ticketTier: { name: string } };
+
+type CheckInHistory = { records: CheckInRecord[]; total: number };
+
+export async function getCheckInHistory(accessToken: string, eventId: string) {
+  const response = await fetch(`/api/organizer/events/${eventId}/check-ins`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<CheckInRecord[]> & { meta?: { total: number } } | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrganizerApiError(error.errors?.[0]?.message ?? error.message ?? "Check-in history could not be loaded.");
+  }
+  return { records: payload.data, total: payload.meta?.total ?? payload.data.length } satisfies CheckInHistory;
+}
+
+export async function checkInTicket(accessToken: string, eventId: string, qrToken: string) {
+  const response = await fetch(`/api/organizer/events/${eventId}/check-ins`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ qrToken }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<CheckInConfirmation> | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrganizerApiError(error.errors?.[0]?.message ?? error.message ?? "Ticket could not be checked in.");
+  }
+  return payload.data;
+}
