@@ -36,7 +36,7 @@ export function SiteHeader() {
           {ticketLink && <Link href="/tickets">My tickets</Link>}
           {ticketLink && <Link href="/refunds">Refunds</Link>}
           {organizerLink && <Link href="/organizer">Organizer</Link>}
-          {adminLink && <Link href="/admin/refunds">Refund desk</Link>}
+          {adminLink && <Link href="/admin">Control room</Link>}
           <Link href={accountLink.href}>{accountLink.label}</Link>
           <Link className="nav-pill" href="/events">Get tickets <ArrowRight size={15} /></Link>
         </nav>
@@ -60,7 +60,7 @@ export function SiteHeader() {
           {ticketLink && <Link href="/tickets" onClick={closeMenu}>My tickets</Link>}
           {ticketLink && <Link href="/refunds" onClick={closeMenu}>Refunds</Link>}
           {organizerLink && <Link href="/organizer" onClick={closeMenu}>Organizer</Link>}
-          {adminLink && <Link href="/admin/refunds" onClick={closeMenu}>Refund desk</Link>}
+          {adminLink && <Link href="/admin" onClick={closeMenu}>Control room</Link>}
           <Link href={accountLink.href} onClick={closeMenu}>{accountLink.label} <UserRound size={15} /></Link>
           <Link className="nav-pill" href="/events" onClick={closeMenu}>Get tickets <ArrowRight size={15} /></Link>
         </nav>
