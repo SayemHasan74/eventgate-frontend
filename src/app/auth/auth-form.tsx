@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { AuthApiError, register, signIn } from "@/lib/auth-api";
 
-import styles from "./auth.module.css";
 
 type AuthFormProps = Readonly<{ mode: "sign-in" | "register" }>;
 
@@ -77,23 +76,23 @@ export function AuthForm({ mode }: AuthFormProps) {
   };
 
   return (
-    <form action={submit} className={styles.form}>
+    <form action={submit} className="auth-form">
       {isRegister && <label><span>Your name</span><input autoComplete="name" name="displayName" placeholder="e.g. Samira Rahman" required /></label>}
       <label><span>Email address</span><input autoComplete="email" name="email" placeholder="you@example.com" required type="email" /></label>
       <label>
         <span>Password</span>
-        <div className={styles.passwordField}>
+        <div className="auth-password-field">
           <input autoComplete={isRegister ? "new-password" : "current-password"} minLength={12} name="password" placeholder="At least 12 characters" required type={showPassword ? "text" : "password"} />
           <button aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((shown) => !shown)} type="button">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
         </div>
       </label>
-      <p className={styles.passwordNote}>Passwords must contain at least 12 characters.</p>
+      <p className="auth-password-note">Passwords must contain at least 12 characters.</p>
       <button className="button button-primary" disabled={isSubmitting} type="submit">
-        {isSubmitting ? <LoaderCircle className={styles.spinner} size={17} /> : <ArrowRight size={17} />}
+        {isSubmitting ? <LoaderCircle className="auth-spinner" size={17} /> : <ArrowRight size={17} />}
         {isSubmitting ? "Please wait" : isRegister ? "Create attendee account" : "Sign in"}
       </button>
-      <p className={styles.switchText}>{isRegister ? "Already have an account?" : "New to EventGate?"} <Link href={alternateHref}>{isRegister ? "Sign in" : "Create one"}</Link></p>
-      {!isRegister && demoAccounts.length > 0 && <div className={styles.demo}><span>Quick demo login</span><div>{demoAccounts.map((account) => <button key={account.label} onClick={() => demoLogin(account.email, account.password)} disabled={isSubmitting} type="button">{account.label}</button>)}</div></div>}
+      <p className="auth-switch-text">{isRegister ? "Already have an account?" : "New to EventGate?"} <Link href={alternateHref}>{isRegister ? "Sign in" : "Create one"}</Link></p>
+      {!isRegister && demoAccounts.length > 0 && <div className="auth-demo"><span>Quick demo login</span><div>{demoAccounts.map((account) => <button key={account.label} onClick={() => demoLogin(account.email, account.password)} disabled={isSubmitting} type="button">{account.label}</button>)}</div></div>}
     </form>
   );
 }
