@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { getOrder, OrderApiError } from "@/lib/order-api";
 
+import { CheckoutPanel } from "./checkout-panel";
 import styles from "./order-status.module.css";
 
 type OrderStatusProps = Readonly<{ orderId: string }>;
@@ -44,15 +45,18 @@ export function OrderStatus({ orderId }: OrderStatusProps) {
     : null;
 
   return (
+    <>
     <div className={styles.receipt}>
       <header className={styles.receiptHeader}><span>Reservation receipt</span><b>{order.status.replaceAll("_", " ")}</b></header>
       <div className={styles.content}>
         <p className="eyebrow"><span /> Tickets are held</p>
         <h1>{order.eventNameSnapshot}</h1>
         <div className={styles.lineItem}><div><strong>{order.ticketTierNameSnapshot}</strong><span>{order.quantity} {order.quantity === 1 ? "ticket" : "tickets"} × {money(order.unitPricePaisaSnapshot)}</span></div><b>{money(order.totalAmountPaisaSnapshot)}</b></div>
-        {order.status === "PENDING_PAYMENT" && expires && <p className={styles.expiry}><Clock3 size={16} aria-hidden="true" /> Held until {expires} (Bangladesh time). Payment starts in the next step.</p>}
+        {order.status === "PENDING_PAYMENT" && expires && <p className={styles.expiry}><Clock3 size={16} aria-hidden="true" /> Held until {expires} (Bangladesh time).</p>}
       </div>
       <footer className={styles.receiptFooter}><span>Reservation #{order.id.slice(0, 8).toUpperCase()}</span><span>EventGate secure reservation</span></footer>
     </div>
+    <CheckoutPanel orderId={order.id} payable={order.status === "PENDING_PAYMENT" && Boolean(order.reservationExpiresAt)} />
+    </>
   );
 }
