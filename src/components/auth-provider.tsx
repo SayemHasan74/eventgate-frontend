@@ -62,11 +62,13 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
 
   const setSession = useCallback((nextSession: AuthSession) => {
     window.localStorage.setItem(storageKey, JSON.stringify(nextSession));
+    document.cookie = `eventgate_session=1; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
     window.dispatchEvent(new Event(sessionChangeEvent));
   }, []);
 
   const clearSession = useCallback(() => {
     window.localStorage.removeItem(storageKey);
+    document.cookie = "eventgate_session=; Path=/; Max-Age=0; SameSite=Lax";
     window.dispatchEvent(new Event(sessionChangeEvent));
   }, []);
 

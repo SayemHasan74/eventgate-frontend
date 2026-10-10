@@ -9,6 +9,8 @@
   --soft: #6e6c85;
   color-scheme: light;
 }
+.not-found, .payment-result { display: grid; justify-items: start; gap: 16px; min-height: 62vh; padding-block: 88px; }.not-found svg, .payment-result svg { color: var(--pink); }.not-found h1, .payment-result h1 { margin: 0; font: 400 clamp(56px, 9vw, 112px)/.84 var(--font-display), Impact, sans-serif; letter-spacing: .02em; text-transform: uppercase; }.not-found h1 b, .payment-result h1 b { color: var(--cobalt); font-weight: inherit; text-shadow: 3px 3px 0 var(--pink); }.not-found > p:last-of-type, .payment-result > p:last-of-type { max-width: 480px; margin: 0; color: var(--soft); font-size: 16px; line-height: 1.55; }
+.admin-users { min-height: 70vh; padding-block: 65px; }.admin-users h1 { margin: 13px 0 26px; font: 400 clamp(55px, 8vw, 94px)/.85 var(--font-display), Impact, sans-serif; text-transform: uppercase; }.admin-users h1 b { color: var(--cobalt); font-weight: inherit; }.admin-users form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }.admin-users input, .admin-users select { border: 2px solid var(--ink); background: var(--card); padding: 10px; color: var(--ink); }.user-list { display: grid; gap: 10px; }.user-list article { display: flex; justify-content: space-between; gap: 16px; border: 2px solid var(--ink); background: var(--card); padding: 16px; }.user-list article > div { display: flex; align-items: center; gap: 9px; }.user-list span { color: var(--soft); font-size: 13px; }.user-list button { border: 2px solid var(--ink); background: transparent; padding: 9px; color: var(--ink); cursor: pointer; }@media(max-width:600px){.user-list article,.user-list article>div{align-items:flex-start;flex-direction:column;}}
 
 .dark {
   --paper: #101127;
