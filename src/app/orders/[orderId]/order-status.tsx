@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { getOrder, OrderApiError } from "@/lib/order-api";
 
 import { CheckoutPanel } from "./checkout-panel";
+import { RefundAction } from "./refund-action";
 import styles from "./order-status.module.css";
 
 type OrderStatusProps = Readonly<{ orderId: string }>;
@@ -57,6 +58,7 @@ export function OrderStatus({ orderId }: OrderStatusProps) {
       <footer className={styles.receiptFooter}><span>Reservation #{order.id.slice(0, 8).toUpperCase()}</span><span>EventGate secure reservation</span></footer>
     </div>
     <CheckoutPanel orderId={order.id} payable={order.status === "PENDING_PAYMENT" && Boolean(order.reservationExpiresAt)} />
+    <RefundAction orderId={order.id} status={order.status} />
     </>
   );
 }
