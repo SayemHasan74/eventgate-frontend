@@ -13,8 +13,8 @@ export default function SignInPage() {
     <div className="site-shell">
       <SiteHeader />
       <main id="main-content" className={styles.page}>
-        <section className={styles.intro}><p className="eyebrow"><span /> Attendee access</p><h1>Your next<br /><b>entry.</b></h1><p>Sign in to reserve an available ticket, complete payment, and keep your event passes together.</p></section>
-        <section className={styles.panel}><div className={styles.panelInner}><h2>Welcome back.</h2><p>Use the attendee account connected to your EventGate tickets.</p><AuthForm mode="sign-in" /></div></section>
+        <section className={styles.intro}><p className="eyebrow"><span /> EventGate access</p><h1>Back to the<br /><b>room.</b></h1><p>One secure sign-in for attendees, organizers, and platform administrators. Your account opens the workspace that matches your role.</p></section>
+        <section className={styles.panel}><div className={styles.panelInner}><h2>Welcome back.</h2><p>Use your EventGate account. Attendees manage tickets, organizers run events, and admins oversee the platform.</p><AuthForm mode="sign-in" /></div></section>
       </main>
       <SiteFooter />
     </div>
