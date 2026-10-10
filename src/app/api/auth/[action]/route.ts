@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { appConfig } from "@/lib/env";
 
-const supportedActions = new Set(["login", "register", "logout"]);
+const supportedActions = new Set(["login", "register", "logout", "google", "demo"]);
 
 export async function POST(request: Request, context: RouteContext<"/api/auth/[action]">) {
   const { action } = await context.params;

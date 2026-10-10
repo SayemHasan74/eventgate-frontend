@@ -7,16 +7,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
-import { AuthApiError, register, signIn } from "@/lib/auth-api";
+import { GoogleSignIn } from "@/components/google-sign-in";
+import { AuthApiError, register, signIn, signInDemo, signInWithGoogle } from "@/lib/auth-api";
 
 
 type AuthFormProps = Readonly<{ mode: "sign-in" | "register" }>;
-
-const demoAccounts = [
-  { label: "Attendee demo", email: process.env.NEXT_PUBLIC_DEMO_ATTENDEE_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_ATTENDEE_PASSWORD },
-  { label: "Organizer demo", email: process.env.NEXT_PUBLIC_DEMO_ORGANIZER_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_ORGANIZER_PASSWORD },
-  { label: "Admin demo", email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD },
-].filter((account): account is { label: string; email: string; password: string } => Boolean(account.email && account.password));
 
 const safeNextPath = (value: string | null) =>
   value?.startsWith("/") && !value.startsWith("//") ? value : "/events";
@@ -62,10 +57,10 @@ export function AuthForm({ mode }: AuthFormProps) {
   const alternatePath = isRegister ? "/auth/sign-in" : "/auth/register";
   const next = searchParams.get("next");
   const alternateHref = next ? `${alternatePath}?next=${encodeURIComponent(next)}` : alternatePath;
-  const demoLogin = async (email: string, password: string) => {
+  const demoLogin = async (role: "ATTENDEE" | "ORGANIZER" | "ADMIN") => {
     setIsSubmitting(true);
     try {
-      const session = await signIn({ email, password });
+      const session = await signInDemo(role);
       setSession(session);
       toast.success(`Signed in as ${session.user.displayName}.`);
       router.push(session.user.role === "ADMIN" ? "/admin" : session.user.role === "ORGANIZER" ? "/organizer" : "/account");
@@ -73,6 +68,21 @@ export function AuthForm({ mode }: AuthFormProps) {
     } catch (error) {
       toast.error(error instanceof AuthApiError ? error.message : "Demo sign-in could not be completed.");
     } finally { setIsSubmitting(false); }
+  };
+
+  const googleLogin = async (idToken: string) => {
+    setIsSubmitting(true);
+    try {
+      const session = await signInWithGoogle(idToken);
+      setSession(session);
+      toast.success(`Welcome, ${session.user.displayName}.`);
+      router.push(safeNextPath(searchParams.get("next")));
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof AuthApiError ? error.message : "Google sign-in could not be completed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -92,7 +102,8 @@ export function AuthForm({ mode }: AuthFormProps) {
         {isSubmitting ? "Please wait" : isRegister ? "Create attendee account" : "Sign in"}
       </button>
       <p className="auth-switch-text">{isRegister ? "Already have an account?" : "New to EventGate?"} <Link href={alternateHref}>{isRegister ? "Sign in" : "Create one"}</Link></p>
-      {!isRegister && demoAccounts.length > 0 && <div className="auth-demo"><span>Quick demo login</span><div>{demoAccounts.map((account) => <button key={account.label} onClick={() => demoLogin(account.email, account.password)} disabled={isSubmitting} type="button">{account.label}</button>)}</div></div>}
+      {!isRegister && <GoogleSignIn disabled={isSubmitting} onCredential={googleLogin} />}
+      {!isRegister && <div className="auth-demo"><span>Quick demo login</span><div><button onClick={() => demoLogin("ATTENDEE")} disabled={isSubmitting} type="button">Attendee demo</button><button onClick={() => demoLogin("ORGANIZER")} disabled={isSubmitting} type="button">Organizer demo</button><button onClick={() => demoLogin("ADMIN")} disabled={isSubmitting} type="button">Admin demo</button></div></div>}
     </form>
   );
 }
