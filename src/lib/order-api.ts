@@ -15,6 +15,8 @@ export type Order = {
   updatedAt: string;
 };
 
+type OrderList = { orders: Order[]; meta: { page: number; limit: number; total: number; totalPages: number } };
+
 type ApiResponse<T> = { success: true; message: string; data: T };
 type ApiError = { message?: string; errors?: Array<{ message?: string }> };
 
@@ -41,3 +43,13 @@ export const reserveTickets = (accessToken: string, ticketTierId: string, quanti
   });
 
 export const getOrder = (accessToken: string, orderId: string) => orderRequest<Order>(orderId, accessToken);
+
+export async function getOrders(accessToken: string) {
+  const response = await fetch("/api/orders", { headers: { Authorization: `Bearer ${accessToken}` } });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<Order[]> & { meta?: OrderList["meta"] } | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrderApiError(error.errors?.[0]?.message ?? error.message ?? "Your orders could not be loaded.");
+  }
+  return { orders: payload.data, meta: payload.meta ?? { page: 1, limit: 20, total: payload.data.length, totalPages: 1 } };
+}

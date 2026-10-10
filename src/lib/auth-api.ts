@@ -25,3 +25,11 @@ async function requestSession(path: "/auth/login" | "/auth/register", body: Sign
 
 export const signIn = (input: SignInInput) => requestSession("/auth/login", input);
 export const register = (input: RegisterInput) => requestSession("/auth/register", input);
+
+export async function signOut(refreshToken: string) {
+  await fetch("/api/auth/logout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+}
