@@ -34,7 +34,7 @@ export function OrganizerDashboard() {
         <div className={styles.eventsHeading}><div><p className="eyebrow"><span /> Your programme</p><h2 id="managed-events-heading">Managed <b>events.</b></h2></div></div>
         {eventsQuery.isLoading ? <p className={styles.muted}>Loading your events…</p> : eventsQuery.isError ? <p className={styles.muted}>{eventsQuery.error instanceof OrganizerApiError ? eventsQuery.error.message : "Your events could not be loaded."}</p> : events.length === 0 ? (
           <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h3>Your programme is clear.</h3><p>Create a draft event, then add ticket tiers before you publish it.</p><Link className="button button-primary" href="/organizer/events/new">Create event <ArrowRight size={16} /></Link></div>
-        ) : <div className={styles.eventList}>{events.map((event) => <Link className={styles.eventCard} href={`/organizer/events/${event.id}/tickets`} key={event.id}><div><span className={styles.status}>{event.status}</span><h3>{event.title}</h3><p><CalendarDays size={14} /> {formatDate(event.startAt)} <i /> <MapPin size={14} /> {event.city}</p></div><FilePenLine size={19} aria-hidden="true" /></Link>)}</div>}
+        ) : <div className={styles.eventList}>{events.map((event) => <Link className={styles.eventCard} href={`/organizer/events/${event.id}/publish`} key={event.id}><div><span className={styles.status}>{event.status}</span><h3>{event.title}</h3><p><CalendarDays size={14} /> {formatDate(event.startAt)} <i /> <MapPin size={14} /> {event.city}</p></div><FilePenLine size={19} aria-hidden="true" /></Link>)}</div>}
       </section>
     </div>
   );

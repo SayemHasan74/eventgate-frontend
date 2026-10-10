@@ -70,3 +70,16 @@ export async function createTicketTier(accessToken: string, eventId: string, inp
   }
   return payload.data;
 }
+
+export async function publishManagedEvent(accessToken: string, eventId: string) {
+  const response = await fetch(`/api/organizer/events/${eventId}/publish`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<ManagedEvent> | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrganizerApiError(error.errors?.[0]?.message ?? error.message ?? "This event could not be published.");
+  }
+  return payload.data;
+}
