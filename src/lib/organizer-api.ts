@@ -44,3 +44,29 @@ export async function createManagedEvent(accessToken: string, input: CreateEvent
   }
   return payload.data;
 }
+
+export type TicketTier = {
+  id: string;
+  name: string;
+  pricePaisa: number;
+  capacity: number;
+  availableQuantity?: number;
+  salesStartAt: string;
+  salesEndAt: string;
+};
+
+export type CreateTicketTierInput = Omit<TicketTier, "id" | "availableQuantity">;
+
+export async function createTicketTier(accessToken: string, eventId: string, input: CreateTicketTierInput) {
+  const response = await fetch(`/api/organizer/events/${eventId}/ticket-tiers`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<TicketTier> | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrganizerApiError(error.errors?.[0]?.message ?? error.message ?? "Your ticket tier could not be created.");
+  }
+  return payload.data;
+}
