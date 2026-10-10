@@ -4,7 +4,10 @@ import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignIn } from "@/components/google-sign-in";
@@ -12,6 +15,12 @@ import { AuthApiError, register, signIn, signInDemo, signInWithGoogle } from "@/
 
 
 type AuthFormProps = Readonly<{ mode: "sign-in" | "register" }>;
+const authSchema = z.object({
+  displayName: z.string().trim().min(2, "Enter a name with at least two characters.").optional(),
+  email: z.string().trim().email("Enter a valid email address."),
+  password: z.string().min(12, "Your password needs at least 12 characters."),
+});
+type AuthValues = z.infer<typeof authSchema>;
 
 const safeNextPath = (value: string | null) =>
   value?.startsWith("/") && !value.startsWith("//") ? value : "/events";
@@ -23,25 +32,15 @@ export function AuthForm({ mode }: AuthFormProps) {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const form = useForm<AuthValues>({ resolver: zodResolver(authSchema), defaultValues: { displayName: "", email: "", password: "" } });
 
-  const submit = async (formData: FormData) => {
-    const email = String(formData.get("email") ?? "").trim();
-    const password = String(formData.get("password") ?? "");
-    const displayName = String(formData.get("displayName") ?? "").trim();
-
-    if (isRegister && displayName.length < 2) {
-      toast.error("Enter a name with at least two characters.");
-      return;
-    }
-    if (password.length < 12) {
-      toast.error("Your password needs at least 12 characters.");
-      return;
-    }
+  const submit = form.handleSubmit(async ({ email, password, displayName }) => {
+    if (isRegister && !displayName) return;
 
     setIsSubmitting(true);
     try {
       const session = isRegister
-        ? await register({ email, password, displayName })
+        ? await register({ email, password, displayName: displayName ?? "" })
         : await signIn({ email, password });
       setSession(session);
       toast.success(isRegister ? "Account created. You are signed in." : `Welcome back, ${session.user.displayName}.`);
@@ -52,7 +51,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  });
 
   const alternatePath = isRegister ? "/auth/sign-in" : "/auth/register";
   const next = searchParams.get("next");
@@ -86,16 +85,17 @@ export function AuthForm({ mode }: AuthFormProps) {
   };
 
   return (
-    <form action={submit} className="auth-form">
-      {isRegister && <label><span>Your name</span><input autoComplete="name" name="displayName" placeholder="e.g. Samira Rahman" required /></label>}
-      <label><span>Email address</span><input autoComplete="email" name="email" placeholder="you@example.com" required type="email" /></label>
+    <form onSubmit={submit} className="auth-form" noValidate>
+      {isRegister && <label><span>Your name</span><input autoComplete="name" placeholder="e.g. Samira Rahman" {...form.register("displayName")} required />{form.formState.errors.displayName && <small>{form.formState.errors.displayName.message}</small>}</label>}
+      <label><span>Email address</span><input autoComplete="email" placeholder="you@example.com" type="email" {...form.register("email")} required />{form.formState.errors.email && <small>{form.formState.errors.email.message}</small>}</label>
       <label>
         <span>Password</span>
         <div className="auth-password-field">
-          <input autoComplete={isRegister ? "new-password" : "current-password"} minLength={12} name="password" placeholder="At least 12 characters" required type={showPassword ? "text" : "password"} />
+          <input autoComplete={isRegister ? "new-password" : "current-password"} minLength={12} placeholder="At least 12 characters" required type={showPassword ? "text" : "password"} {...form.register("password")} />
           <button aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((shown) => !shown)} type="button">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
         </div>
       </label>
+      {form.formState.errors.password && <small>{form.formState.errors.password.message}</small>}
       <p className="auth-password-note">Passwords must contain at least 12 characters.</p>
       <button className="button button-primary" disabled={isSubmitting} type="submit">
         {isSubmitting ? <LoaderCircle className="auth-spinner" size={17} /> : <ArrowRight size={17} />}
