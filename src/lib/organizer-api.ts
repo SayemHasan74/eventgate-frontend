@@ -28,3 +28,19 @@ export async function getManagedEvents(accessToken: string) {
   }
   return payload.data;
 }
+
+export type CreateEventInput = Omit<ManagedEvent, "id" | "status" | "createdAt" | "updatedAt">;
+
+export async function createManagedEvent(accessToken: string, input: CreateEventInput) {
+  const response = await fetch("/api/organizer/events", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json().catch(() => ({}))) as ApiResponse<ManagedEvent> | ApiError;
+  if (!response.ok || !("success" in payload) || !payload.success || !("data" in payload)) {
+    const error = payload as ApiError;
+    throw new OrganizerApiError(error.errors?.[0]?.message ?? error.message ?? "Your event could not be created.");
+  }
+  return payload.data;
+}

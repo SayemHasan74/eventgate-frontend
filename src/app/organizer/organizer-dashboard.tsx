@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarDays, FilePenLine, LayoutDashboard, MapPin } from "lucide-react";
+import { ArrowRight, CalendarDays, CirclePlus, FilePenLine, LayoutDashboard, MapPin } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "@/components/auth-provider";
@@ -28,13 +28,13 @@ export function OrganizerDashboard() {
     <div className={styles.dashboard}>
       <header className={styles.hero}>
         <div><p className="eyebrow"><span /> Organizer workspace</p><h1>Make the room<br /><b>happen.</b></h1><p>Manage event fundamentals here. Ticket tiers, publishing, check-in, and reporting follow as dedicated tools.</p></div>
-        <span className={heroStyles.nextStep}>Event creation<br />is next</span>
+        <Link className="button button-primary" href="/organizer/events/new"><CirclePlus size={17} /> Create event</Link>
       </header>
       <section className={styles.stats} aria-label="Event statistics"><div><span>All events</span><strong>{events.length}</strong></div><div><span>Published</span><strong>{published}</strong></div><div><span>Drafts</span><strong>{drafts}</strong></div></section>
       <section className={styles.events} aria-labelledby="managed-events-heading">
         <div className={styles.eventsHeading}><div><p className="eyebrow"><span /> Your programme</p><h2 id="managed-events-heading">Managed <b>events.</b></h2></div></div>
         {eventsQuery.isLoading ? <p className={styles.muted}>Loading your events…</p> : eventsQuery.isError ? <p className={styles.muted}>{eventsQuery.error instanceof OrganizerApiError ? eventsQuery.error.message : "Your events could not be loaded."}</p> : events.length === 0 ? (
-          <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h3>Your programme is clear.</h3><p>The event-creation desk is the next organizer feature.</p></div>
+          <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h3>Your programme is clear.</h3><p>Create a draft event, then add ticket tiers before you publish it.</p><Link className="button button-primary" href="/organizer/events/new">Create event <ArrowRight size={16} /></Link></div>
         ) : <div className={styles.eventList}>{events.map((event) => <article className={`${styles.eventCard} ${heroStyles.staticEvent}`} key={event.id}><div><span className={styles.status}>{event.status}</span><h3>{event.title}</h3><p><CalendarDays size={14} /> {formatDate(event.startAt)} <i /> <MapPin size={14} /> {event.city}</p></div><FilePenLine size={19} aria-hidden="true" /></article>)}</div>}
       </section>
     </div>
