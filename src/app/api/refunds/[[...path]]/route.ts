@@ -9,9 +9,14 @@ async function forward(request: Request, context: RouteParams) {
   const authorization = request.headers.get("Authorization");
   if (!authorization) return NextResponse.json({ message: "Authentication is required." }, { status: 401 });
   try {
+    const hasBody = !["GET", "HEAD"].includes(request.method);
     const upstream = await fetch(`${appConfig.apiBaseUrl}/${path.join("/")}`, {
       method: request.method,
-      headers: { Authorization: authorization },
+      headers: {
+        Authorization: authorization,
+        ...(hasBody && request.headers.get("Content-Type") ? { "Content-Type": request.headers.get("Content-Type")! } : {}),
+      },
+      ...(hasBody ? { body: await request.text() } : {}),
       cache: "no-store",
     });
     return new Response(await upstream.text(), { status: upstream.status, headers: { "Content-Type": upstream.headers.get("Content-Type") ?? "application/json" } });
@@ -22,3 +27,4 @@ async function forward(request: Request, context: RouteParams) {
 
 export const GET = forward;
 export const POST = forward;
+export const PATCH = forward;
