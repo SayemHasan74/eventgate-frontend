@@ -11,7 +11,11 @@ import {
   sessionIdentity,
   upstream,
 } from "@/lib/server/browser-session";
-import { privateJson, sessionFailure } from "@/lib/server/session-response";
+import {
+  privateJson,
+  sessionFailure,
+  upstreamFailure,
+} from "@/lib/server/session-response";
 import { SessionError } from "@/lib/server/session-store";
 
 export const runtime = "nodejs";
@@ -77,15 +81,16 @@ export async function POST(
     await ensureSessionInfrastructure();
     const response = await upstream("auth/" + action, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-id":
+          request.headers.get("x-request-id") ?? crypto.randomUUID(),
+      },
       body: await request.text(),
     });
     const payload = await response.json();
     if (!response.ok || !payload.success)
-      return privateJson(
-        { success: false, message: payload.message, errors: payload.errors },
-        response.status,
-      );
+      return upstreamFailure(response, payload);
     return privateJson(
       {
         success: true,

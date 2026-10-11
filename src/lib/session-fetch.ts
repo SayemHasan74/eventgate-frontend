@@ -1,4 +1,5 @@
 "use client";
+import { ApiError, responseError } from "./api-error";
 
 let csrfRequest: Promise<string> | undefined;
 export function resetCsrf() {
@@ -9,11 +10,18 @@ export function csrfToken() {
     csrfRequest = fetch("/api/auth/csrf", {
       cache: "no-store",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(15000),
     })
       .then(async (response) => {
         const payload = await response.json();
         if (!response.ok || typeof payload.data?.csrf !== "string")
-          throw new Error("Session service unavailable. Please try again.");
+          throw response.ok
+            ? new ApiError(
+                "Session service unavailable. Please try again.",
+                502,
+                "INVALID_API_RESPONSE",
+              )
+            : responseError(response, payload);
         return payload.data.csrf as string;
       })
       .catch((error) => {
@@ -30,7 +38,14 @@ export async function sessionFetch(path: string, init: RequestInit = {}) {
   const mutation = !["GET", "HEAD"].includes(
     (init.method ?? "GET").toUpperCase(),
   );
-  if (mutation) headers.set("x-eventgate-csrf", await csrfToken());
+  if (mutation) {
+    try {
+      headers.set("x-eventgate-csrf", await csrfToken());
+    } catch (error) {
+      if (path !== "/api/auth/logout") throw error;
+      // The logout handler can clear browser state on a same-origin infrastructure failure.
+    }
+  }
   const response = await fetch(path, {
     ...init,
     headers,

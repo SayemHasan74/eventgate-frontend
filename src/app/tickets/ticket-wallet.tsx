@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, CalendarDays, MapPin, Ticket } from "lucide-react";
@@ -20,7 +21,7 @@ const eventDate = (value: string) =>
 export function TicketWallet() {
   const { isReady, session } = useAuth();
   const query = useQuery({
-    queryKey: ["tickets", session?.user.id],
+    queryKey: privateKey("tickets", session?.user.id, "list", {}),
     queryFn: () => getTickets(),
     enabled: isReady && Boolean(session?.user.role === "ATTENDEE"),
     retry: false,

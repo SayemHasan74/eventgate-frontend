@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { upstream } from "./upstream";
 import { authUserSchema, type AuthUser } from "@/lib/auth-types";
 import {
   csrfForGuest,
@@ -38,23 +39,7 @@ export const backendAuthSchema = z.object({
   refreshToken: z.string().min(1),
   accessTokenExpiresIn: z.number().positive(),
 });
-export async function upstream(path: string, init: RequestInit = {}) {
-  const base = process.env.API_BASE_URL;
-  if (!base) throw new SessionError("SESSION_CONFIGURATION_ERROR");
-  try {
-    return await fetch(
-      `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`,
-      {
-        ...init,
-        cache: "no-store",
-        redirect: "error",
-        signal: AbortSignal.timeout(15000),
-      },
-    );
-  } catch {
-    throw new SessionError("API_UNAVAILABLE");
-  }
-}
+export { upstream } from "./upstream";
 export async function currentSession() {
   return loadSession((await cookies()).get(sessionCookie)?.value);
 }

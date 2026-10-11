@@ -1,94 +1,26 @@
-import { sessionFetch } from "./session-fetch";
-
-export type Order = {
-  id: string;
-  eventId: string;
-  ticketTierId: string;
-  eventNameSnapshot: string;
-  ticketTierNameSnapshot: string;
-  unitPricePaisaSnapshot: number;
-  quantity: number;
-  totalAmountPaisaSnapshot: number;
-  currency: string;
-  status: "PENDING_PAYMENT" | "PAID" | "CANCELLED" | "REFUNDED";
-  reservationExpiresAt: string | null;
-  reservationReleasedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type OrderList = {
-  orders: Order[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
-};
-
-type ApiResponse<T> = { success: true; message: string; data: T };
-type ApiError = { message?: string; errors?: Array<{ message?: string }> };
-
-export class OrderApiError extends Error {}
-
-async function orderRequest<T>(path: string, options: RequestInit = {}) {
-  const response = await sessionFetch(
-    path ? `/api/orders/${path}` : "/api/orders",
-    {
-      ...options,
-      headers: { ...options.headers },
-    },
-  );
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<T> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrderApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Your ticket reservation could not be completed.",
-    );
-  }
-  return payload.data;
-}
-
+import { apiClient, apiList, jsonBody } from "./api-client";
+import { z } from "zod";
+import { orderSchema } from "./api-schemas";
+export { ApiError as OrderApiError } from "./api-error";
+export type Order = z.infer<typeof orderSchema>;
 export const reserveTickets = (ticketTierId: string, quantity: number) =>
-  orderRequest<Order>("", {
+  apiClient("/api/orders", orderSchema, {
     method: "POST",
+    ...jsonBody({ ticketTierId, quantity }),
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": crypto.randomUUID(),
     },
-    body: JSON.stringify({ ticketTierId, quantity }),
   });
-
-export const getOrder = (orderId: string) => orderRequest<Order>(orderId);
-
-export async function getOrders() {
-  const response = await sessionFetch("/api/orders", { headers: {} });
-  const payload = (await response.json().catch(() => ({}))) as
-    (ApiResponse<Order[]> & { meta?: OrderList["meta"] }) | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrderApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Your orders could not be loaded.",
-    );
-  }
-  return {
-    orders: payload.data,
-    meta: payload.meta ?? {
-      page: 1,
-      limit: 20,
-      total: payload.data.length,
-      totalPages: 1,
-    },
-  };
+export const getOrder = (orderId: string) =>
+  apiClient("/api/orders/" + encodeURIComponent(orderId), orderSchema);
+export async function getOrders(filters = new URLSearchParams()) {
+  const result = await apiList("/api/orders?" + filters, orderSchema);
+  return { orders: result.data, meta: result.meta };
 }
+export const cancelOrder = (orderId: string) =>
+  apiClient(
+    "/api/orders/" + encodeURIComponent(orderId) + "/cancel",
+    z.null(),
+    { method: "POST" },
+  );

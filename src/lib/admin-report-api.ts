@@ -1,4 +1,11 @@
-import { sessionFetch } from "./session-fetch";
+import { z } from "zod";
+import { apiClient, apiList } from "./api-client";
+import {
+  moneySchema,
+  orderStatusSchema,
+  paymentStatusSchema,
+  refundStatusSchema,
+} from "./api-schemas";
 
 export type GroupStat = {
   status?: string;
@@ -52,35 +59,75 @@ export type AuditLog = {
   createdAt: string;
   actor: { id: string; displayName: string; email: string } | null;
 };
-type ApiResponse<T> = { success: true; data: T; meta?: { total?: number } };
-type ApiError = { message?: string; errors?: Array<{ message?: string }> };
-export class AdminReportApiError extends Error {}
 
-async function get<T>(path: string) {
-  const response = await sessionFetch(`/api/admin/${path}`, { headers: {} });
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<T> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new AdminReportApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Platform reporting could not be loaded.",
-    );
-  }
-  return payload as ApiResponse<T>;
-}
-
+export { ApiError as AdminReportApiError } from "./api-error";
+const timestamp = z.iso.datetime({ offset: true });
+const person = z.object({ displayName: z.string(), email: z.email() });
+const group = z.object({
+  status: z.string().optional(),
+  role: z.string().optional(),
+  _count: z.object({ _all: z.number().int().nonnegative() }),
+  _sum: z
+    .object({
+      totalAmountPaisaSnapshot: moneySchema.nullable().optional(),
+      amountPaisa: moneySchema.nullable().optional(),
+    })
+    .optional(),
+});
+const stats: z.ZodType<PlatformStats> = z.object({
+  users: z.array(group),
+  events: z.array(group),
+  orders: z.array(group.extend({ status: orderStatusSchema })),
+  payments: z.array(group.extend({ status: paymentStatusSchema })),
+  refunds: z.array(group.extend({ status: refundStatusSchema })),
+});
+const operations: z.ZodType<Operations> = z.object({
+  events: z.array(
+    z.object({
+      id: z.uuid(),
+      title: z.string(),
+      status: z.string(),
+      startAt: timestamp,
+      organizer: person,
+    }),
+  ),
+  payments: z.array(
+    z.object({
+      id: z.uuid(),
+      orderId: z.uuid(),
+      amountPaisa: moneySchema,
+      currency: z.literal("BDT"),
+      status: paymentStatusSchema,
+      initiatedAt: timestamp,
+      completedAt: timestamp.nullable(),
+    }),
+  ),
+  refunds: z.array(
+    z.object({
+      id: z.uuid(),
+      orderId: z.uuid(),
+      amountPaisa: moneySchema,
+      currency: z.literal("BDT"),
+      reason: z.string(),
+      status: refundStatusSchema,
+      requestedAt: timestamp,
+      completedAt: timestamp.nullable(),
+    }),
+  ),
+});
+const audit: z.ZodType<AuditLog> = z.object({
+  id: z.uuid(),
+  action: z.string(),
+  entityType: z.string(),
+  entityId: z.string(),
+  createdAt: timestamp,
+  actor: person.extend({ id: z.uuid() }).nullable(),
+});
 export const getPlatformStats = () =>
-  get<PlatformStats>("reports/statistics").then((result) => result.data);
+  apiClient("/api/admin/reports/statistics", stats);
 export const getOperations = () =>
-  get<Operations>("reports/operations").then((result) => result.data);
-export const getAuditLogs = async () => {
-  const result = await get<AuditLog[]>("reports/audit-logs?limit=12");
-  return { logs: result.data, total: result.meta?.total ?? result.data.length };
-};
+  apiClient("/api/admin/reports/operations", operations);
+export async function getAuditLogs() {
+  const result = await apiList("/api/admin/reports/audit-logs?limit=12", audit);
+  return { logs: result.data, total: result.meta.total, meta: result.meta };
+}

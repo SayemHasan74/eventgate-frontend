@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:contracts": "tsx --test tests/api-contracts.test.ts && node --conditions=react-server --import tsx --test tests/upstream.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -34,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

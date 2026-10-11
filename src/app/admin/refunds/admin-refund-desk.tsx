@@ -1,4 +1,5 @@
 "use client";
+import { invalidatePrivate, privateKey } from "@/lib/query-keys";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
@@ -31,7 +32,7 @@ export function AdminRefundDesk() {
   const client = useQueryClient();
   const allowed = session?.user.role === "ADMIN";
   const query = useQuery({
-    queryKey: ["admin-refunds", session?.user.id],
+    queryKey: privateKey("admin-refunds", session?.user.id, "list", {}),
     queryFn: () => getAdminRefunds(),
     enabled: isReady && allowed,
     retry: false,
@@ -44,11 +45,21 @@ export function AdminRefundDesk() {
       id: string;
       decision: "approve" | "reject";
     }) => reviewAdminRefund(id, decision),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["admin-refunds"] }),
+    onSuccess: () =>
+      invalidatePrivate(client, session!.user.id, [
+        "admin-refunds",
+        "admin-stats",
+        "admin-operations",
+      ]),
   });
   const retry = useMutation({
     mutationFn: (id: string) => retryAdminRefund(id),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["admin-refunds"] }),
+    onSuccess: () =>
+      invalidatePrivate(client, session!.user.id, [
+        "admin-refunds",
+        "admin-stats",
+        "admin-operations",
+      ]),
   });
 
   if (!isReady)

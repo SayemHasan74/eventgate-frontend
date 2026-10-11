@@ -1,5 +1,7 @@
 "use client";
-import { sessionFetch } from "@/lib/session-fetch";
+import { invalidatePrivate, privateKey } from "@/lib/query-keys";
+import { z } from "zod";
+import { apiClient, apiList, jsonBody } from "@/lib/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, UserCog } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -13,17 +15,14 @@ type User = {
   status: "ACTIVE" | "SUSPENDED";
   createdAt: string;
 };
-type Api<T> = { success: true; data: T; meta?: { total?: number } };
-async function api<T>(path: string, method = "GET", body?: unknown) {
-  const r = await sessionFetch(`/api/admin/${path}`, {
-    method,
-    headers: { ...(body ? { "Content-Type": "application/json" } : {}) },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  const p = (await r.json()) as Api<T> & { message?: string };
-  if (!r.ok || !p.success) throw new Error(p.message ?? "User action failed.");
-  return p;
-}
+const userSchema: z.ZodType<User> = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  displayName: z.string(),
+  role: z.enum(["ATTENDEE", "ORGANIZER", "ADMIN"]),
+  status: z.enum(["ACTIVE", "SUSPENDED"]),
+  createdAt: z.iso.datetime({ offset: true }),
+});
 export function UserManager() {
   const { isReady, session } = useAuth();
   const queryClient = useQueryClient();
@@ -32,8 +31,10 @@ export function UserManager() {
   if (!qs.has("limit")) qs.set("limit", "50");
   const allowed = session?.user.role === "ADMIN";
   const users = useQuery({
-    queryKey: ["admin-users", session?.user.id, qs.toString()],
-    queryFn: () => api<User[]>(`users?${qs}`),
+    queryKey: privateKey("admin-users", session?.user.id, "list", {
+      query: qs.toString(),
+    }),
+    queryFn: () => apiList(`/api/admin/users?${qs}`, userSchema),
     enabled: isReady && allowed,
   });
   const update = useMutation({
@@ -45,9 +46,17 @@ export function UserManager() {
       id: string;
       path: string;
       body: unknown;
-    }) => api<User>(`users/${id}/${path}`, "PATCH", body),
+    }) =>
+      apiClient(`/api/admin/users/${id}/${path}`, userSchema, {
+        method: "PATCH",
+        ...jsonBody(body),
+      }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+      invalidatePrivate(queryClient, session!.user.id, [
+        "admin-users",
+        "admin-stats",
+        "admin-audit",
+      ]),
   });
   if (!isReady) return <p className="loading">Loading users…</p>;
   if (!allowed)

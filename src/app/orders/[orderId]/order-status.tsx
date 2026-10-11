@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -25,7 +26,7 @@ const money = (paisa: number) =>
 export function OrderStatus({ orderId }: OrderStatusProps) {
   const { isReady, session } = useAuth();
   const query = useQuery({
-    queryKey: ["order", orderId, session?.user.id],
+    queryKey: privateKey("orders", session?.user.id, orderId, {}),
     queryFn: () => getOrder(orderId),
     enabled: isReady && Boolean(session),
     retry: false,

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
+import { apiClient } from "@/lib/api-client";
 
 type GoogleCredentialResponse = { credential?: string };
 
@@ -23,11 +25,6 @@ declare global {
   }
 }
 
-type GoogleConfig = {
-  success: boolean;
-  data?: { enabled?: boolean; clientId?: string };
-};
-
 export function GoogleSignIn({
   onCredential,
   disabled,
@@ -39,13 +36,11 @@ export function GoogleSignIn({
     let active = true;
     const load = async () => {
       try {
-        const response = await fetch("/api/auth/google/config", {
-          cache: "no-store",
-        });
-        const config = (await response.json()) as GoogleConfig;
-        const clientId = config.data?.enabled
-          ? config.data.clientId
-          : undefined;
+        const config = await apiClient(
+          "/api/auth/google/config",
+          z.object({ enabled: z.boolean(), clientId: z.string().optional() }),
+        );
+        const clientId = config.enabled ? config.clientId : undefined;
         if (!clientId || !button.current || !active) {
           if (active) setIsAvailable(false);
           return;

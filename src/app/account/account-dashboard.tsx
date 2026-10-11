@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -27,13 +28,13 @@ export function AccountDashboard() {
   const { isReady, session, clearSession } = useAuth();
   const router = useRouter();
   const profileQuery = useQuery({
-    queryKey: ["account-profile", session?.user.id],
+    queryKey: privateKey("users", session?.user.id, "me", {}),
     queryFn: () => getProfile(),
     enabled: isReady && Boolean(session),
     retry: false,
   });
   const ordersQuery = useQuery({
-    queryKey: ["account-orders", session?.user.id],
+    queryKey: privateKey("orders", session?.user.id, "list", {}),
     queryFn: () => getOrders(),
     enabled: isReady && Boolean(session),
     retry: false,

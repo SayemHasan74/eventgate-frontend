@@ -1,4 +1,5 @@
-import { sessionFetch } from "./session-fetch";
+import { z } from "zod";
+import { apiClient, jsonBody } from "./api-client";
 
 export type Profile = {
   id: string;
@@ -19,37 +20,23 @@ export type CheckoutProfileInput = Pick<
   "phone" | "address" | "city" | "postalCode" | "country"
 >;
 
-type ApiResponse<T> = { success: true; data: T };
-type ApiError = { message?: string; errors?: Array<{ message?: string }> };
-export class ProfileApiError extends Error {}
-
-async function profileRequest<T>(options?: RequestInit) {
-  const response = await sessionFetch("/api/users/me", {
-    ...options,
-    headers: { ...options?.headers },
-  });
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<T> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new ProfileApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Your profile could not be loaded.",
-    );
-  }
-  return payload.data;
-}
-
-export const getProfile = () => profileRequest<Profile>();
+export { ApiError as ProfileApiError } from "./api-error";
+const profileSchema: z.ZodType<Profile> = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  displayName: z.string(),
+  phone: z.string().nullable(),
+  address: z.string().nullable(),
+  city: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  country: z.string().nullable(),
+  role: z.enum(["ATTENDEE", "ORGANIZER", "ADMIN"]),
+  status: z.enum(["ACTIVE", "SUSPENDED"]),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+export const getProfile = () => apiClient("/api/users/me", profileSchema);
 export const updateCheckoutProfile = (input: CheckoutProfileInput) =>
-  profileRequest<Profile>({
+  apiClient("/api/users/me", profileSchema, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    ...jsonBody(input),
   });

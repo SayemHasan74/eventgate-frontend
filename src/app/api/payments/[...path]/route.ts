@@ -10,3 +10,5 @@ async function forward(
   );
 }
 export const POST = forward;
+
+export const GET = forward;

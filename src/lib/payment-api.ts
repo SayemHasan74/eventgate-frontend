@@ -1,34 +1,14 @@
-import { sessionFetch } from "./session-fetch";
-
-type CheckoutSession = {
-  paymentAttemptId: string;
-  merchantTransactionId: string;
-  checkoutUrl: string;
-};
-type ApiResponse<T> = { success: true; data: T };
-type ApiError = { message?: string; errors?: Array<{ message?: string }> };
-export class PaymentApiError extends Error {}
-
-export async function startCheckout(orderId: string) {
-  const response = await sessionFetch(
-    `/api/payments/orders/${orderId}/checkout`,
-    {
-      method: "POST",
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-    },
+import { apiClient } from "./api-client";
+import { checkoutSchema, paymentAttemptSchema } from "./api-schemas";
+export { ApiError as PaymentApiError } from "./api-error";
+export const startCheckout = (orderId: string) =>
+  apiClient(
+    "/api/payments/orders/" + encodeURIComponent(orderId) + "/checkout",
+    checkoutSchema,
+    { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() } },
   );
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<CheckoutSession> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new PaymentApiError(
-      error.errors?.[0]?.message ?? error.message ?? "Could not start payment.",
-    );
-  }
-  return payload.data;
-}
+export const getPaymentAttempt = (attemptId: string) =>
+  apiClient(
+    "/api/payments/attempts/" + encodeURIComponent(attemptId),
+    paymentAttemptSchema,
+  );

@@ -1,6 +1,8 @@
 "use client";
+import { invalidatePrivate } from "@/lib/query-keys";
+import { privateKey } from "@/lib/query-keys";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, LoaderCircle, Pencil, Save } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -51,12 +53,13 @@ const fields = [
 ] as const;
 
 export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
+  const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const profileQuery = useQuery({
-    queryKey: ["checkout-profile", session?.user.id],
+    queryKey: privateKey("users", session?.user.id, "me", {}),
     queryFn: () => getProfile(),
     enabled: isReady && Boolean(session) && payable,
     retry: false,
@@ -93,6 +96,7 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
         country: String(formData.get("country") ?? "").trim(),
       });
       await profileQuery.refetch();
+      await invalidatePrivate(queryClient, session.user.id, ["users"]);
       setIsEditing(false);
       toast.success("Checkout profile saved.");
     } catch (error) {

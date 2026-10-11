@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -29,7 +30,7 @@ export function OrganizerDashboard() {
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: ["managed-events", session?.user.id],
+    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
     queryFn: () => getManagedEvents(),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,

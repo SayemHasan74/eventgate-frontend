@@ -1,6 +1,8 @@
 "use client";
+import { invalidatePrivate } from "@/lib/query-keys";
+import { privateKey } from "@/lib/query-keys";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   ClipboardCheck,
@@ -31,19 +33,20 @@ const checkedInTime = (value: string) =>
   }).format(new Date(value));
 
 export function CheckInDesk() {
+  const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const { eventId } = useParams<{ eventId: string }>();
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: ["managed-events", session?.user.id],
+    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
     queryFn: () => getManagedEvents(),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
   const historyQuery = useQuery({
-    queryKey: ["check-ins", eventId, session?.user.id],
+    queryKey: privateKey("check-ins", session?.user.id, eventId, {}),
     queryFn: () => getCheckInHistory(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
@@ -60,6 +63,10 @@ export function CheckInDesk() {
       );
       toast.success("Ticket checked in successfully.");
       await historyQuery.refetch();
+      await invalidatePrivate(queryClient, session.user.id, [
+        "check-ins",
+        "organizer-reports",
+      ]);
       (
         document.getElementById("check-in-form") as HTMLFormElement | null
       )?.reset();

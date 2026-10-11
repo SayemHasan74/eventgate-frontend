@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQueries } from "@tanstack/react-query";
 import {
@@ -43,19 +44,19 @@ export function AdminDashboard() {
   const [statsQuery, operationsQuery, auditQuery] = useQueries({
     queries: [
       {
-        queryKey: ["admin-stats", session?.user.id],
+        queryKey: privateKey("admin-stats", session?.user.id, "list", {}),
         queryFn: () => getPlatformStats(),
         enabled: isReady && allowed,
         retry: false,
       },
       {
-        queryKey: ["admin-operations", session?.user.id],
+        queryKey: privateKey("admin-operations", session?.user.id, "list", {}),
         queryFn: () => getOperations(),
         enabled: isReady && allowed,
         retry: false,
       },
       {
-        queryKey: ["admin-audit", session?.user.id],
+        queryKey: privateKey("admin-audit", session?.user.id, "list", {}),
         queryFn: () => getAuditLogs(),
         enabled: isReady && allowed,
         retry: false,

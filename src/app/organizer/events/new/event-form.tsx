@@ -1,4 +1,6 @@
 "use client";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidatePrivate } from "@/lib/query-keys";
 
 import { ArrowRight, LoaderCircle, Save } from "lucide-react";
 import Link from "next/link";
@@ -19,6 +21,7 @@ const toSlug = (value: string) =>
     .replace(/^-|-$/g, "");
 
 export function EventForm() {
+  const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +56,10 @@ export function EventForm() {
         imageUrl: String(formData.get("imageUrl") ?? "").trim() || null,
       });
       toast.success("Draft event created.");
+      await invalidatePrivate(queryClient, session.user.id, [
+        "organizer-events",
+        "admin-operations",
+      ]);
       router.push("/organizer");
       router.refresh();
     } catch (error) {

@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ReceiptText, RotateCcw } from "lucide-react";
@@ -22,7 +23,7 @@ const date = (value: string) =>
 export function RefundHistory() {
   const { isReady, session } = useAuth();
   const query = useQuery({
-    queryKey: ["refunds", session?.user.id],
+    queryKey: privateKey("refunds", session?.user.id, "list", {}),
     queryFn: () => getRefunds(),
     enabled: isReady && Boolean(session?.user.role === "ATTENDEE"),
     retry: false,

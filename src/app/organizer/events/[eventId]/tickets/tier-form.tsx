@@ -1,6 +1,8 @@
 "use client";
+import { invalidatePrivate } from "@/lib/query-keys";
+import { privateKey } from "@/lib/query-keys";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   CalendarDays,
@@ -28,6 +30,7 @@ const money = (paisa: number) =>
   `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
 
 export function TierForm() {
+  const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId;
@@ -36,7 +39,7 @@ export function TierForm() {
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: ["managed-events", session?.user.id],
+    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
     queryFn: () => getManagedEvents(),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
@@ -67,6 +70,10 @@ export function TierForm() {
         salesEndAt: new Date(salesEndAt).toISOString(),
       });
       setCreatedTiers((tiers) => [...tiers, tier]);
+      await invalidatePrivate(queryClient, session.user.id, [
+        "organizer-events",
+        "organizer-reports",
+      ]);
       toast.success(`${tier.name} tier created.`);
       (document.getElementById("tier-form") as HTMLFormElement | null)?.reset();
     } catch (error) {

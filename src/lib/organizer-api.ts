@@ -1,5 +1,11 @@
-import { sessionFetch } from "./session-fetch";
-
+import { z } from "zod";
+import { apiClient, apiList, jsonBody } from "./api-client";
+import {
+  moneySchema,
+  orderStatusSchema,
+  ticketStatusSchema,
+} from "./api-schemas";
+export { ApiError as OrganizerApiError } from "./api-error";
 export type ManagedEvent = {
   id: string;
   title: string;
@@ -16,60 +22,6 @@ export type ManagedEvent = {
   createdAt: string;
   updatedAt: string;
 };
-
-type ApiResponse<T> = { success: true; data: T };
-type ApiError = { message?: string; errors?: Array<{ message?: string }> };
-export class OrganizerApiError extends Error {}
-
-export async function getManagedEvents() {
-  const response = await sessionFetch("/api/organizer/events", { headers: {} });
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<ManagedEvent[]> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Your events could not be loaded.",
-    );
-  }
-  return payload.data;
-}
-
-export type CreateEventInput = Omit<
-  ManagedEvent,
-  "id" | "status" | "createdAt" | "updatedAt"
->;
-
-export async function createManagedEvent(input: CreateEventInput) {
-  const response = await sessionFetch("/api/organizer/events", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<ManagedEvent> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Your event could not be created.",
-    );
-  }
-  return payload.data;
-}
-
 export type TicketTier = {
   id: string;
   name: string;
@@ -79,68 +31,6 @@ export type TicketTier = {
   salesStartAt: string;
   salesEndAt: string;
 };
-
-export type CreateTicketTierInput = Omit<
-  TicketTier,
-  "id" | "availableQuantity"
->;
-
-export async function createTicketTier(
-  eventId: string,
-  input: CreateTicketTierInput,
-) {
-  const response = await sessionFetch(
-    `/api/organizer/events/${eventId}/ticket-tiers`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    },
-  );
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<TicketTier> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Your ticket tier could not be created.",
-    );
-  }
-  return payload.data;
-}
-
-export async function publishManagedEvent(eventId: string) {
-  const response = await sessionFetch(
-    `/api/organizer/events/${eventId}/publish`,
-    {
-      method: "POST",
-      headers: {},
-    },
-  );
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<ManagedEvent> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "This event could not be published.",
-    );
-  }
-  return payload.data;
-}
-
 export type CheckInRecord = {
   id: string;
   sequence: number;
@@ -149,68 +39,6 @@ export type CheckInRecord = {
   ticketTier: { name: string };
   checkedInBy: { displayName: string } | null;
 };
-
-type CheckInConfirmation = {
-  id: string;
-  status: string;
-  ticketTier: { name: string };
-};
-
-type CheckInHistory = { records: CheckInRecord[]; total: number };
-
-export async function getCheckInHistory(eventId: string) {
-  const response = await sessionFetch(
-    `/api/organizer/events/${eventId}/check-ins`,
-    { headers: {} },
-  );
-  const payload = (await response.json().catch(() => ({}))) as
-    (ApiResponse<CheckInRecord[]> & { meta?: { total: number } }) | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Check-in history could not be loaded.",
-    );
-  }
-  return {
-    records: payload.data,
-    total: payload.meta?.total ?? payload.data.length,
-  } satisfies CheckInHistory;
-}
-
-export async function checkInTicket(eventId: string, qrToken: string) {
-  const response = await sessionFetch(
-    `/api/organizer/events/${eventId}/check-ins`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qrToken }),
-    },
-  );
-  const payload = (await response.json().catch(() => ({}))) as
-    ApiResponse<CheckInConfirmation> | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Ticket could not be checked in.",
-    );
-  }
-  return payload.data;
-}
-
 export type EventReport = {
   orders: Array<{
     status: string;
@@ -228,7 +56,6 @@ export type EventReport = {
   paidOrderCount: number;
   checkedIn: number;
 };
-
 export type EventOrder = {
   id: string;
   quantity: number;
@@ -239,30 +66,150 @@ export type EventOrder = {
   attendee: { displayName: string; email: string };
   ticketTier: { name: string };
 };
-
-async function getReport<T>(path: string) {
-  const response = await sessionFetch(`/api/organizer/${path}`, {
-    headers: {},
+export type CreateEventInput = Omit<
+  ManagedEvent,
+  "id" | "status" | "createdAt" | "updatedAt"
+>;
+export type CreateTicketTierInput = Omit<
+  TicketTier,
+  "id" | "availableQuantity"
+>;
+const timestamp = z.iso.datetime({ offset: true });
+const eventSchema: z.ZodType<ManagedEvent> = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  slug: z.string(),
+  description: z.string(),
+  category: z.string(),
+  venue: z.string(),
+  city: z.string(),
+  address: z.string(),
+  startAt: timestamp,
+  endAt: timestamp,
+  imageUrl: z.string().nullable(),
+  status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"]),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+});
+const tierSchema: z.ZodType<TicketTier> = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  pricePaisa: moneySchema,
+  capacity: z.number().int().nonnegative(),
+  availableQuantity: z.number().int().nonnegative().optional(),
+  salesStartAt: timestamp,
+  salesEndAt: timestamp,
+});
+const historySchema: z.ZodType<CheckInRecord> = z.object({
+  id: z.uuid(),
+  sequence: z.number().int().positive(),
+  checkedInAt: timestamp,
+  attendee: z.object({ displayName: z.string(), email: z.email() }),
+  ticketTier: z.object({ name: z.string() }),
+  checkedInBy: z.object({ displayName: z.string() }).nullable(),
+});
+const reportSchema: z.ZodType<EventReport> = z.object({
+  orders: z.array(
+    z.object({
+      status: orderStatusSchema,
+      _count: z.object({ _all: z.number().int().nonnegative() }),
+      _sum: z.object({ totalAmountPaisaSnapshot: moneySchema.nullable() }),
+    }),
+  ),
+  tiers: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      capacity: z.number().int().nonnegative(),
+      soldQuantity: z.number().int().nonnegative(),
+      reservedQuantity: z.number().int().nonnegative(),
+    }),
+  ),
+  paidRevenuePaisa: moneySchema,
+  paidOrderCount: z.number().int().nonnegative(),
+  checkedIn: z.number().int().nonnegative(),
+});
+const eventOrderSchema: z.ZodType<EventOrder> = z.object({
+  id: z.uuid(),
+  quantity: z.number().int().positive(),
+  totalAmountPaisaSnapshot: moneySchema,
+  currency: z.literal("BDT"),
+  status: orderStatusSchema,
+  createdAt: timestamp,
+  attendee: z.object({ displayName: z.string(), email: z.email() }),
+  ticketTier: z.object({ name: z.string() }),
+});
+const eventPath = (id: string) =>
+  "/api/organizer/events/" + encodeURIComponent(id);
+export const getManagedEvents = async (filters = new URLSearchParams()) =>
+  (await apiList("/api/organizer/events?" + filters, eventSchema)).data;
+export const createManagedEvent = (input: CreateEventInput) =>
+  apiClient("/api/organizer/events", eventSchema, {
+    method: "POST",
+    ...jsonBody(input),
   });
-  const payload = (await response.json().catch(() => ({}))) as
-    (ApiResponse<T> & { meta?: { total: number } }) | ApiError;
-  if (
-    !response.ok ||
-    !("success" in payload) ||
-    !payload.success ||
-    !("data" in payload)
-  ) {
-    const error = payload as ApiError;
-    throw new OrganizerApiError(
-      error.errors?.[0]?.message ??
-        error.message ??
-        "Event reports could not be loaded.",
-    );
-  }
-  return payload;
+export const updateManagedEvent = (
+  id: string,
+  input: Partial<CreateEventInput>,
+) =>
+  apiClient(eventPath(id), eventSchema, {
+    method: "PATCH",
+    ...jsonBody(input),
+  });
+export const deleteManagedEvent = (id: string) =>
+  apiClient(eventPath(id), z.null(), { method: "DELETE" });
+export const createTicketTier = (id: string, input: CreateTicketTierInput) =>
+  apiClient(eventPath(id) + "/ticket-tiers", tierSchema, {
+    method: "POST",
+    ...jsonBody(input),
+  });
+export const updateTicketTier = (
+  id: string,
+  tierId: string,
+  input: Partial<CreateTicketTierInput>,
+) =>
+  apiClient(
+    eventPath(id) + "/ticket-tiers/" + encodeURIComponent(tierId),
+    tierSchema,
+    { method: "PATCH", ...jsonBody(input) },
+  );
+export const deleteTicketTier = (id: string, tierId: string) =>
+  apiClient(
+    eventPath(id) + "/ticket-tiers/" + encodeURIComponent(tierId),
+    z.null(),
+    { method: "DELETE" },
+  );
+export const publishManagedEvent = (id: string) =>
+  apiClient(eventPath(id) + "/publish", eventSchema, { method: "POST" });
+export async function getCheckInHistory(
+  id: string,
+  filters = new URLSearchParams(),
+) {
+  const result = await apiList(
+    eventPath(id) + "/check-ins?" + filters,
+    historySchema,
+  );
+  return { records: result.data, total: result.meta.total, meta: result.meta };
 }
-
-export const getEventReport = async (eventId: string) =>
-  (await getReport<EventReport>(`events/${eventId}/reports/statistics`)).data;
-export const getEventOrders = async (eventId: string) =>
-  (await getReport<EventOrder[]>(`events/${eventId}/reports/orders`)).data;
+export const checkInTicket = (id: string, qrToken: string) =>
+  apiClient(
+    eventPath(id) + "/check-ins",
+    z.object({
+      id: z.uuid(),
+      status: ticketStatusSchema,
+      ticketTier: z.object({ name: z.string() }),
+    }),
+    { method: "POST", ...jsonBody({ qrToken }) },
+  );
+export const getEventReport = (id: string) =>
+  apiClient(eventPath(id) + "/reports/statistics", reportSchema);
+export const getEventOrders = async (
+  id: string,
+  filters = new URLSearchParams(),
+) =>
+  (
+    await apiList(
+      eventPath(id) + "/reports/orders?" + filters,
+      eventOrderSchema,
+    )
+  ).data;

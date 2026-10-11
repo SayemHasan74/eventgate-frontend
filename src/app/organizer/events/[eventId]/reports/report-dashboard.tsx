@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -47,19 +48,21 @@ export function ReportDashboard() {
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: ["managed-events", session?.user.id],
+    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
     queryFn: () => getManagedEvents(),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
   const reportQuery = useQuery({
-    queryKey: ["event-report", eventId, session?.user.id],
+    queryKey: privateKey("organizer-reports", session?.user.id, eventId, {
+      view: "statistics",
+    }),
     queryFn: () => getEventReport(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
   const ordersQuery = useQuery({
-    queryKey: ["event-orders", eventId, session?.user.id],
+    queryKey: privateKey("organizer-orders", session?.user.id, eventId, {}),
     queryFn: () => getEventOrders(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,

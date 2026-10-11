@@ -10,6 +10,8 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authUserSchema, type AuthSession } from "@/lib/auth-types";
+import { z } from "zod";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { resetCsrf } from "@/lib/session-fetch";
 export type { AuthSession, AuthUser } from "@/lib/auth-types";
 
@@ -48,29 +50,25 @@ export function AuthProvider({
     const version = generation.current;
     pending.current = (async () => {
       try {
-        const response = await fetch("/api/auth/session", {
-          cache: "no-store",
-          credentials: "same-origin",
-          signal: AbortSignal.timeout(25000),
-        });
-        const payload = await response.json();
-        if (version !== generation.current) return;
-        if (response.status === 401) {
-          apply(null);
-          resetCsrf();
-          return;
-        }
-        if (!response.ok) {
-          setStatus("unavailable");
-          return;
-        }
-        apply(
-          payload.data?.state === "authenticated"
-            ? { user: authUserSchema.parse(payload.data.session.user) }
-            : null,
+        const data = await apiClient(
+          "/api/auth/session",
+          z.discriminatedUnion("state", [
+            z.object({ state: z.literal("anonymous"), session: z.null() }),
+            z.object({
+              state: z.literal("authenticated"),
+              session: z.object({ user: authUserSchema }),
+            }),
+          ]),
         );
-      } catch {
-        if (version === generation.current) setStatus("unavailable");
+        if (version !== generation.current) return;
+        apply(data.session);
+      } catch (error) {
+        if (version === generation.current) {
+          if (error instanceof ApiError && error.status === 401) {
+            apply(null);
+            resetCsrf();
+          } else setStatus("unavailable");
+        }
       } finally {
         pending.current = null;
       }

@@ -1,32 +1,19 @@
-import { authUserSchema, type AuthSession } from "@/lib/auth-types";
-import { resetCsrf, sessionFetch } from "./session-fetch";
-
-export class AuthApiError extends Error {
-  constructor(
-    message: string,
-    public sessionEnded = false,
-  ) {
-    super(message);
-  }
-}
+import { z } from "zod";
+import { authUserSchema, type AuthSession } from "./auth-types";
+import { apiClient, jsonBody } from "./api-client";
+import { resetCsrf } from "./session-fetch";
+export { ApiError as AuthApiError } from "./api-error";
 async function requestSession(
   action: string,
   body: unknown,
 ): Promise<AuthSession> {
-  const response = await sessionFetch("/api/auth/" + action, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json();
-  if (!response.ok || !payload.success)
-    throw new AuthApiError(
-      payload.errors?.[0]?.message ??
-        payload.message ??
-        "Sign-in could not be completed.",
-    );
+  const result = await apiClient(
+    "/api/auth/" + action,
+    z.object({ user: authUserSchema }),
+    { method: "POST", ...jsonBody(body) },
+  );
   resetCsrf();
-  return { user: authUserSchema.parse(payload.data.user) };
+  return result;
 }
 export const signIn = (input: { email: string; password: string }) =>
   requestSession("login", input);
@@ -38,34 +25,14 @@ export const register = (input: {
 export const signInWithGoogle = (idToken: string) =>
   requestSession("google", { idToken });
 export async function signOut() {
-  let response: Response;
   try {
-    response = await sessionFetch("/api/auth/logout", { method: "POST" });
-  } catch {
-    // Even when CSRF bootstrap infrastructure is down, the same-origin logout
-    // handler clears the cookie and reports that server revocation is unavailable.
-    response = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "same-origin",
-    });
-  }
-  resetCsrf();
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new AuthApiError(
-      payload.message ?? "Sign-out could not be confirmed. Please retry.",
-      payload.data?.sessionEnded === true,
-    );
+    await apiClient("/api/auth/logout", z.null(), { method: "POST" });
+  } finally {
+    resetCsrf();
   }
 }
-export async function linkGoogle(idToken: string) {
-  const response = await sessionFetch("/api/auth/google/link", {
+export const linkGoogle = (idToken: string) =>
+  apiClient("/api/auth/google/link", z.object({ alreadyLinked: z.boolean() }), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken }),
+    ...jsonBody({ idToken }),
   });
-  const payload = await response.json();
-  if (!response.ok)
-    throw new AuthApiError(payload.message ?? "Google linking failed.");
-  return payload.data as { alreadyLinked: boolean };
-}

@@ -1,9 +1,14 @@
+import { z } from "zod";
 import {
   authenticatedFetch,
   checkCsrf,
   currentSession,
 } from "@/lib/server/browser-session";
-import { privateJson, sessionFailure } from "@/lib/server/session-response";
+import {
+  privateJson,
+  sessionFailure,
+  upstreamFailure,
+} from "@/lib/server/session-response";
 import { SessionError } from "@/lib/server/session-store";
 
 export async function POST(request: Request) {
@@ -13,17 +18,20 @@ export async function POST(request: Request) {
     await checkCsrf(request, session);
     const response = await authenticatedFetch(session, "auth/google/link", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-id":
+          request.headers.get("x-request-id") ?? crypto.randomUUID(),
+      },
       body: await request.text(),
     });
     const payload = await response.json();
+    if (!response.ok) return upstreamFailure(response, payload);
     return privateJson(
-      response.ok
-        ? {
-            success: true,
-            data: { alreadyLinked: Boolean(payload.data?.alreadyLinked) },
-          }
-        : { success: false, message: payload.message, errors: payload.errors },
+      {
+        success: true,
+        data: z.object({ alreadyLinked: z.boolean() }).parse(payload.data),
+      },
       response.status,
     );
   } catch (error) {

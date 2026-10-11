@@ -1,4 +1,6 @@
 "use client";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidatePrivate } from "@/lib/query-keys";
 
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import { useState } from "react";
@@ -13,6 +15,7 @@ export function RefundAction({
   orderId,
   status,
 }: Readonly<{ orderId: string; status: string }>) {
+  const queryClient = useQueryClient();
   const { session } = useAuth();
   const [isRequesting, setIsRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
@@ -23,6 +26,11 @@ export function RefundAction({
     setIsRequesting(true);
     try {
       await requestRefund(orderId);
+      await invalidatePrivate(queryClient, session.user.id, [
+        "orders",
+        "tickets",
+        "refunds",
+      ]);
       setRequested(true);
       toast.success("Refund request sent for review.");
     } catch (error) {

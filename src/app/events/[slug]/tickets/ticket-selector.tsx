@@ -1,4 +1,6 @@
 "use client";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidatePrivate } from "@/lib/query-keys";
 
 import { ArrowRight, LoaderCircle, Minus, Plus, Ticket } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -32,6 +34,7 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
   );
   const [quantity, setQuantity] = useState(1);
   const [isReserving, setIsReserving] = useState(false);
+  const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -62,6 +65,10 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
     setIsReserving(true);
     try {
       const order = await reserveTickets(selectedTier.id, quantity);
+      await invalidatePrivate(queryClient, session.user.id, [
+        "orders",
+        "organizer-reports",
+      ]);
       toast.success("Tickets reserved for 15 minutes.");
       router.push(`/orders/${order.id}`);
     } catch (error) {

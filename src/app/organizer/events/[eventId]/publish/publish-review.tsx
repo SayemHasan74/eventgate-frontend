@@ -1,6 +1,8 @@
 "use client";
+import { invalidatePrivate } from "@/lib/query-keys";
+import { privateKey } from "@/lib/query-keys";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   CheckCircle2,
@@ -32,6 +34,7 @@ const date = (value: string) =>
   }).format(new Date(value));
 
 export function PublishReview() {
+  const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const { eventId } = useParams<{ eventId: string }>();
   const router = useRouter();
@@ -40,7 +43,7 @@ export function PublishReview() {
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: ["managed-events", session?.user.id],
+    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
     queryFn: () => getManagedEvents(),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
@@ -52,6 +55,10 @@ export function PublishReview() {
     setIsPublishing(true);
     try {
       const published = await publishManagedEvent(event.id);
+      await invalidatePrivate(queryClient, session.user.id, [
+        "organizer-events",
+        "admin-operations",
+      ]);
       toast.success("Event published and available to attendees.");
       router.push(`/events/${published.slug}`);
       router.refresh();

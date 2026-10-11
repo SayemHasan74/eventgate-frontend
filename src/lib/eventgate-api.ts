@@ -1,4 +1,8 @@
-import { appConfig } from "@/lib/env";
+import "server-only";
+import { upstream } from "./server/upstream";
+import { z } from "zod";
+import { parseEnvelope, paginationSchema } from "./api-error";
+import { moneySchema } from "./api-schemas";
 
 type ApiListResponse<T> = {
   success: true;
@@ -10,12 +14,6 @@ type ApiListResponse<T> = {
     total: number;
     totalPages: number;
   };
-};
-
-type ApiResponse<T> = {
-  success: true;
-  message: string;
-  data: T;
 };
 
 export type PublicTicketTier = {
@@ -53,7 +51,11 @@ export type EventDiscoveryQuery = {
 };
 
 export type EventDiscoveryResult =
-  | { status: "ready"; events: PublicEvent[]; meta: ApiListResponse<PublicEvent>["meta"] }
+  | {
+      status: "ready";
+      events: PublicEvent[];
+      meta: ApiListResponse<PublicEvent>["meta"];
+    }
   | { status: "unavailable" };
 
 export type PublicEventResult =
@@ -61,7 +63,9 @@ export type PublicEventResult =
   | { status: "not-found" }
   | { status: "unavailable" };
 
-export async function getPublicEvents(query: EventDiscoveryQuery): Promise<EventDiscoveryResult> {
+export async function getPublicEvents(
+  query: EventDiscoveryQuery,
+): Promise<EventDiscoveryResult> {
   const parameters = new URLSearchParams({
     page: String(query.page),
     limit: String(query.limit),
@@ -73,17 +77,21 @@ export async function getPublicEvents(query: EventDiscoveryQuery): Promise<Event
   if (query.city) parameters.set("city", query.city);
 
   try {
-    const response = await fetch(`${appConfig.apiBaseUrl}/events?${parameters.toString()}`, {
-      next: { revalidate: 60 },
-      signal: AbortSignal.timeout(15_000),
-    });
+    const response = await upstream(
+      `events?${parameters.toString()}`,
+      {
+        next: { revalidate: 60 },
+      },
+      true,
+    );
 
     if (!response.ok) return { status: "unavailable" };
 
-    const payload = (await response.json()) as ApiListResponse<PublicEvent>;
-    if (!payload.success || !Array.isArray(payload.data)) return { status: "unavailable" };
+    const raw = await response.json();
+    const payload = parseEnvelope(response, raw, z.array(publicEventSchema));
+    const meta = paginationSchema.parse(raw.meta);
 
-    return { status: "ready", events: payload.data, meta: payload.meta };
+    return { status: "ready", events: payload.data, meta };
   } catch {
     return { status: "unavailable" };
   }
@@ -91,19 +99,50 @@ export async function getPublicEvents(query: EventDiscoveryQuery): Promise<Event
 
 export async function getPublicEvent(slug: string): Promise<PublicEventResult> {
   try {
-    const response = await fetch(`${appConfig.apiBaseUrl}/events/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 60 },
-      signal: AbortSignal.timeout(15_000),
-    });
+    const response = await upstream(
+      `events/${encodeURIComponent(slug)}`,
+      {
+        next: { revalidate: 60 },
+      },
+      true,
+    );
 
     if (response.status === 404) return { status: "not-found" };
     if (!response.ok) return { status: "unavailable" };
 
-    const payload = (await response.json()) as ApiResponse<PublicEvent>;
-    if (!payload.success || !payload.data) return { status: "unavailable" };
+    const payload = parseEnvelope(
+      response,
+      await response.json(),
+      publicEventSchema,
+    );
 
     return { status: "ready", event: payload.data, retrievedAt: Date.now() };
   } catch {
     return { status: "unavailable" };
   }
 }
+
+const publicEventSchema: z.ZodType<PublicEvent> = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  slug: z.string(),
+  description: z.string(),
+  category: z.string(),
+  venue: z.string(),
+  city: z.string(),
+  address: z.string(),
+  startAt: z.iso.datetime({ offset: true }),
+  endAt: z.iso.datetime({ offset: true }),
+  imageUrl: z.string().nullable(),
+  ticketTiers: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      pricePaisa: moneySchema,
+      capacity: z.number().int().nonnegative(),
+      availableQuantity: z.number().int().nonnegative(),
+      salesStartAt: z.iso.datetime({ offset: true }),
+      salesEndAt: z.iso.datetime({ offset: true }),
+    }),
+  ),
+});

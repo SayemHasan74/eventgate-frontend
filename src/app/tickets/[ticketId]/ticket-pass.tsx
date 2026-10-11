@@ -1,4 +1,5 @@
 "use client";
+import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -39,13 +40,13 @@ export function TicketPass() {
   const { isReady, session } = useAuth();
   const { ticketId } = useParams<{ ticketId: string }>();
   const ticketQuery = useQuery({
-    queryKey: ["ticket", ticketId, session?.user.id],
+    queryKey: privateKey("tickets", session?.user.id, ticketId, {}),
     queryFn: () => getTicket(ticketId),
     enabled: isReady && Boolean(session?.user.role === "ATTENDEE"),
     retry: false,
   });
   const qrQuery = useQuery({
-    queryKey: ["ticket-qr", ticketId, session?.user.id],
+    queryKey: privateKey("tickets", session?.user.id, ticketId, { view: "qr" }),
     queryFn: () => getTicketQr(ticketId),
     enabled: Boolean(ticketQuery.data?.status === "ACTIVE" && session),
     retry: false,
@@ -82,9 +83,7 @@ export function TicketPass() {
     );
 
   const ticket = ticketQuery.data;
-  const qrSource = qrQuery.data
-    ? `data:image/svg+xml;utf8,${encodeURIComponent(qrQuery.data)}`
-    : null;
+  const qrSource = qrQuery.data?.dataUrl ?? null;
   return (
     <div className={styles.pass}>
       <header>
