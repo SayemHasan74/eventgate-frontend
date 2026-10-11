@@ -53,7 +53,7 @@ export function TicketWallet() {
         </Link>
       </section>
     );
-  const tickets = query.data ?? [];
+  const tickets = query.data?.data ?? [];
   return (
     <div className={styles.wallet}>
       <header>

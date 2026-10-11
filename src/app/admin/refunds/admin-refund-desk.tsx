@@ -50,6 +50,7 @@ export function AdminRefundDesk() {
         "admin-refunds",
         "admin-stats",
         "admin-operations",
+        "admin-audit",
       ]),
   });
   const retry = useMutation({
@@ -59,6 +60,7 @@ export function AdminRefundDesk() {
         "admin-refunds",
         "admin-stats",
         "admin-operations",
+        "admin-audit",
       ]),
   });
 

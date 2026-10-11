@@ -7,8 +7,8 @@ import {
 import { sessionFailure, privateJson } from "./session-response";
 import { SessionError } from "./session-store";
 import { isPrivateRouteAllowed } from "./private-routes";
-import { safeMessage, safeRetryAfter } from "../api-error";
-import { checkoutSchema } from "../api-schemas";
+import { safeMessage, safeRetryAfter, responseError } from "../api-error";
+import { checkoutSchema, qrSchema } from "../api-schemas";
 export async function forwardPrivate(request: Request, path: string) {
   const received = request.headers.get("x-request-id");
   const requestId =
@@ -37,6 +37,18 @@ export async function forwardPrivate(request: Request, path: string) {
       },
     );
     const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = responseError(response, payload);
+      const result = privateJson(
+        { success: false, message: error.message, errors: error.errors },
+        response.status,
+      );
+      result.headers.set("x-request-id", error.requestId ?? requestId);
+      const retry = safeRetryAfter(response.headers.get("retry-after"));
+      if (response.status === 429 && retry)
+        result.headers.set("retry-after", retry);
+      return result;
+    }
     if (!payload || typeof payload.success !== "boolean")
       throw new SessionError("INVALID_API_RESPONSE", 502);
     // Only expose a redacted diagnostic string, including persisted provider failure messages.
@@ -54,22 +66,15 @@ export async function forwardPrivate(request: Request, path: string) {
       return value;
     };
     if (payload.data) payload.data = redactFailures(payload.data);
-    // Gateway error messages are data, not trusted diagnostic text; do not relay provider secrets.
-    if (!response.ok) {
-      payload.message = safeMessage(
-        typeof payload.message === "string"
-          ? payload.message
-          : "Request failed.",
-      );
-      payload.errors = Array.isArray(payload.errors)
-        ? payload.errors.map(
-            (error: { field?: string; code?: string; message?: string }) => ({
-              field: error.field,
-              code: error.code ?? "REQUEST_FAILED",
-              message: safeMessage(error.message ?? payload.message),
-            }),
-          )
-        : [];
+    // Validate private media and provider navigation before relaying them to the browser.
+    if (/^tickets\/[^/]+\/qr$/.test(path)) {
+      const parsed = qrSchema.safeParse(payload.data);
+      if (
+        !parsed.success ||
+        parsed.data.ticketId.toLowerCase() !== path.split("/")[1].toLowerCase()
+      )
+        throw new SessionError("INVALID_QR_RESPONSE", 502);
+      payload.data = parsed.data;
     } else if (/^payments\/orders\/[^/]+\/checkout$/.test(path)) {
       const parsed = checkoutSchema.safeParse(payload.data);
       if (!parsed.success)
@@ -81,9 +86,6 @@ export async function forwardPrivate(request: Request, path: string) {
       "x-request-id",
       response.headers.get("x-request-id") ?? requestId,
     );
-    const retry = safeRetryAfter(response.headers.get("retry-after"));
-    if (response.status === 429 && retry)
-      result.headers.set("retry-after", retry);
     return result;
   } catch (error) {
     const result = await sessionFailure(error);

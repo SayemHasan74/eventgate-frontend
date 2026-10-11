@@ -5,7 +5,7 @@ import { ApiError } from "./api-error";
 export { ApiError as TicketApiError } from "./api-error";
 export type AttendeeTicket = z.infer<typeof ticketSchema>;
 export const getTickets = async (filters = new URLSearchParams()) =>
-  (await apiList("/api/tickets?" + filters, ticketSchema)).data;
+  apiList("/api/tickets?" + filters, ticketSchema);
 export const getTicket = (id: string) =>
   apiClient("/api/tickets/" + encodeURIComponent(id), ticketSchema);
 export async function getTicketQr(id: string) {
@@ -13,7 +13,7 @@ export async function getTicketQr(id: string) {
     "/api/tickets/" + encodeURIComponent(id) + "/qr",
     qrSchema,
   );
-  if (qr.ticketId !== id)
+  if (qr.ticketId.toLowerCase() !== id.toLowerCase())
     throw new ApiError(
       "The pass did not match this ticket.",
       502,

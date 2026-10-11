@@ -82,7 +82,31 @@ export const qrSchema = z.object({
   dataUrl: z
     .string()
     .regex(/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/)
-    .max(500000),
+    .max(500000)
+    .refine((value) => {
+      try {
+        const bytes = Uint8Array.from(atob(value.split(",")[1]), (char) =>
+          char.charCodeAt(0),
+        );
+        if (bytes.length < 45) return false;
+        const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        if (!signature.every((byte, index) => bytes[index] === byte))
+          return false;
+        const view = new DataView(bytes.buffer);
+        return (
+          view.getUint32(8) === 13 &&
+          view.getUint32(12) === 0x49484452 &&
+          view.getUint32(16) > 0 &&
+          view.getUint32(16) <= 4096 &&
+          view.getUint32(20) > 0 &&
+          view.getUint32(20) <= 4096 &&
+          view.getUint32(bytes.length - 12) === 0 &&
+          view.getUint32(bytes.length - 8) === 0x49454e44
+        );
+      } catch {
+        return false;
+      }
+    }, "Invalid PNG pass."),
 });
 export const refundSchema = z.object({
   id: z.uuid(),
@@ -115,8 +139,8 @@ export const checkoutUrlSchema = z.url().refine((value) => {
   const url = new URL(value);
   return (
     url.protocol === "https:" &&
-      (!url.port || url.port === "443") &&
-      !url.hash &&
+    (!url.port || url.port === "443") &&
+    !url.hash &&
     !url.username &&
     !url.password &&
     ["sandbox.sslcommerz.com", "securepay.sslcommerz.com"].includes(

@@ -68,7 +68,7 @@ export function OrganizerDashboard() {
       </section>
     );
 
-  const events = eventsQuery.data ?? [];
+  const events = eventsQuery.data?.data ?? [];
   const drafts = events.filter((event) => event.status === "DRAFT").length;
   const published = events.filter(
     (event) => event.status === "PUBLISHED",

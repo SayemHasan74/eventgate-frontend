@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { ApiError, responseError, safeRetryAfter } from "../src/lib/api-error";
+import {
+  ApiError,
+  responseError,
+  safeRetryAfter,
+  paginationSchema,
+} from "../src/lib/api-error";
+import { QueryClient } from "@tanstack/react-query";
+import { privateKey, invalidatePrivate } from "../src/lib/query-keys";
 import {
   orderSchema,
   ticketStatusSchema,
@@ -93,7 +100,7 @@ test("critical state, integer money and PNG boundaries reject corrupt data", () 
       mimeType: "image/png",
       dataUrl: "data:image/png;base64,iVBORw==",
     }).success,
-    true,
+    false,
   );
   assert.equal(
     qrSchema.safeParse({
@@ -103,6 +110,45 @@ test("critical state, integer money and PNG boundaries reject corrupt data", () 
     }).success,
     false,
   );
+});
+test("partial malformed diagnostics do not erase valid field errors; pagination must agree", () => {
+  const error = responseError(new Response(null, { status: 400 }), {
+    message: "Validation failed",
+    data: null,
+    errors: [
+      null,
+      { field: "params.id", code: "INVALID_VALUE", message: "Bad ID" },
+    ],
+  });
+  assert.deepEqual(error.fieldErrors.id, ["Bad ID"]);
+  assert.equal(error.code, "INVALID_VALUE");
+  assert.equal(
+    paginationSchema.safeParse({ page: 1, limit: 10, total: 0, totalPages: 0 })
+      .success,
+    true,
+  );
+  assert.equal(
+    paginationSchema.safeParse({ page: 1, limit: 10, total: 21, totalPages: 2 })
+      .success,
+    false,
+  );
+});
+test("confirmed invalidations cover filtered resource keys without crossing account boundaries", async () => {
+  const client = new QueryClient();
+  const affected = privateKey("orders", id, "list", {
+    status: "PAID",
+    page: 2,
+  });
+  const otherUser = privateKey("orders", "another-user");
+  const unrelated = privateKey("events", id);
+  for (const key of [affected, otherUser, unrelated])
+    client.setQueryData(key, []);
+  await invalidatePrivate(client, id, ["orders"]);
+  assert.equal(client.getQueryState(affected)?.isInvalidated, true);
+  assert.equal(client.getQueryState(otherUser)?.isInvalidated, false);
+  assert.equal(client.getQueryState(unrelated)?.isInvalidated, false);
+  client.clear();
+  assert.equal(client.getQueryCache().getAll().length, 0);
 });
 test("route/method allowlist supports edits and attempt reads but excludes open proxy/callbacks", () => {
   for (const [method, path] of [

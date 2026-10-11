@@ -47,6 +47,8 @@ export type EventDiscoveryQuery = {
   search?: string;
   category?: string;
   city?: string;
+  startAfter?: string;
+  startBefore?: string;
   sort: "soonest" | "latest" | "newest" | "title";
 };
 
@@ -75,6 +77,8 @@ export async function getPublicEvents(
   if (query.search) parameters.set("search", query.search);
   if (query.category) parameters.set("category", query.category);
   if (query.city) parameters.set("city", query.city);
+  if (query.startAfter) parameters.set("startAfter", query.startAfter);
+  if (query.startBefore) parameters.set("startBefore", query.startBefore);
 
   try {
     const response = await upstream(

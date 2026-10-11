@@ -44,7 +44,9 @@ export function TierForm() {
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.find((candidate) => candidate.id === eventId);
+  const event = eventsQuery.data?.data.find(
+    (candidate) => candidate.id === eventId,
+  );
 
   const addTier = async (formData: FormData) => {
     const salesStartAt = String(formData.get("salesStartAt") ?? "");

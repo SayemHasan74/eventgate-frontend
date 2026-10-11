@@ -142,7 +142,7 @@ const eventOrderSchema: z.ZodType<EventOrder> = z.object({
 const eventPath = (id: string) =>
   "/api/organizer/events/" + encodeURIComponent(id);
 export const getManagedEvents = async (filters = new URLSearchParams()) =>
-  (await apiList("/api/organizer/events?" + filters, eventSchema)).data;
+  apiList("/api/organizer/events?" + filters, eventSchema);
 export const createManagedEvent = (input: CreateEventInput) =>
   apiClient("/api/organizer/events", eventSchema, {
     method: "POST",
@@ -206,10 +206,4 @@ export const getEventReport = (id: string) =>
 export const getEventOrders = async (
   id: string,
   filters = new URLSearchParams(),
-) =>
-  (
-    await apiList(
-      eventPath(id) + "/reports/orders?" + filters,
-      eventOrderSchema,
-    )
-  ).data;
+) => apiList(eventPath(id) + "/reports/orders?" + filters, eventOrderSchema);

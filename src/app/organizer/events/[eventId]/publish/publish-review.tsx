@@ -48,7 +48,9 @@ export function PublishReview() {
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.find((candidate) => candidate.id === eventId);
+  const event = eventsQuery.data?.data.find(
+    (candidate) => candidate.id === eventId,
+  );
 
   const publish = async () => {
     if (!session || !event || !confirmed) return;

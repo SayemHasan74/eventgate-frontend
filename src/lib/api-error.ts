@@ -20,18 +20,15 @@ export class ApiError extends Error {
         (this.fieldErrors[error.field] ??= []).push(error.message);
   }
 }
+const detailSchema = z.object({
+  field: z.string().optional(),
+  code: z.string().optional(),
+  message: z.string().optional(),
+});
 const failureSchema = z.object({
   message: z.string().optional(),
-  errors: z
-    .array(
-      z.object({
-        field: z.string().optional(),
-        code: z.string().optional(),
-        message: z.string().optional(),
-      }),
-    )
-    .optional(),
-  data: z.object({ sessionEnded: z.boolean().optional() }).optional(),
+  errors: z.array(z.unknown()).optional(),
+  data: z.unknown().optional(),
 });
 export const safeMessage = (message: string) =>
   message
@@ -40,14 +37,29 @@ export const safeMessage = (message: string) =>
 export function responseError(response: Response, payload: unknown) {
   const parsed = failureSchema.safeParse(payload);
   const data = parsed.success ? parsed.data : undefined;
-  const errors = (data?.errors ?? []).map((error) => ({
-    field: error.field?.replace(/^(body|query|params)\./, ""),
-    code: error.code ?? "REQUEST_FAILED",
-    message: safeMessage(error.message ?? data?.message ?? "Request failed."),
-  }));
+  const errors = (data?.errors ?? []).flatMap((item) => {
+    const parsed = detailSchema.safeParse(item);
+    if (!parsed.success) return [];
+    const error = parsed.data;
+    return [
+      {
+        field: error.field?.replace(/^(body|query|params)\./, ""),
+        code: error.code ?? "REQUEST_FAILED",
+        message: safeMessage(
+          error.message ?? data?.message ?? "Request failed.",
+        ),
+      },
+    ];
+  });
   const code =
     errors[0]?.code ??
-    (response.status === 429 ? "RATE_LIMITED" : "REQUEST_FAILED");
+    (response.status === 429
+      ? "RATE_LIMITED"
+      : response.status === 503
+        ? "API_UNAVAILABLE"
+        : response.status === 504
+          ? "API_TIMEOUT"
+          : "REQUEST_FAILED");
   return new ApiError(
     safeMessage(data?.message ?? "The request could not be completed."),
     response.status,
@@ -55,7 +67,7 @@ export function responseError(response: Response, payload: unknown) {
     errors,
     response.headers.get("x-request-id") ?? undefined,
     safeRetryAfter(response.headers.get("retry-after")),
-    data?.data?.sessionEnded === true,
+    z.object({ sessionEnded: z.literal(true) }).safeParse(data?.data).success,
   );
 }
 export function safeRetryAfter(value: string | null): string | undefined {
@@ -67,12 +79,14 @@ export function safeRetryAfter(value: string | null): string | undefined {
     ? value
     : undefined;
 }
-export const paginationSchema = z.object({
-  page: z.number().int().positive(),
-  limit: z.number().int().positive(),
-  total: z.number().int().nonnegative(),
-  totalPages: z.number().int().nonnegative(),
-});
+export const paginationSchema = z
+  .object({
+    page: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    limit: z.number().int().positive().max(100),
+    total: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    totalPages: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  })
+  .refine((meta) => meta.totalPages === Math.ceil(meta.total / meta.limit));
 export type PaginationMeta = z.infer<typeof paginationSchema>;
 export function parseEnvelope<T>(
   response: Response,

@@ -67,7 +67,9 @@ export function ReportDashboard() {
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.find((candidate) => candidate.id === eventId);
+  const event = eventsQuery.data?.data.find(
+    (candidate) => candidate.id === eventId,
+  );
 
   if (!isReady || eventsQuery.isLoading)
     return <p className={styles.loading}>Loading event reports…</p>;
@@ -293,15 +295,15 @@ export function ReportDashboard() {
               Recent <b>sales.</b>
             </h2>
           </div>
-          <span>{ordersQuery.data.length} orders</span>
+          <span>{ordersQuery.data.data.length} orders</span>
         </div>
-        {ordersQuery.data.length === 0 ? (
+        {ordersQuery.data.data.length === 0 ? (
           <p className={styles.muted}>
             No orders have been created for this event yet.
           </p>
         ) : (
           <div className={styles.orders}>
-            {ordersQuery.data.map((order) => (
+            {ordersQuery.data.data.map((order) => (
               <article key={order.id}>
                 <div>
                   <span className={styles.status}>
