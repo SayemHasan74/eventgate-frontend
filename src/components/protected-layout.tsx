@@ -19,6 +19,14 @@ export async function ProtectedLayout({
     const session = await currentSession();
     if (session) user = await sessionIdentity(session);
   } catch (error) {
+    if (error instanceof SessionError && error.status === 403)
+      return (
+        <section className="not-found" role="alert">
+          <h1>Access denied</h1>
+          <p>Your account cannot open this workspace. You are still signed in.</p>
+          <a href="/account">My account</a>
+        </section>
+      );
     if (!(error instanceof SessionError && error.status === 401))
       return <SessionUnavailable />;
   }

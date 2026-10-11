@@ -84,22 +84,25 @@ export async function establishSession(
   data: z.infer<typeof backendAuthSchema>,
 ) {
   const jar = await cookies();
-  const previousId = jar.get(sessionCookie)?.value;
-  if (previousId) {
-    const previous = await loadSession(previousId);
-    if (previous) await logoutSession(previous);
-  }
   const id = nonce();
   const absoluteExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-  const record = {
-    user: data.user,
-    tokens: encryptTokens(data, sessionKey(id)),
-    accessExpiresAt: Date.now() + data.accessTokenExpiresIn * 1000,
-    absoluteExpiresAt,
-    version: 1,
-    csrf: nonce(),
-  };
   try {
+    const previousId = jar.get(sessionCookie)?.value;
+    if (previousId) {
+      const previous = await loadSession(previousId);
+      if (previous) await logoutSession(previous);
+    }
+    const record = {
+      user: data.user,
+      tokens: encryptTokens(
+        { accessToken: data.accessToken, refreshToken: data.refreshToken },
+        sessionKey(id),
+      ),
+      accessExpiresAt: Date.now() + data.accessTokenExpiresIn * 1000,
+      absoluteExpiresAt,
+      version: 1,
+      csrf: nonce(),
+    };
     await createStoredSession(record, id);
   } catch (error) {
     await upstream("auth/logout", {
@@ -216,13 +219,15 @@ export async function logoutSession(session: StoredSession) {
     await destroySession(session.id);
   } finally {
     const tokens = decryptTokens(session.record.tokens, session.key);
-    await upstream("auth/logout", {
+    const response = await upstream("auth/logout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-    }).catch(() => {
+    }).catch(() => null);
+    if (!response?.ok) {
       console.error("BFF_LOGOUT_REVOCATION_UNAVAILABLE");
-    });
+      throw new SessionError("LOGOUT_REVOCATION_UNAVAILABLE");
+    }
   }
 }
 export async function ensureSessionInfrastructure() {

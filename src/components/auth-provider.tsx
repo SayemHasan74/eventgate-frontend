@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import {
   createContext,
   useCallback,
@@ -13,6 +14,7 @@ import { authUserSchema, type AuthSession } from "@/lib/auth-types";
 import { z } from "zod";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { resetCsrf } from "@/lib/session-fetch";
+import { announceAuthChange, removeBrowserStorage } from "@/lib/browser-storage";
 export type { AuthSession, AuthUser } from "@/lib/auth-types";
 
 type State = "loading" | "authenticated" | "anonymous" | "unavailable";
@@ -30,6 +32,7 @@ export function AuthProvider({
 }: Readonly<{ children: React.ReactNode }>) {
   const [session, updateSession] = useState<AuthSession | null>(null);
   const [status, setStatus] = useState<State>("loading");
+  const [accessDenied, setAccessDenied] = useState(false);
   const client = useQueryClient();
   const channel = useRef<BroadcastChannel | null>(null);
   const generation = useRef(0);
@@ -41,6 +44,7 @@ export function AuthProvider({
       if (currentIdentity.current !== identity) client.clear();
       currentIdentity.current = identity;
       updateSession(next);
+      setAccessDenied(false);
       setStatus(next ? "authenticated" : "anonymous");
     },
     [client],
@@ -48,7 +52,7 @@ export function AuthProvider({
   const retrySession = useCallback(() => {
     if (pending.current) return pending.current;
     const version = generation.current;
-    pending.current = (async () => {
+    const request = (async () => {
       try {
         const data = await apiClient(
           "/api/auth/session",
@@ -67,33 +71,39 @@ export function AuthProvider({
           if (error instanceof ApiError && error.status === 401) {
             apply(null);
             resetCsrf();
+          } else if (error instanceof ApiError && error.status === 403) {
+            setAccessDenied(true);
+            setStatus(currentIdentity.current ? "authenticated" : "anonymous");
           } else setStatus("unavailable");
         }
       } finally {
-        pending.current = null;
+        if (version === generation.current) pending.current = null;
       }
     })();
-    return pending.current;
+    pending.current = request;
+    return request;
   }, [apply]);
   const broadcast = useCallback((type: "logout" | "changed") => {
-    if (channel.current) channel.current.postMessage(type);
-    else
-      window.localStorage.setItem(
-        "eventgate.auth-event",
-        JSON.stringify({ type, at: Date.now() }),
-      );
+    try {
+      if (channel.current) channel.current.postMessage(type);
+      else announceAuthChange(type);
+    } catch {
+      announceAuthChange(type);
+    }
   }, []);
   const clearSession = useCallback(() => {
     generation.current += 1;
     resetCsrf();
     client.clear();
-    window.sessionStorage.removeItem("eventgate.booking-intent");
+    pending.current = null;
+    removeBrowserStorage("sessionStorage", "eventgate.booking-intent");
     apply(null);
     broadcast("logout");
   }, [apply, broadcast, client]);
   const setSession = useCallback(
     (next: AuthSession) => {
       generation.current += 1;
+      pending.current = null;
       client.clear();
       resetCsrf();
       apply({ user: authUserSchema.parse(next.user) });
@@ -102,21 +112,27 @@ export function AuthProvider({
     [apply, broadcast, client],
   );
   useEffect(() => {
-    window.localStorage.removeItem("eventgate.session");
+    removeBrowserStorage("localStorage", "eventgate.session");
     document.cookie = "eventgate_session=; Path=/; Max-Age=0; SameSite=Lax";
     const receive = (type: unknown) => {
       generation.current += 1;
+      pending.current = null;
       resetCsrf();
       client.clear();
-      if (type === "logout") apply(null);
-      else {
-        pending.current = null;
+      if (type === "logout") {
+        removeBrowserStorage("sessionStorage", "eventgate.booking-intent");
+        apply(null);
+      } else {
         void retrySession();
       }
     };
     if (typeof BroadcastChannel !== "undefined") {
-      channel.current = new BroadcastChannel("eventgate.auth");
-      channel.current.onmessage = (event) => receive(event.data);
+      try {
+        channel.current = new BroadcastChannel("eventgate.auth");
+        channel.current.onmessage = (event) => receive(event.data);
+      } catch {
+        channel.current = null;
+      }
     }
     const storage = (event: StorageEvent) => {
       if (event.key === "eventgate.auth-event" && event.newValue) {
@@ -129,8 +145,10 @@ export function AuthProvider({
     };
     const ended = () => {
       generation.current += 1;
+      pending.current = null;
       resetCsrf();
       client.clear();
+      removeBrowserStorage("sessionStorage", "eventgate.booking-intent");
       apply(null);
       broadcast("logout");
     };
@@ -174,7 +192,20 @@ export function AuthProvider({
           </button>
         </div>
       )}
-      {children}
+      {accessDenied ? (
+        <section className="not-found" role="alert">
+          <h1>Access denied</h1>
+          <p>
+            Your account cannot access this resource. Your session has not been ended.
+          </p>
+          <button type="button" onClick={() => void retrySession()}>
+            Check access again
+          </button>
+          <Link href="/">Back to EventGate</Link>
+        </section>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }

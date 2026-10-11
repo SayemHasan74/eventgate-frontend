@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:contracts": "tsx --test tests/api-contracts.test.ts && node --conditions=react-server --import tsx --test tests/upstream.test.ts"
+    "test:contracts": "tsx --test tests/api-contracts.test.ts tests/browser-storage.test.ts && node --conditions=react-server --import tsx --test tests/upstream.test.ts",
+    "test:sessions": "node --conditions=react-server --import tsx --test tests/session-redis.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
