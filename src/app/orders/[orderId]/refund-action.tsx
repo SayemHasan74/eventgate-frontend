@@ -19,13 +19,16 @@ export function RefundAction({
   const { session } = useAuth();
   const [isRequesting, setIsRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   if (status !== "PAID") return null;
 
   const request = async () => {
     if (!session) return;
     setIsRequesting(true);
     try {
-      await requestRefund(orderId);
+      setErrorMessage("");
+      await requestRefund(orderId, message);
       await invalidatePrivate(queryClient, session.user.id, [
         "orders",
         "tickets",
@@ -34,6 +37,11 @@ export function RefundAction({
       setRequested(true);
       toast.success("Refund request sent for review.");
     } catch (error) {
+      setErrorMessage(
+        error instanceof RefundApiError
+          ? error.message
+          : "Refund request could not be completed.",
+      );
       toast.error(
         error instanceof RefundApiError
           ? error.message
@@ -55,6 +63,18 @@ export function RefundAction({
             : "Eligible paid orders can be requested for review up to 24 hours before the event."}
         </span>
       </div>
+      {!requested && (
+        <label>
+          Reason (optional)
+          <textarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            maxLength={1000}
+            rows={3}
+          />
+        </label>
+      )}
+      {errorMessage && <p role="alert">{errorMessage}</p>}
       {!requested && (
         <button disabled={isRequesting} onClick={request} type="button">
           {isRequesting ? (

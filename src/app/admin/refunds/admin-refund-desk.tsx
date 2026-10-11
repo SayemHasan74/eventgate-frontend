@@ -4,6 +4,7 @@ import { invalidatePrivate, privateKey } from "@/lib/query-keys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -30,6 +31,7 @@ const date = (value: string) =>
 export function AdminRefundDesk() {
   const { isReady, session } = useAuth();
   const client = useQueryClient();
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const allowed = session?.user.role === "ADMIN";
   const query = useQuery({
     queryKey: privateKey("admin-refunds", session?.user.id, "list", {}),
@@ -44,7 +46,7 @@ export function AdminRefundDesk() {
     }: {
       id: string;
       decision: "approve" | "reject";
-    }) => reviewAdminRefund(id, decision),
+    }) => reviewAdminRefund(id, decision, notes[id]),
     onSuccess: () =>
       invalidatePrivate(client, session!.user.id, [
         "admin-refunds",
@@ -143,44 +145,86 @@ export function AdminRefundDesk() {
                 {refund.failureMessage && (
                   <p className={styles.failure}>{refund.failureMessage}</p>
                 )}
+                {refund.userMessage && <p>Attendee: {refund.userMessage}</p>}
+                {refund.reviewerNote && <p>Review: {refund.reviewerNote}</p>}
+                {refund.needsInvestigation && (
+                  <p className={styles.failure}>
+                    Manual investigation required. Confirm this capture and its
+                    refund in the merchant portal. Do not initiate another
+                    refund.
+                  </p>
+                )}
+                {refund.activities.length > 0 && (
+                  <details>
+                    <summary>Request and review history</summary>
+                    <ol>
+                      {refund.activities.map((activity) => (
+                        <li key={activity.id}>
+                          {date(activity.createdAt)} ·{" "}
+                          {activity.action.replaceAll("_", " ")}
+                          {activity.note ? ` — ${activity.note}` : ""}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
               </div>
               <div className={styles.actions}>
                 <strong>{money(refund.amountPaisa)}</strong>
-                {refund.status === "REQUESTED" && (
-                  <div>
+                {refund.status === "REQUESTED" &&
+                  !refund.needsInvestigation && (
+                    <div>
+                      <label>
+                        Review note (required to reject)
+                        <textarea
+                          rows={3}
+                          maxLength={1000}
+                          value={notes[refund.id] ?? ""}
+                          onChange={(event) =>
+                            setNotes((current) => ({
+                              ...current,
+                              [refund.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="button button-primary"
+                        disabled={update.isPending}
+                        onClick={() =>
+                          update.mutate({ id: refund.id, decision: "approve" })
+                        }
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.reject}
+                        disabled={update.isPending || !notes[refund.id]?.trim()}
+                        onClick={() =>
+                          update.mutate({ id: refund.id, decision: "reject" })
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                {refund.status === "FAILED" &&
+                  !refund.needsInvestigation &&
+                  [
+                    "PROVIDER_REFUND_REJECTED",
+                    "PROVIDER_REFUND_CONFIRMED_FAILED",
+                  ].includes(refund.failureCode ?? "") && (
                     <button
                       type="button"
-                      className="button button-primary"
-                      disabled={update.isPending}
-                      onClick={() =>
-                        update.mutate({ id: refund.id, decision: "approve" })
-                      }
+                      className={styles.retry}
+                      disabled={retry.isPending}
+                      onClick={() => retry.mutate(refund.id)}
                     >
-                      Approve
+                      <RefreshCw size={15} /> Retry provider
                     </button>
-                    <button
-                      type="button"
-                      className={styles.reject}
-                      disabled={update.isPending}
-                      onClick={() =>
-                        update.mutate({ id: refund.id, decision: "reject" })
-                      }
-                    >
-                      Reject
-                    </button>
-                  </div>
-                )}
-                {(refund.status === "FAILED" ||
-                  refund.status === "UNKNOWN") && (
-                  <button
-                    type="button"
-                    className={styles.retry}
-                    disabled={retry.isPending}
-                    onClick={() => retry.mutate(refund.id)}
-                  >
-                    <RefreshCw size={15} /> Retry provider
-                  </button>
-                )}
+                  )}
               </div>
             </article>
           ))}

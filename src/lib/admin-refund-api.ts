@@ -10,11 +10,21 @@ export async function getAdminRefunds(filters = new URLSearchParams()) {
   );
   return { refunds: result.data, total: result.meta.total, meta: result.meta };
 }
-export const reviewAdminRefund = (id: string, decision: "approve" | "reject") =>
+export const reviewAdminRefund = (
+  id: string,
+  decision: "approve" | "reject",
+  reviewerNote?: string,
+) =>
   apiClient(
     "/api/refunds/admin/refunds/" + encodeURIComponent(id),
     refundSchema,
-    { method: "PATCH", ...jsonBody({ decision }) },
+    {
+      method: "PATCH",
+      ...jsonBody({
+        decision,
+        ...(reviewerNote?.trim() ? { reviewerNote: reviewerNote.trim() } : {}),
+      }),
+    },
   );
 export const retryAdminRefund = (id: string) =>
   apiClient(

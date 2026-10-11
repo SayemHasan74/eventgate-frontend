@@ -98,14 +98,23 @@ test("production Next proxies preserve the transport contract all the way to Exp
             : png,
           qrToken: "MUST_NOT_BE_RELAYED",
         };
+      if (url.pathname.endsWith("/checkout") && url.searchParams.has("processing")) response.statusCode = 202;
       if (url.pathname.endsWith("/checkout"))
-        data = {
-          paymentAttemptId: id,
-          merchantTransactionId: "fixture-transaction",
-          checkoutUrl: url.searchParams.has("unsafe")
-            ? "https://sandbox.sslcommerz.com/pay?store_passwd=MUST_NOT_LEAK"
-            : "https://sandbox.sslcommerz.com/pay?sessionkey=fixture",
-        };
+        data = url.searchParams.has("processing")
+          ? {
+              status: "PROCESSING",
+              paymentAttemptId: id,
+              merchantTransactionId: "fixture-transaction",
+              paymentStatus: "UNKNOWN",
+              statusPath: `/api/v1/payments/attempts/${id}`,
+            }
+          : {
+              paymentAttemptId: id,
+              merchantTransactionId: "fixture-transaction",
+              checkoutUrl: url.searchParams.has("unsafe")
+                ? "https://sandbox.sslcommerz.com/pay?store_passwd=MUST_NOT_LEAK"
+                : "https://sandbox.sslcommerz.com/pay?sessionkey=fixture",
+            };
       response.end(
         JSON.stringify({
           success: true,
@@ -256,6 +265,12 @@ test("production Next proxies preserve the transport contract all the way to Exp
       assert.equal((await call(`/api/tickets/${id}/qr?${flag}=1`)).status, 502);
     const checkout = await call(`/api/payments/orders/${id}/checkout`, "POST");
     assert.equal(checkout.status, 200);
+    const processing = await call(
+      `/api/payments/orders/${id}/checkout?processing=1`,
+      "POST",
+    );
+    assert.equal(processing.status, 202);
+    assert.equal((await processing.json()).data.status, "PROCESSING");
     const unsafe = await call(
       `/api/payments/orders/${id}/checkout?unsafe=1`,
       "POST",

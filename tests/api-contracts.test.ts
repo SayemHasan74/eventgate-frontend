@@ -14,12 +14,43 @@ import {
   ticketStatusSchema,
   qrSchema,
   checkoutUrlSchema,
+  checkoutSchema,
 } from "../src/lib/api-schemas";
 import { isPrivateRouteAllowed } from "../src/lib/server/private-routes";
 import { apiClient, apiList, jsonBody } from "../src/lib/api-client";
 import { resetCsrf } from "../src/lib/session-fetch";
 
 const id = "123e4567-e89b-42d3-a456-426614174000";
+test("checkout accepts a processing outcome without a navigation URL and binds its lookup identity", () => {
+  const processing = {
+    status: "PROCESSING",
+    paymentAttemptId: id,
+    merchantTransactionId: "fixture",
+    paymentStatus: "UNKNOWN",
+    statusPath: `/api/v1/payments/attempts/${id}`,
+  };
+  assert.equal(checkoutSchema.safeParse(processing).success, true);
+  assert.equal(
+    checkoutSchema.safeParse({ ...processing, statusPath: "https://evil.test" })
+      .success,
+    false,
+  );
+  assert.equal(
+    checkoutSchema.safeParse({
+      ...processing,
+      statusPath: `/api/v1/payments/attempts/${crypto.randomUUID()}`,
+    }).success,
+    false,
+  );
+  assert.equal(
+    checkoutSchema.safeParse({
+      status: "AVAILABLE",
+      paymentAttemptId: id,
+      merchantTransactionId: "fixture",
+    }).success,
+    false,
+  );
+});
 test("all validation errors, field names, request ID and safe retry information survive", () => {
   const error = responseError(
     new Response(null, {

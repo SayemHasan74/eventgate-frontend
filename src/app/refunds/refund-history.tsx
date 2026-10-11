@@ -84,6 +84,30 @@ export function RefundHistory() {
                 <span className={styles.status}>{refund.status}</span>
                 <h2>Order {refund.orderId.slice(0, 8).toUpperCase()}</h2>
                 <p>Requested {date(refund.requestedAt)}</p>
+                {refund.userMessage && (
+                  <p>Your message: {refund.userMessage}</p>
+                )}
+                {refund.reviewerNote && <p>Review: {refund.reviewerNote}</p>}
+                {refund.needsInvestigation && (
+                  <p>
+                    The payment provider outcome needs investigation. Support
+                    must confirm it before another refund can be issued.
+                  </p>
+                )}
+                {refund.activities.length > 0 && (
+                  <details>
+                    <summary>Review history</summary>
+                    <ol>
+                      {refund.activities.map((activity) => (
+                        <li key={activity.id}>
+                          {date(activity.createdAt)} ·{" "}
+                          {activity.action.replaceAll("_", " ")}
+                          {activity.note ? ` — ${activity.note}` : ""}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
                 {refund.failureMessage && (
                   <p className={styles.failure}>{refund.failureMessage}</p>
                 )}

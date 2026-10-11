@@ -4,11 +4,15 @@ import { privateKey } from "@/lib/query-keys";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, LoaderCircle, Pencil, Save } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
-import { PaymentApiError, startCheckout } from "@/lib/payment-api";
+import {
+  getPaymentAttempt,
+  PaymentApiError,
+  startCheckout,
+} from "@/lib/payment-api";
 import {
   getProfile,
   ProfileApiError,
@@ -58,6 +62,32 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const checkoutKey = useRef<{ orderId: string; key: string } | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
+  const attemptQuery = useQuery({
+    queryKey: privateKey("payments", session?.user.id, attemptId ?? "none", {}),
+    queryFn: () => getPaymentAttempt(attemptId!),
+    enabled: Boolean(session && attemptId),
+    retry: false,
+    refetchInterval: (query) =>
+      ["INITIATING", "PENDING", "UNKNOWN"].includes(
+        query.state.data?.status ?? "",
+      )
+        ? 5000
+        : false,
+    refetchIntervalInBackground: false,
+  });
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (attemptQuery.data?.status === "SUCCEEDED" && userId)
+      void invalidatePrivate(queryClient, userId, [
+        "orders",
+        "tickets",
+        "refunds",
+        "overview",
+      ]);
+  }, [attemptQuery.data?.status, userId, queryClient]);
   const profileQuery = useQuery({
     queryKey: privateKey("users", session?.user.id, "me", {}),
     queryFn: () => getProfile(),
@@ -112,15 +142,34 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
 
   const beginCheckout = async () => {
     setIsStarting(true);
+    setCheckoutError("");
     try {
-      const checkout = await startCheckout(orderId);
-      window.location.assign(checkout.checkoutUrl);
+      if (
+        !checkoutKey.current ||
+        checkoutKey.current.orderId !== orderId ||
+        ["FAILED", "CANCELLED"].includes(attemptQuery.data?.status ?? "")
+      )
+        checkoutKey.current = { orderId, key: crypto.randomUUID() };
+      const checkout = await startCheckout(orderId, checkoutKey.current.key);
+      if (checkout.status === "AVAILABLE")
+        window.location.assign(checkout.checkoutUrl);
+      else {
+        setAttemptId(checkout.paymentAttemptId);
+        if (attemptId === checkout.paymentAttemptId)
+          await attemptQuery.refetch();
+      }
     } catch (error) {
+      setCheckoutError(
+        error instanceof PaymentApiError
+          ? error.message
+          : "Could not begin secure payment.",
+      );
       toast.error(
         error instanceof PaymentApiError
           ? error.message
           : "Could not begin secure payment.",
       );
+    } finally {
       setIsStarting(false);
     }
   };
@@ -134,6 +183,39 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
           <h2>Secure payment</h2>
         </div>
       </div>
+      {checkoutError && <p role="alert">{checkoutError}</p>}
+      {attemptId && (
+        <div className={styles.ready} role="status">
+          <h3>Payment confirmation</h3>
+          <p>
+            {attemptQuery.data?.status === "SUCCEEDED"
+              ? "Your capture is verified. Updating the booking and any refund status…"
+              : ["FAILED", "CANCELLED"].includes(
+                    attemptQuery.data?.status ?? "",
+                  )
+                ? "The provider confirmed this attempt did not complete. You can try a new checkout while your reservation is active."
+                : "We are checking the existing payment attempt. Do not make another payment while its outcome is uncertain."}
+          </p>
+          <p>
+            Attempt {attemptId.slice(0, 8)} ·{" "}
+            {attemptQuery.data?.status ?? "Checking"}
+          </p>
+          {attemptQuery.isError && (
+            <p role="alert">
+              Status could not be loaded. Your payment outcome has not been
+              confirmed.
+            </p>
+          )}
+          <button
+            type="button"
+            className={styles.edit}
+            disabled={attemptQuery.isFetching}
+            onClick={() => void attemptQuery.refetch()}
+          >
+            Check status
+          </button>
+        </div>
+      )}
       {!profileComplete || isEditing ? (
         <form action={saveProfile} className={styles.form}>
           <p>
@@ -178,7 +260,7 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
           </button>
           <button
             className="button button-primary"
-            disabled={isStarting}
+            disabled={isStarting || attemptQuery.data?.status === "SUCCEEDED"}
             onClick={beginCheckout}
             type="button"
           >
@@ -187,7 +269,11 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
             ) : (
               <CreditCard size={16} />
             )}{" "}
-            {isStarting ? "Opening payment" : "Pay with SSLCommerz"}
+            {isStarting
+              ? "Checking checkout"
+              : attemptId
+                ? "Resume / retry checkout"
+                : "Pay with SSLCommerz"}
           </button>
         </div>
       )}

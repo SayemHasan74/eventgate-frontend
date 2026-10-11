@@ -124,6 +124,20 @@ export const refundSchema = z.object({
   completedAt: timestamp.nullable(),
   failureCode: z.string().nullable(),
   failureMessage: z.string().nullable(),
+  userMessage: z.string().nullable().optional(),
+  reviewerNote: z.string().nullable().optional(),
+  requestCount: z.number().int().min(1).max(3).optional(),
+  needsInvestigation: z.boolean().default(false),
+  activities: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        action: z.string(),
+        note: z.string().nullable(),
+        createdAt: timestamp,
+      }),
+    )
+    .default([]),
 });
 export const paymentAttemptSchema = z.object({
   id: z.uuid(),
@@ -153,8 +167,25 @@ export const checkoutUrlSchema = z.url().refine((value) => {
     )
   );
 }, "Payment address is not trusted.");
-export const checkoutSchema = z.object({
-  paymentAttemptId: z.uuid(),
-  merchantTransactionId: z.string(),
-  checkoutUrl: checkoutUrlSchema,
-});
+export const checkoutSchema = z.union([
+  z.object({
+    status: z.literal("AVAILABLE").default("AVAILABLE"),
+    paymentAttemptId: z.uuid(),
+    merchantTransactionId: z.string(),
+    checkoutUrl: checkoutUrlSchema,
+    checkoutExpiresAt: timestamp.optional(),
+  }),
+  z
+    .object({
+      status: z.literal("PROCESSING"),
+      paymentAttemptId: z.uuid(),
+      merchantTransactionId: z.string(),
+      paymentStatus: paymentStatusSchema,
+      statusPath: z.string(),
+    })
+    .refine(
+      (value) =>
+        value.statusPath ===
+        `/api/v1/payments/attempts/${value.paymentAttemptId}`,
+    ),
+]);
