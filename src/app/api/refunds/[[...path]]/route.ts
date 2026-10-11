@@ -1,30 +1,24 @@
-import { NextResponse } from "next/server";
-
-import { appConfig } from "@/lib/env";
-
-type RouteParams = RouteContext<"/api/refunds/[[...path]]">;
-
-async function forward(request: Request, context: RouteParams) {
+import { forwardPrivate } from "@/lib/server/private-gateway";
+import { privateJson } from "@/lib/server/session-response";
+async function forward(
+  request: Request,
+  context: { params: Promise<{ path?: string[] }> },
+) {
   const { path = [] } = await context.params;
-  const authorization = request.headers.get("Authorization");
-  if (!authorization) return NextResponse.json({ message: "Authentication is required." }, { status: 401 });
-  try {
-    const hasBody = !["GET", "HEAD"].includes(request.method);
-    const upstream = await fetch(`${appConfig.apiBaseUrl}/${path.join("/")}`, {
-      method: request.method,
-      headers: {
-        Authorization: authorization,
-        ...(hasBody && request.headers.get("Content-Type") ? { "Content-Type": request.headers.get("Content-Type")! } : {}),
-      },
-      ...(hasBody ? { body: await request.text() } : {}),
-      cache: "no-store",
-    });
-    return new Response(await upstream.text(), { status: upstream.status, headers: { "Content-Type": upstream.headers.get("Content-Type") ?? "application/json" } });
-  } catch {
-    return NextResponse.json({ message: "Refund service is unavailable." }, { status: 503 });
-  }
+  const target = path.join("/");
+  const id = "[0-9a-fA-F-]{36}";
+  const routes = {
+    GET: /^(refund-requests|admin\/refunds)$/,
+    POST: new RegExp(
+      "^(orders/" + id + "/refund-requests|admin/refunds/" + id + "/retry)$",
+    ),
+    PATCH: new RegExp("^admin/refunds/" + id + "$"),
+  };
+  const allowed = routes[request.method as keyof typeof routes];
+  if (!allowed?.test(target))
+    return privateJson({ success: false, message: "Not found" }, 404);
+  return forwardPrivate(request, target);
 }
-
 export const GET = forward;
 export const POST = forward;
 export const PATCH = forward;

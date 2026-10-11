@@ -1,41 +1,71 @@
-import type { AuthSession } from "@/components/auth-provider";
+import { authUserSchema, type AuthSession } from "@/lib/auth-types";
+import { resetCsrf, sessionFetch } from "./session-fetch";
 
-type ApiSuccess<T> = { success: true; message: string; data: T };
-type ApiError = { success?: false; message?: string; errors?: Array<{ message?: string }> };
-
-type SignInInput = { email: string; password: string };
-type RegisterInput = SignInInput & { displayName: string };
-type DemoRole = "ATTENDEE" | "ORGANIZER" | "ADMIN";
-
-export class AuthApiError extends Error {}
-
+export class AuthApiError extends Error {
+  constructor(
+    message: string,
+    public sessionEnded = false,
+  ) {
+    super(message);
+  }
+}
 async function requestSession(
-  path: "/auth/login" | "/auth/register" | "/auth/google" | "/auth/demo",
-  body: SignInInput | RegisterInput | { idToken: string } | { role: DemoRole },
-) {
-  const response = await fetch(`/api${path}`, {
+  action: string,
+  body: unknown,
+): Promise<AuthSession> {
+  const response = await sessionFetch("/api/auth/" + action, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const payload = (await response.json().catch(() => ({}))) as ApiSuccess<AuthSession> | ApiError;
-
-  if (!response.ok || !payload.success || !payload.data) {
-    const error = payload as ApiError;
-    throw new AuthApiError(error.errors?.[0]?.message ?? error.message ?? "Something went wrong. Please try again.");
-  }
-  return payload.data;
+  const payload = await response.json();
+  if (!response.ok || !payload.success)
+    throw new AuthApiError(
+      payload.errors?.[0]?.message ??
+        payload.message ??
+        "Sign-in could not be completed.",
+    );
+  resetCsrf();
+  return { user: authUserSchema.parse(payload.data.user) };
 }
-
-export const signIn = (input: SignInInput) => requestSession("/auth/login", input);
-export const register = (input: RegisterInput) => requestSession("/auth/register", input);
-export const signInWithGoogle = (idToken: string) => requestSession("/auth/google", { idToken });
-export const signInDemo = (role: DemoRole) => requestSession("/auth/demo", { role });
-
-export async function signOut(refreshToken: string) {
-  await fetch("/api/auth/logout", {
+export const signIn = (input: { email: string; password: string }) =>
+  requestSession("login", input);
+export const register = (input: {
+  email: string;
+  password: string;
+  displayName: string;
+}) => requestSession("register", input);
+export const signInWithGoogle = (idToken: string) =>
+  requestSession("google", { idToken });
+export async function signOut() {
+  let response: Response;
+  try {
+    response = await sessionFetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    // Even when CSRF bootstrap infrastructure is down, the same-origin logout
+    // handler clears the cookie and reports that server revocation is unavailable.
+    response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+  }
+  resetCsrf();
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new AuthApiError(
+      payload.message ?? "Sign-out could not be confirmed. Please retry.",
+      payload.data?.sessionEnded === true,
+    );
+  }
+}
+export async function linkGoogle(idToken: string) {
+  const response = await sessionFetch("/api/auth/google/link", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify({ idToken }),
   });
+  const payload = await response.json();
+  if (!response.ok)
+    throw new AuthApiError(payload.message ?? "Google linking failed.");
+  return payload.data as { alreadyLinked: boolean };
 }
