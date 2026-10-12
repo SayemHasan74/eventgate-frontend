@@ -49,6 +49,8 @@ export default async function TicketsPage({ params }: TicketsPageProps) {
             </div>
           </header>
           <TicketSelector
+            slug={slug}
+            eventStart={result.event.startAt}
             now={result.retrievedAt}
             tiers={result.event.ticketTiers}
           />

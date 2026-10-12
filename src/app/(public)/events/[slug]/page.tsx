@@ -1,4 +1,5 @@
 import { formatMoney } from "@/lib/format";
+import { tierSaleState } from "@/lib/public-sale";
 import type { Metadata } from "next";
 import {
   ArrowLeft,
@@ -39,17 +40,18 @@ const bangladeshTime = (value: string) =>
 
 const price = formatMoney;
 
-const saleLabel = (tier: PublicTicketTier) => {
-  if (tier.salesPaused) return "Sales paused";
-  const now = Date.now();
-  if (tier.availableQuantity === 0) return "Sold out";
-  if (new Date(tier.salesEndAt).getTime() <= now) return "Sales closed";
-  if (new Date(tier.salesStartAt).getTime() > now) return "Coming soon";
-  return "Available now";
-};
-
-function TicketTier({ tier }: Readonly<{ tier: PublicTicketTier }>) {
-  const status = saleLabel(tier);
+function TicketTier({
+  tier,
+  eventStart,
+}: Readonly<{ tier: PublicTicketTier; eventStart: string }>) {
+  const state = tierSaleState(tier, eventStart);
+  const status = {
+    OPEN: "Available now",
+    UPCOMING: "Coming soon",
+    PAUSED: "Sales paused",
+    SOLD_OUT: "Sold out",
+    CLOSED: "Sales closed",
+  }[state];
   const statusClass =
     status === "Coming soon"
       ? styles.soon
@@ -146,7 +148,11 @@ function EventDetails({ event }: Readonly<{ event: PublicEvent }>) {
           <div>
             <ul className={styles.list}>
               {event.ticketTiers.map((tier) => (
-                <TicketTier key={tier.id} tier={tier} />
+                <TicketTier
+                  key={tier.id}
+                  tier={tier}
+                  eventStart={event.startAt}
+                />
               ))}
             </ul>
             <Link

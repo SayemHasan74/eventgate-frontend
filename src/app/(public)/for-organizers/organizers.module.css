@@ -1,0 +1,52 @@
+.page {
+  display: grid;
+  gap: 36px;
+  padding-block: 64px 80px;
+}
+.page header {
+  max-width: 700px;
+}
+.page h1 {
+  font:
+    400 clamp(50px, 8vw, 92px)/0.95 var(--font-display),
+    Impact,
+    sans-serif;
+  text-transform: uppercase;
+  margin-block: 20px;
+}
+.page h1 b {
+  color: var(--cobalt);
+  font-weight: inherit;
+}
+.page p {
+  color: var(--soft);
+  line-height: 1.7;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.panel {
+  padding: 26px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--card);
+}
+.panel h2 {
+  font-size: 23px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 24px;
+}
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .page {
+    padding-block: 38px 60px;
+  }
+}

@@ -1,39 +1,38 @@
 import Link from "next/link";
 import type { PublicEvent } from "@/lib/eventgate-api";
-import { formatCurrency, formatEventRange } from "@/lib/format";
-import styles from "./ui/ui.module.css";
+import { eventSaleSummary } from "@/lib/public-sale";
+import { formatMoney, formatEventRange } from "@/lib/format";
+import { EventImage } from "./event-image";
+import styles from "./event-card.module.css";
 export function EventCard({ event }: { event: PublicEvent }) {
-  const available = event.ticketTiers.reduce(
-    (sum, tier) => sum + tier.availableQuantity,
-    0,
-  );
-  const lowest = event.ticketTiers.length
-    ? Math.min(...event.ticketTiers.map((tier) => tier.pricePaisa))
-    : null;
+  const sale = eventSaleSummary(event);
   return (
-    <article className={styles.eventCard}>
-      <div>
+    <article className={styles.card}>
+      <Link href={`/events/${event.slug}`} aria-label={`View ${event.title}`}>
+        <EventImage publicView src={event.imageUrl} title={event.title} />
+      </Link>
+      <div className={styles.body}>
         <small>{event.category}</small>
         <h2>
           <Link href={`/events/${event.slug}`}>{event.title}</Link>
         </h2>
-        <p>{event.description}</p>
         <p>{formatEventRange(event.startAt, event.endAt)}</p>
         <p>
           {event.venue}, {event.city}
         </p>
-      </div>
-      <aside>
-        <strong>
-          {lowest === null
-            ? "No tiers available"
-            : `From ${formatCurrency(lowest)}`}
-        </strong>
-        <span>{available} tickets available</span>
-        <Link className={styles.button} href={`/events/${event.slug}`}>
+        <div className={styles.sale}>
+          <span>{sale.label}</span>
+          {sale.pricePaisa !== null && (
+            <strong>
+              {sale.futurePrice ? "Future price from " : "From "}
+              {formatMoney(sale.pricePaisa)}
+            </strong>
+          )}
+        </div>
+        <Link className="text-link" href={`/events/${event.slug}`}>
           Event details →
         </Link>
-      </aside>
+      </div>
     </article>
   );
 }

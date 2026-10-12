@@ -1,3 +1,9 @@
+import Form from "next/form";
+import { EventCard } from "@/components/event-card";
+import { EmptyState } from "@/components/empty-state";
+import { OrganizerLink } from "@/components/organizer-link";
+import { PublicRetry } from "@/components/public-retry";
+import { getUpcomingPublicEvents, getPublicFacets } from "@/lib/eventgate-api";
 import styles from "./home.module.css";
 import Link from "next/link";
 import { ArrowRight, Check, MoveUpRight, Ticket } from "lucide-react";
@@ -6,7 +12,7 @@ const steps = [
   {
     number: "01",
     title: "Find your people",
-    text: "Browse published events by city, category, or date - then see the exact tickets still available.",
+    text: "Browse published events by city, category, or date - then review sales windows and the latest displayed availability.",
   },
   {
     number: "02",
@@ -21,13 +27,19 @@ const steps = [
 ];
 
 const promises = [
-  "Live ticket availability",
-  "Verified payment flow",
-  "One-scan QR admission",
-  "Clear refund status",
+  "Private draft previews",
+  "Saved inventory and sales controls",
+  "Attendance and order reports",
+  "Cancellation and refund progress",
 ];
 
-export default function Home() {
+export default async function Home() {
+  const [events, facets] = await Promise.all([
+    getUpcomingPublicEvents(),
+    getPublicFacets(),
+  ]);
+  const upcoming = events.status === "ready" ? events.events : [];
+  const cities = facets.status === "ready" ? facets.cities : [];
   return (
     <>
       <div className={[styles["ticker"]].join(" ")} aria-hidden="true">
@@ -53,14 +65,37 @@ export default function Home() {
               EventGate is the calm, clear way to discover an event, secure your
               spot, and get through the gate.
             </p>
-            <div className={[styles["hero-actions"]].join(" ")}>
-              <Link className="button button-primary" href="#how-it-works">
-                Explore EventGate <ArrowRight size={17} />
-              </Link>
-              <Link className="text-link" href="#organizers">
-                I organize events <MoveUpRight size={16} />
-              </Link>
-            </div>
+            <Form action="/events" className={styles.homeSearch}>
+              <label>
+                What are you looking for?
+                <input
+                  name="search"
+                  type="search"
+                  maxLength={120}
+                  placeholder="Event, topic or category"
+                />
+              </label>
+              <label>
+                City
+                <input
+                  name="city"
+                  list="home-cities"
+                  maxLength={100}
+                  placeholder="Any city"
+                />
+                <datalist id="home-cities">
+                  {cities.map((city) => (
+                    <option key={city} value={city} />
+                  ))}
+                </datalist>
+              </label>
+              <button className="button button-primary" type="submit">
+                Find events <ArrowRight size={17} />
+              </button>
+            </Form>
+            <OrganizerLink className="text-link">
+              I organize events <MoveUpRight size={16} />
+            </OrganizerLink>
             <div className={[styles["hero-proof"]].join(" ")}>
               <span className={[styles["proof-dots"]].join(" ")}>
                 <i />
@@ -150,6 +185,62 @@ export default function Home() {
         </section>
 
         <section
+          className={`wrap ${styles.discovery}`}
+          aria-labelledby="upcoming-title"
+        >
+          <div className={styles.discoveryHeading}>
+            <div>
+              <p className="eyebrow">
+                <span /> From the programme
+              </p>
+              <h2 id="upcoming-title">Coming up.</h2>
+            </div>
+            <Link href="/events" className="text-link">
+              Browse all events →
+            </Link>
+          </div>
+          <p>
+            Availability updated recently. Listings may be cached for up to 60
+            seconds; stock is checked again before reservation.
+          </p>
+          {events.status === "unavailable" ? (
+            <EmptyState
+              title="The programme could not load."
+              description="You can still search or explore how EventGate works. Retry when the events service is available."
+              action={<PublicRetry />}
+            />
+          ) : upcoming.length ? (
+            <div className={styles.homeEvents}>
+              {upcoming.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No upcoming published events yet."
+              description="Check the event catalogue for the full programme."
+              action={
+                <Link href="/events" className="button">
+                  Browse events
+                </Link>
+              }
+            />
+          )}
+          {facets.status === "ready" && facets.categories.length > 0 && (
+            <nav className={styles.categories} aria-label="Event categories">
+              {facets.categories.map((category) => (
+                <Link
+                  key={category}
+                  href={`/events?category=${encodeURIComponent(category)}`}
+                >
+                  {category}
+                </Link>
+              ))}
+            </nav>
+          )}
+        </section>
+
+        <section
           className={[styles["how-section"], "wrap"].join(" ")}
           id="how-it-works"
           aria-labelledby="how-title"
@@ -185,21 +276,26 @@ export default function Home() {
           <div className={["wrap", styles["promise-inner"]].join(" ")}>
             <div>
               <p className={["eyebrow", styles["eyebrow-light"]].join(" ")}>
-                <span /> What stays simple
+                <span /> For organizers
               </p>
               <h2>
-                A ticket should
+                Bring your event
                 <br />
-                feel like a <b>yes.</b>
+                to the <b>room.</b>
               </h2>
             </div>
-            <ul>
-              {promises.map((promise) => (
-                <li key={promise}>
-                  <Check size={17} /> {promise}
-                </li>
-              ))}
-            </ul>
+            <div>
+              <ul>
+                {promises.map((promise) => (
+                  <li key={promise}>
+                    <Check size={17} /> {promise}
+                  </li>
+                ))}
+              </ul>
+              <OrganizerLink className="button button-primary">
+                Organizer access and tools <ArrowRight size={17} />
+              </OrganizerLink>
+            </div>
           </div>
         </section>
 
@@ -213,8 +309,8 @@ export default function Home() {
           <h2>
             See you at the <b>gate.</b>
           </h2>
-          <Link className="button button-primary" href="#how-it-works">
-            See how it works <ArrowRight size={17} />
+          <Link className="button button-primary" href="/events">
+            Find your next event <ArrowRight size={17} />
           </Link>
         </section>
       </main>

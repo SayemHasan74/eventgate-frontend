@@ -1,3 +1,11 @@
+.notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 16px 20px;
+  border: 2px solid var(--ink);
+  border-left: 6px solid var(--pink);
+  background: var(--card);
+}
 .page {
   min-height: 72vh;
   padding-block: 47px 92px;

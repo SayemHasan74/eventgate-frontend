@@ -8,6 +8,7 @@ import { useAuth } from "./auth-provider";
 import { LogoutButton } from "./logout-button";
 import { Button } from "./ui";
 import { Modal } from "./ui/interactive";
+import { OrganizerLink } from "./organizer-link";
 import styles from "./site-header.module.css";
 function Navigation() {
   const { session } = useAuth();
@@ -21,7 +22,7 @@ function Navigation() {
     <>
       <Link href="/events">Browse events</Link>
       <Link href="/#how-it-works">How it works</Link>
-      <Link href="/#organizers">For organizers</Link>
+      <OrganizerLink />
       <Link href={session ? workspace : "/auth/sign-in"}>
         {session ? "My workspace" : "Sign in"}
       </Link>

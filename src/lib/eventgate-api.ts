@@ -85,7 +85,7 @@ export async function getPublicEvents(
     const response = await upstream(
       `events?${parameters.toString()}`,
       {
-        next: { revalidate: 60 },
+        cache: "no-store",
       },
       true,
     );
@@ -107,7 +107,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventResult> {
     const response = await upstream(
       `events/${encodeURIComponent(slug)}`,
       {
-        next: { revalidate: 60 },
+        cache: "no-store",
       },
       true,
     );
@@ -125,6 +125,46 @@ export async function getPublicEvent(slug: string): Promise<PublicEventResult> {
   } catch {
     return { status: "unavailable" };
   }
+}
+export async function getPublicFacets(): Promise<
+  | { status: "ready"; categories: string[]; cities: string[] }
+  | { status: "unavailable" }
+> {
+  try {
+    const response = await upstream(
+      "events/facets",
+      { cache: "no-store" },
+      true,
+    );
+    const data = parseEnvelope(
+      response,
+      await response.json(),
+      z.object({
+        categories: z.array(z.string()),
+        cities: z.array(z.string()),
+      }),
+    ).data;
+    return { status: "ready", ...data };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+export async function getUpcomingPublicEvents(): Promise<EventDiscoveryResult> {
+  const minute = Math.floor(Date.now() / 60000) * 60000;
+  const result = await getPublicEvents({
+    page: 1,
+    limit: 6,
+    sort: "soonest",
+    startAfter: new Date(minute).toISOString(),
+  });
+  if (result.status !== "ready") return result;
+  const now = Date.now();
+  return {
+    ...result,
+    events: result.events
+      .filter((event) => Date.parse(event.startAt) > now)
+      .slice(0, 6),
+  };
 }
 
 const publicEventSchema: z.ZodType<PublicEvent> = z.object({

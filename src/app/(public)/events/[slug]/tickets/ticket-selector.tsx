@@ -1,4 +1,6 @@
 "use client";
+import { getFreshAvailability } from "@/lib/public-availability";
+import { tierSaleState } from "@/lib/public-sale";
 import { formatMoney } from "@/lib/format";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateMutation } from "@/lib/query-keys";
@@ -18,17 +20,23 @@ import reservationStyles from "./reservation.module.css";
 type TicketSelectorProps = Readonly<{
   tiers: PublicTicketTier[];
   now: number;
+  slug: string;
+  eventStart: string;
 }>;
-
-const isOnSale = (tier: PublicTicketTier, now: number) =>
-  !tier.salesPaused &&
-  tier.availableQuantity > 0 &&
-  new Date(tier.salesStartAt).getTime() <= now &&
-  new Date(tier.salesEndAt).getTime() > now;
 
 const price = formatMoney;
 
-export function TicketSelector({ tiers, now }: TicketSelectorProps) {
+export function TicketSelector({
+  tiers: initialTiers,
+  now: initialNow,
+  slug,
+  eventStart,
+}: TicketSelectorProps) {
+  const [tiers, setTiers] = useState(initialTiers);
+  const [now, setNow] = useState(initialNow);
+  const [notice, setNotice] = useState("");
+  const isOnSale = (tier: PublicTicketTier, now: number) =>
+    tierSaleState(tier, eventStart, now) === "OPEN";
   const sellableTiers = tiers.filter((tier) => isOnSale(tier, now));
   const [selectedTierId, setSelectedTierId] = useState(
     sellableTiers[0]?.id ?? "",
@@ -53,6 +61,7 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
         : "There are no tickets available for online reservation.";
 
   const chooseTier = (id: string) => {
+    setNotice("");
     setSelectedTierId(id);
     setQuantity(1);
   };
@@ -65,11 +74,43 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
     }
     setIsReserving(true);
     try {
+      setNotice("");
+      const fresh = await getFreshAvailability(slug);
+      setTiers(fresh.ticketTiers);
+      setNow(Date.parse(fresh.serverTime));
+      const liveTier = fresh.ticketTiers.find(
+        (tier) => tier.id === selectedTier.id,
+      );
+      if (!liveTier?.canPurchase) {
+        setNotice(
+          "This tier is no longer on sale. Review the updated availability; no reservation was created.",
+        );
+        return;
+      }
+      const limit = Math.min(10, liveTier.availableQuantity);
+      if (quantity > limit) {
+        setQuantity(limit);
+        setNotice(
+          `Only ${limit} tickets are currently available. Review the updated quantity and reserve again.`,
+        );
+        return;
+      }
+      if (liveTier.pricePaisa !== selectedTier.pricePaisa) {
+        setNotice(
+          "The displayed price changed. Review the updated total before reserving again.",
+        );
+        return;
+      }
       const order = await reserveTickets(selectedTier.id, quantity);
       await invalidateMutation(queryClient, session.user.id, "order");
       toast.success("Tickets reserved for 15 minutes.");
       router.push(`/orders/${order.id}`);
     } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Reservation failed. Please retry.",
+      );
       toast.error(
         error instanceof OrderApiError
           ? error.message
@@ -82,6 +123,11 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
 
   return (
     <div className={styles.selector}>
+      {notice && (
+        <p className={styles.notice} role="alert">
+          {notice}
+        </p>
+      )}
       <section aria-labelledby="tiers-heading">
         <p className="eyebrow">
           <span /> Step 1 of 2

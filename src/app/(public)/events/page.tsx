@@ -1,20 +1,25 @@
 import Form from "next/form";
 import Link from "next/link";
 import { discoveryFilterSchema, nonEmptyParams } from "@/lib/filter-schemas";
-import { dhakaDayBounds, dhakaWeekend } from "@/lib/format";
+import { dhakaDayBounds, dhakaWeekend, utcToDhakaLocal } from "@/lib/format";
 import { DebouncedSearchInput } from "@/components/url-filters";
 import styles from "./events.module.css";
 import type { Metadata } from "next";
 import { Search } from "lucide-react";
 import { EventCard } from "@/components/event-card";
 
+import { PublicRetry } from "@/components/public-retry";
 import { EmptyState } from "@/components/empty-state";
-import { getPublicEvents, type EventDiscoveryQuery } from "@/lib/eventgate-api";
+import {
+  getPublicEvents,
+  getPublicFacets,
+  type EventDiscoveryQuery,
+} from "@/lib/eventgate-api";
 
 export const metadata: Metadata = {
   title: "Browse events",
   description:
-    "Discover published events and live ticket availability on EventGate.",
+    "Discover published events by city, category, date and current sales windows.",
 };
 
 type EventsPageProps = Readonly<{
@@ -27,6 +32,15 @@ const sortOptions = [
   { value: "newest", label: "Recently added" },
   { value: "title", label: "Title A-Z" },
 ] as const;
+
+const filterLabels: Record<string, string> = {
+  search: "Search",
+  city: "City",
+  category: "Category",
+  startDate: "From",
+  endDate: "Through",
+  sort: "Sort",
+};
 
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const rawQuery = await searchParams;
@@ -70,17 +84,33 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       ? dhakaDayBounds(filters.endDate).end
       : undefined,
   };
-  const result = parsed.success ? await getPublicEvents(query) : null;
-  const href = (page: number, overrides: Record<string, string> = {}) => {
+  const [result, facets] = await Promise.all([
+    parsed.success ? getPublicEvents(query) : Promise.resolve(null),
+    getPublicFacets(),
+  ]);
+  const cities = facets.status === "ready" ? facets.cities : [];
+  const categories = facets.status === "ready" ? facets.categories : [];
+  const href = (
+    page: number,
+    overrides: Record<string, string | undefined> = {},
+  ) => {
     const params = new URLSearchParams(
       Object.entries(filters).map(([key, value]) => [key, String(value)]),
     );
     params.set("page", String(page));
     for (const [key, value] of Object.entries(overrides))
-      params.set(key, value);
+      if (value === undefined) params.delete(key);
+      else params.set(key, value);
     return "/events?" + params;
   };
   const weekend = dhakaWeekend();
+  const today = utcToDhakaLocal(new Date().toISOString()).slice(0, 10);
+  const chips = Object.entries(filters).filter(
+    ([key, value]) =>
+      key !== "page" &&
+      value !== undefined &&
+      !(key === "sort" && value === "soonest"),
+  );
   return (
     <>
       <main
@@ -97,8 +127,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
             <b>next room.</b>
           </h1>
           <p>
-            Every listing is live from EventGate. Search the programme, then
-            narrow it by what matters to you.
+            Browse actual published events. Search the programme, then narrow it
+            by what matters to you.
           </p>
         </header>
 
@@ -125,8 +155,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               key={String(draft.city ?? "")}
               {...field("city")}
               maxLength={100}
+              list="discovery-cities"
               placeholder="Any city"
             />
+            <datalist id="discovery-cities">
+              {cities.map((city) => (
+                <option key={city} value={city} />
+              ))}
+            </datalist>
             {fieldError("city")}
           </label>
           <label>
@@ -135,8 +171,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               key={String(draft.category ?? "")}
               {...field("category")}
               maxLength={80}
+              list="discovery-categories"
               placeholder="Any category"
             />
+            <datalist id="discovery-categories">
+              {categories.map((category) => (
+                <option key={category} value={category} />
+              ))}
+            </datalist>
             {fieldError("category")}
           </label>
           <label>
@@ -179,12 +221,44 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </button>
         </Form>
 
-        <p>
+        <nav className={styles.shortcuts} aria-label="Date shortcuts">
+          <Link href={href(1, { startDate: today, endDate: today })}>
+            Today (Bangladesh)
+          </Link>
           <Link href={href(1, weekend)}>
             Bangladesh weekend: Friday–Saturday
           </Link>{" "}
-          · <Link href="/events">Clear filters</Link>
+          <span>Or choose a custom range above.</span>
+          <Link href="/events">Clear all</Link>
+        </nav>
+        {chips.length > 0 && (
+          <nav className={styles.chips} aria-label="Active filters">
+            {chips.map(([key, value]) => (
+              <Link
+                key={key}
+                href={href(1, { [key]: undefined })}
+                aria-label={`Remove ${filterLabels[key] ?? key} filter: ${value}`}
+              >
+                {filterLabels[key] ?? key}:{" "}
+                {key === "sort"
+                  ? (sortOptions.find((option) => option.value === value)
+                      ?.label ?? String(value))
+                  : String(value)}{" "}
+                ×
+              </Link>
+            ))}
+          </nav>
+        )}
+        <p className={styles.availability}>
+          Availability updated recently. Listings may be cached for up to 60
+          seconds; reservation checks use fresh stock.
         </p>
+        {facets.status === "unavailable" && (
+          <p role="status">
+            City/category suggestions are unavailable. You can still enter
+            filters directly.
+          </p>
+        )}
         {!parsed.success ? (
           <p role="alert">
             {parsed.error.issues
@@ -194,12 +268,28 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         ) : !result || result.status === "unavailable" ? (
           <EmptyState
             title="The listings are taking a breath."
-            description="EventGate could not reach the events service just now. Please try again in a moment."
+            description="The events service could not be reached. Your filters and navigation still work."
+            action={<PublicRetry />}
+          />
+        ) : result.meta.page > Math.max(1, result.meta.totalPages) ? (
+          <EmptyState
+            title="That result page is no longer available."
+            description="The matching programme has changed. Return to page one with your current filters."
+            action={
+              <Link className="button" href={href(1)}>
+                Reset to page one
+              </Link>
+            }
           />
         ) : result.events.length === 0 ? (
           <EmptyState
             title="No events match this search."
             description="Try a broader search, another city, or clear a filter to see every published event."
+            action={
+              <Link href="/events" className="button">
+                Clear all filters
+              </Link>
+            }
           />
         ) : (
           <>
