@@ -22,6 +22,7 @@ export function EventTabs({ eventId }: { eventId: string }) {
           ["/orders", "Orders"],
           ["/check-in", "Check-in"],
           ["/reports", "Reports"],
+          ["/preview", "Private preview"],
         ].map(([path, label]) => (
           <Link
             key={path}

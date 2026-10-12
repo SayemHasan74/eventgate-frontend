@@ -8,7 +8,6 @@ import {
   ClipboardCheck,
   LoaderCircle,
   ScanLine,
-  Ticket,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -23,6 +22,8 @@ import {
 import { checkInFormSchema } from "@/lib/form-schemas";
 import { toast } from "sonner";
 
+import { ErrorState } from "@/components/ui/interactive";
+import { formatEventRange } from "@/lib/format";
 import { useAuth } from "@/components/auth-provider";
 import {
   checkInTicket,
@@ -55,6 +56,8 @@ export function CheckInDesk() {
   const eventsQuery = useQuery({
     queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
     queryFn: () => getManagedEvent(eventId),
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
@@ -92,6 +95,13 @@ export function CheckInDesk() {
         </Link>
       </section>
     );
+  if (eventsQuery.isError)
+    return (
+      <ErrorState
+        message={eventsQuery.error.message}
+        retry={() => void eventsQuery.refetch()}
+      />
+    );
   if (!event)
     return (
       <section className={styles.gate}>
@@ -103,21 +113,6 @@ export function CheckInDesk() {
         </Link>
       </section>
     );
-  if (event.status !== "PUBLISHED")
-    return (
-      <section className={styles.gate}>
-        <Ticket size={29} aria-hidden="true" />
-        <h1>Check-in opens after publishing.</h1>
-        <p>Publish this event before its guests can be checked in.</p>
-        <Link
-          className="button button-primary"
-          href={`/organizer/events/${event.id}/publish`}
-        >
-          Review event
-        </Link>
-      </section>
-    );
-
   const records = historyQuery.data?.records ?? [];
   return (
     <div className={styles.desk}>
@@ -139,37 +134,55 @@ export function CheckInDesk() {
               Check in a <b>guest.</b>
             </h2>
           </div>
-          <form noValidate onSubmit={submit} id="check-in-form">
-            <FormFeedback form={form} />
-            <label>
-              <span>QR ticket token</span>
-              <input
-                minLength={40}
-                {...field("qrToken")}
-                autoComplete="off"
-                maxLength={128}
-                placeholder="Paste the ticket QR token"
-                required
-              />
-              <FormFeedback
-                form={form}
-                name="qrToken"
-                id={field.errorId("qrToken")}
-              />
-            </label>
-            <button
-              className="button button-primary"
-              disabled={isCheckingIn}
-              type="submit"
-            >
-              {isCheckingIn ? (
-                <LoaderCircle className={styles.spinner} size={17} />
-              ) : (
-                <CheckCircle2 size={17} />
-              )}{" "}
-              {isCheckingIn ? "Validating ticket" : "Check in guest"}
-            </button>
-          </form>
+          {event.checkInWindow.isOpen ? (
+            <form noValidate onSubmit={submit} id="check-in-form">
+              <FormFeedback form={form} />
+              <label>
+                <span>QR ticket token</span>
+                <input
+                  minLength={40}
+                  {...field("qrToken")}
+                  autoComplete="off"
+                  maxLength={128}
+                  placeholder="Paste the ticket QR token"
+                  required
+                />
+                <FormFeedback
+                  form={form}
+                  name="qrToken"
+                  id={field.errorId("qrToken")}
+                />
+              </label>
+              <button
+                className="button button-primary"
+                disabled={isCheckingIn}
+                type="submit"
+              >
+                {isCheckingIn ? (
+                  <LoaderCircle className={styles.spinner} size={17} />
+                ) : (
+                  <CheckCircle2 size={17} />
+                )}{" "}
+                {isCheckingIn ? "Validating ticket" : "Check in guest"}
+              </button>
+            </form>
+          ) : (
+            <div>
+              <p>
+                Admission is closed for this event. The saved check-in history
+                remains available below.
+              </p>
+              <p>
+                {formatEventRange(
+                  event.checkInWindow.opensAt,
+                  event.checkInWindow.closesAt,
+                )}
+              </p>
+              <Link className="button" href={`/organizer/events/${event.id}`}>
+                Back to event overview
+              </Link>
+            </div>
+          )}
         </section>
         <aside className={styles.total}>
           <span>Checked in</span>

@@ -5,7 +5,8 @@ import { invalidateMutation } from "@/lib/query-keys";
 import { ArrowRight, LoaderCircle, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
+import { EventImage } from "@/components/event-image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import {
@@ -65,6 +66,8 @@ export function EventForm({ initialEvent }: { initialEvent?: ManagedEvent }) {
         },
   });
   const field = useFormFields(form);
+  const imageUrl = useWatch({ control: form.control, name: "imageUrl" });
+  const title = useWatch({ control: form.control, name: "title" });
   const isSubmitting = form.formState.isSubmitting;
   useUnsavedChanges(form.formState.isDirty);
   const allowed =
@@ -309,6 +312,13 @@ export function EventForm({ initialEvent }: { initialEvent?: ManagedEvent }) {
             />
           </label>
         </div>
+      </section>
+      <section className={styles.preview}>
+        <h2>Image preview</h2>
+        <EventImage
+          src={imageUrl?.trim() || null}
+          title={title || "Event image preview"}
+        />
       </section>
       <div className={styles.actions}>
         <Link

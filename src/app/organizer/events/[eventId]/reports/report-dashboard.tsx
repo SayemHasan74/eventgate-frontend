@@ -22,11 +22,12 @@ import {
   YAxis,
 } from "recharts";
 
+import { ErrorState } from "@/components/ui/interactive";
 import { useAuth } from "@/components/auth-provider";
 import {
   getEventOrders,
   getEventReport,
-  getManagedEvents,
+  getManagedEvent,
   OrganizerApiError,
 } from "@/lib/organizer-api";
 
@@ -48,8 +49,8 @@ export function ReportDashboard() {
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
-    queryFn: () => getManagedEvents(),
+    queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
+    queryFn: () => getManagedEvent(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
@@ -67,9 +68,7 @@ export function ReportDashboard() {
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.data.find(
-    (candidate) => candidate.id === eventId,
-  );
+  const event = eventsQuery.data;
 
   if (!isReady || eventsQuery.isLoading)
     return <p className={styles.loading}>Loading event reports…</p>;
@@ -83,6 +82,13 @@ export function ReportDashboard() {
           Organizer workspace
         </Link>
       </section>
+    );
+  if (eventsQuery.isError)
+    return (
+      <ErrorState
+        message={eventsQuery.error.message}
+        retry={() => void eventsQuery.refetch()}
+      />
     );
   if (!event)
     return (

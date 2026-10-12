@@ -1,245 +1,296 @@
 "use client";
 import Form from "next/form";
-import { privateKey } from "@/lib/query-keys";
-
-import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  CalendarDays,
-  CirclePlus,
-  FilePenLine,
-  LayoutDashboard,
-  MapPin,
-} from "lucide-react";
 import Link from "next/link";
-import { useUrlFilters, DebouncedSearchInput } from "@/components/url-filters";
-import { eventListFilterSchema } from "@/lib/filter-schemas";
-import { FilterBar, Select } from "@/components/ui";
-import { Pagination, ErrorState } from "@/components/ui/interactive";
-
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { getManagedEvents, OrganizerApiError } from "@/lib/organizer-api";
-
+import { useUrlFilters, DebouncedSearchInput } from "@/components/url-filters";
+import { EmptyState } from "@/components/empty-state";
+import {
+  FilterBar,
+  Input,
+  Select,
+  Skeleton,
+  MetricCard,
+  LinkButton,
+  StatusBadge,
+} from "@/components/ui";
+import { ErrorState, Pagination } from "@/components/ui/interactive";
+import { managedEventFilterSchema } from "@/lib/filter-schemas";
+import { privateKey } from "@/lib/query-keys";
+import { dhakaDayBounds, formatEventRange } from "@/lib/format";
+import { getManagedEvents, getOrganizerOverview } from "@/lib/organizer-api";
+import shell from "@/components/workspace.module.css";
 import styles from "./organizer.module.css";
-
-const formatDate = (date: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(date));
-
+type EventSummary = Awaited<
+  ReturnType<typeof getOrganizerOverview>
+>["recentEvents"][number];
+function EventCards({ events }: { events: EventSummary[] }) {
+  return (
+    <div className={styles.eventList}>
+      {events.map((event) => (
+        <Link
+          className={styles.eventCard}
+          key={event.id}
+          href={`/organizer/events/${event.id}`}
+        >
+          <div>
+            <StatusBadge status={event.status} />
+            <h3>{event.title}</h3>
+            <p>{formatEventRange(event.startAt, event.endAt)}</p>
+            <p>
+              {event.venue}, {event.city}
+            </p>
+          </div>
+          <span aria-hidden="true">→</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+function OrganizerOverview() {
+  const { session } = useAuth();
+  const query = useQuery({
+    queryKey: privateKey("organizer-overview", session?.user.id, "summary", {}),
+    queryFn: getOrganizerOverview,
+    enabled: !!session,
+  });
+  return (
+    <div className={styles.dashboard}>
+      <header className={styles.hero}>
+        <div>
+          <h1>Organizer overview</h1>
+          <p>
+            {session?.user.role === "ADMIN"
+              ? "A summary of all managed events."
+              : "Your upcoming programme, drafts needing attention, and confirmed activity."}
+          </p>
+        </div>
+        <LinkButton variant="primary" href="/organizer/events/new">
+          Create event
+        </LinkButton>
+      </header>
+      <div className={styles.quickLinks}>
+        <LinkButton href="/organizer/events">Full event catalogue</LinkButton>
+        <LinkButton href="/organizer/events?status=DRAFT">
+          All drafts
+        </LinkButton>
+        <LinkButton href="/organizer/events?status=COMPLETED">
+          Completed events
+        </LinkButton>
+        <LinkButton href="/organizer/events?status=CANCELLED">
+          Cancelled events
+        </LinkButton>
+      </div>
+      {query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : (
+        <>
+          <div className={shell.metrics}>
+            <MetricCard
+              label="All managed events"
+              value={Object.values(query.data.eventsByStatus).reduce(
+                (sum, value) => sum + value,
+                0,
+              )}
+            />
+            <MetricCard
+              label="Published"
+              value={query.data.eventsByStatus.PUBLISHED ?? 0}
+            />
+            <MetricCard
+              label="Drafts"
+              value={query.data.eventsByStatus.DRAFT ?? 0}
+            />
+            <MetricCard label="Paid orders" value={query.data.paidOrders} />
+            <MetricCard
+              label="Active tickets"
+              value={query.data.activeTickets}
+            />
+          </div>
+          <section className={styles.events}>
+            <h2>Upcoming published events</h2>
+            <p className={styles.muted}>
+              The next five events, ordered by start time.
+            </p>
+            {query.data.upcomingEvents.length ? (
+              <EventCards events={query.data.upcomingEvents} />
+            ) : (
+              <EmptyState
+                title="No upcoming published events."
+                description="Finish a draft and review publication to open ticket sales."
+                action={
+                  <LinkButton href="/organizer/events?status=DRAFT">
+                    Find a draft
+                  </LinkButton>
+                }
+              />
+            )}
+          </section>
+          <section className={styles.events}>
+            <h2>Drafts needing work</h2>
+            <p className={styles.muted}>
+              Your five most recently updated drafts. Open an overview to follow
+              its setup checklist.
+            </p>
+            {query.data.draftEvents.length ? (
+              <EventCards events={query.data.draftEvents} />
+            ) : (
+              <EmptyState
+                title="No drafts waiting."
+                description="Create a new event to start your next programme."
+                action={
+                  <LinkButton href="/organizer/events/new">
+                    Create event
+                  </LinkButton>
+                }
+              />
+            )}
+          </section>
+          <section className={styles.events}>
+            <h2>Recently updated</h2>
+            {query.data.recentEvents.length ? (
+              <EventCards events={query.data.recentEvents} />
+            ) : (
+              <p>No event activity yet.</p>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+function EventCatalogue() {
+  const { session } = useAuth();
+  const filters = useUrlFilters(managedEventFilterSchema);
+  const { page, search = "", status = "", startDate, endDate } = filters.values;
+  const query = useQuery({
+    queryKey: privateKey(
+      "organizer-events",
+      session?.user.id,
+      "list",
+      filters.values,
+    ),
+    queryFn: () =>
+      getManagedEvents(
+        new URLSearchParams({
+          page: String(page),
+          limit: "20",
+          ...(search ? { search } : {}),
+          ...(status ? { status } : {}),
+          ...(startDate ? { startAfter: dhakaDayBounds(startDate).start } : {}),
+          ...(endDate ? { startBefore: dhakaDayBounds(endDate).end } : {}),
+        }),
+      ),
+    enabled: !!session && filters.valid,
+  });
+  return (
+    <div className={styles.dashboard}>
+      <header className={styles.hero}>
+        <div>
+          <h1>Event catalogue</h1>
+          <p>
+            Search across every lifecycle state. Dates filter event starts in
+            Bangladesh time.
+          </p>
+        </div>
+        <LinkButton variant="primary" href="/organizer/events/new">
+          Create event
+        </LinkButton>
+      </header>
+      <FilterBar>
+        <Form scroll={false} action="/organizer/events">
+          <input type="hidden" name="page" value="1" />
+          <label>
+            Search events
+            <DebouncedSearchInput
+              styled
+              name="search"
+              defaultValue={search}
+              maxLength={120}
+            />
+          </label>
+          <label>
+            Status
+            <Select key={status} name="status" defaultValue={status}>
+              <option value="">All states</option>
+              {["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"].map((state) => (
+                <option key={state}>{state}</option>
+              ))}
+            </Select>
+          </label>
+          <label>
+            From (Bangladesh date)
+            <Input
+              key={startDate ?? "from"}
+              name="startDate"
+              type="date"
+              defaultValue={startDate}
+            />
+          </label>
+          <label>
+            Through (Bangladesh date)
+            <Input
+              key={endDate ?? "through"}
+              name="endDate"
+              type="date"
+              defaultValue={endDate}
+            />
+          </label>
+          <button className="button" type="submit">
+            Apply filters
+          </button>
+          <Link href="/organizer/events">Clear filters</Link>
+        </Form>
+      </FilterBar>
+      {!filters.valid ? (
+        <p role="alert">{filters.error}</p>
+      ) : query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : (
+        <>
+          <p>{query.data.meta.total} matching events</p>
+          {query.data.data.length ? (
+            <EventCards
+              events={query.data.data.map((event) => ({
+                ...event,
+                deletedAt: null,
+              }))}
+            />
+          ) : (
+            <EmptyState
+              title="No matching events."
+              description="Clear filters or create your first draft."
+              action={
+                <LinkButton href="/organizer/events/new">
+                  Create event
+                </LinkButton>
+              }
+            />
+          )}
+          <Pagination
+            page={page}
+            totalPages={query.data.meta.totalPages}
+            onPageChange={filters.setPage}
+          />
+        </>
+      )}
+    </div>
+  );
+}
 export function OrganizerDashboard({
   catalogue = false,
 }: {
   catalogue?: boolean;
 }) {
-  const { isReady, session } = useAuth();
-  const filters = useUrlFilters(eventListFilterSchema);
-  const { page, search = "", status = "" } = filters.values;
-  const setPage = filters.setPage;
-  const allowed =
-    session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
-  const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, "list", {
-      page,
-      search,
-      status,
-      catalogue,
-    }),
-    queryFn: () =>
-      getManagedEvents(
-        new URLSearchParams({
-          page: String(page),
-          limit: catalogue ? "20" : "5",
-          ...(search ? { search } : {}),
-          ...(status ? { status } : {}),
-        }),
-      ),
-    enabled: isReady && Boolean(session) && allowed && filters.valid,
-    retry: false,
-  });
-
-  if (!isReady) return <div className={styles.loading}>Opening workspace…</div>;
-  if (!session)
-    return (
-      <section className={styles.gate}>
-        <LayoutDashboard size={29} aria-hidden="true" />
-        <h1>Sign in to access organizer tools.</h1>
-        <p>
-          Organizers manage their published events from a separate workspace.
-        </p>
-        <Link
-          className="button button-primary"
-          href="/auth/sign-in?next=/organizer"
-        >
-          Sign in <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  if (!allowed)
-    return (
-      <section className={styles.gate}>
-        <LayoutDashboard size={29} aria-hidden="true" />
-        <h1>Organizer access required.</h1>
-        <p>
-          Your current account is an attendee account. An administrator must
-          assign an organizer role before you can manage events.
-        </p>
-        <Link className="button button-primary" href="/account">
-          My account <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-
-  const events = eventsQuery.data?.data ?? [];
-  const drafts = events.filter((event) => event.status === "DRAFT").length;
-  const published = events.filter(
-    (event) => event.status === "PUBLISHED",
-  ).length;
-  return (
-    <div className={styles.dashboard}>
-      <header className={styles.hero}>
-        <div>
-          <p className="eyebrow">
-            <span /> Organizer workspace
-          </p>
-          <h1>{catalogue ? "Your event catalogue" : "Organizer overview"}</h1>
-          <p>
-            Manage event fundamentals here. Ticket tiers, publishing, check-in,
-            and reporting follow as dedicated tools.
-          </p>
-        </div>
-        <Link className="button button-primary" href="/organizer/events/new">
-          <CirclePlus size={17} /> Create event
-        </Link>
-      </header>
-      {!catalogue && (
-        <section className={styles.stats} aria-label="Event statistics">
-          <div>
-            <span>All events</span>
-            <strong>{eventsQuery.data?.meta.total ?? "—"}</strong>
-          </div>
-          <div>
-            <span>Published in recent events</span>
-            <strong>{published}</strong>
-          </div>
-          <div>
-            <span>Drafts in recent events</span>
-            <strong>{drafts}</strong>
-          </div>
-        </section>
-      )}
-      {catalogue && (
-        <FilterBar>
-          <Form scroll={false} action="/organizer/events">
-            <input type="hidden" name="page" value="1" />
-            <input type="hidden" name="status" value={status} />
-            <label>
-              Search events
-              <DebouncedSearchInput
-                styled
-                name="search"
-                defaultValue={search}
-                maxLength={120}
-              />
-            </label>
-            <button className="button" type="submit">
-              Search
-            </button>
-          </Form>
-          <label>
-            Status
-            <Select
-              value={status}
-              onChange={(event) => {
-                filters.update("status", event.target.value);
-              }}
-            >
-              <option value="">All states</option>
-              {["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </Select>
-          </label>
-        </FilterBar>
-      )}
-      <section
-        className={styles.events}
-        aria-labelledby="managed-events-heading"
-      >
-        <div className={styles.eventsHeading}>
-          <div>
-            <p className="eyebrow">
-              <span /> Your programme
-            </p>
-            <h2 id="managed-events-heading">
-              Managed <b>events.</b>
-            </h2>
-          </div>
-        </div>
-        {!filters.valid ? (
-          <p role="alert">{filters.error}</p>
-        ) : eventsQuery.isLoading ? (
-          <p className={styles.muted}>Loading your events…</p>
-        ) : eventsQuery.isError ? (
-          <ErrorState
-            message={
-              eventsQuery.error instanceof OrganizerApiError
-                ? eventsQuery.error.message
-                : "Your events could not be loaded."
-            }
-            retry={() => void eventsQuery.refetch()}
-          />
-        ) : events.length === 0 ? (
-          <div className={styles.empty}>
-            <CalendarDays size={26} aria-hidden="true" />
-            <h3>Your programme is clear.</h3>
-            <p>
-              Create a draft event, then add ticket tiers before you publish it.
-            </p>
-            <Link
-              className="button button-primary"
-              href="/organizer/events/new"
-            >
-              Create event <ArrowRight size={16} />
-            </Link>
-          </div>
-        ) : (
-          <div className={styles.eventList}>
-            {events.map((event) => (
-              <Link
-                className={styles.eventCard}
-                href={`/organizer/events/${event.id}`}
-                key={event.id}
-              >
-                <div>
-                  <span className={styles.status}>{event.status}</span>
-                  <h3>{event.title}</h3>
-                  <p>
-                    <CalendarDays size={14} /> {formatDate(event.startAt)} <i />{" "}
-                    <MapPin size={14} /> {event.city}
-                  </p>
-                </div>
-                <FilePenLine size={19} aria-hidden="true" />
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-      {catalogue && eventsQuery.data && (
-        <Pagination
-          page={page}
-          totalPages={eventsQuery.data.meta.totalPages}
-          onPageChange={setPage}
-        />
-      )}
-      {!catalogue && (
-        <Link className="text-link" href="/organizer/events">
-          Open the event catalogue
-        </Link>
-      )}
-    </div>
-  );
+  return catalogue ? <EventCatalogue /> : <OrganizerOverview />;
 }

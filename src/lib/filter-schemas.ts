@@ -52,6 +52,13 @@ export const discoveryFilterSchema = listFilterSchema
       !value.startDate || !value.endDate || value.startDate <= value.endDate,
     { path: ["endDate"], message: "End date must be on or after start date." },
   );
+export const managedEventFilterSchema = eventListFilterSchema
+  .extend({ startDate: day, endDate: day })
+  .refine(
+    (value) =>
+      !value.startDate || !value.endDate || value.startDate <= value.endDate,
+    { path: ["endDate"], message: "End date must be on or after start date." },
+  );
 export function nonEmptyParams(
   params: URLSearchParams | Record<string, string | string[] | undefined>,
 ) {

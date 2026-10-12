@@ -77,6 +77,7 @@ export type CreateTicketTierInput = Omit<
 const timestamp = z.iso.datetime({ offset: true });
 const eventCapabilitiesSchema = z.object({
   editable: z.boolean(),
+  editableFields: z.array(z.string()),
   canPublish: z.boolean(),
   canCancel: z.boolean(),
   canDelete: z.boolean(),
@@ -105,12 +106,61 @@ export const getManagedEvent = (id: string) =>
       eventSchema,
       z.object({
         capabilities: eventCapabilitiesSchema,
+        setupChecks: z.object({
+          futureStart: z.boolean(),
+          validDates: z.boolean(),
+          hasActiveTier: z.boolean(),
+        }),
+        checkInWindow: z.object({
+          opensAt: timestamp,
+          closesAt: timestamp,
+          isOpen: z.boolean(),
+        }),
+        cancellationImpact: z.object({
+          paidOrders: z.number().int().nonnegative(),
+          activeTickets: z.number().int().nonnegative(),
+          pendingOrders: z.number().int().nonnegative(),
+        }),
+        cancellationState: z.object({
+          cancelledAt: timestamp.nullable(),
+          dispatchStatus: z
+            .enum(["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"])
+            .nullable(),
+          dispatchCompletedAt: timestamp.nullable(),
+          refundsByStatus: z.record(z.string(), z.number().int().nonnegative()),
+        }),
+        serverTime: timestamp,
         _count: z.object({
           orders: z.number().int().nonnegative(),
           ticketTiers: z.number().int().nonnegative(),
         }),
       }),
     ),
+  );
+export type ManagedEventDetail = Awaited<ReturnType<typeof getManagedEvent>>;
+const eventSummarySchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  slug: z.string(),
+  status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"]),
+  venue: z.string(),
+  city: z.string(),
+  startAt: timestamp,
+  endAt: timestamp,
+  deletedAt: timestamp.nullable(),
+});
+export const getOrganizerOverview = () =>
+  apiClient(
+    "/api/organizer/overview",
+    z.object({
+      eventsByStatus: z.record(z.string(), z.number().int().nonnegative()),
+      paidOrders: z.number().int().nonnegative(),
+      activeTickets: z.number().int().nonnegative(),
+      recentEvents: z.array(eventSummarySchema),
+      upcomingEvents: z.array(eventSummarySchema),
+      draftEvents: z.array(eventSummarySchema),
+      serverTime: timestamp,
+    }),
   );
 const tierSchema: z.ZodType<TicketTier> = z.object({
   id: z.uuid(),
@@ -202,6 +252,10 @@ export const deleteTicketTier = (id: string, tierId: string) =>
   );
 export const publishManagedEvent = (id: string) =>
   apiClient(eventPath(id) + "/publish", eventSchema, { method: "POST" });
+export const cancelManagedEvent = (id: string) =>
+  apiClient(eventPath(id) + "/cancel", eventSchema, { method: "POST" });
+export const getManagedTiers = (id: string, filters = new URLSearchParams()) =>
+  apiList(eventPath(id) + "/ticket-tiers?" + filters, tierSchema);
 export async function getCheckInHistory(
   id: string,
   filters = new URLSearchParams(),

@@ -3,6 +3,8 @@ export const mutationDomains = {
   profile: ["users", "identity", "checkout"],
   event: [
     "organizer-events",
+    "organizer-overview",
+    "organizer-tiers",
     "organizer-reports",
     "discovery",
     "readiness",
@@ -12,8 +14,16 @@ export const mutationDomains = {
     "admin-audit",
     "admin-audit-logs",
   ],
-  tier: ["organizer-events", "organizer-reports", "discovery", "readiness"],
+  tier: [
+    "organizer-events",
+    "organizer-overview",
+    "organizer-tiers",
+    "organizer-reports",
+    "discovery",
+    "readiness",
+  ],
   order: [
+    "organizer-overview",
     "orders",
     "payments",
     "overview",
@@ -23,6 +33,7 @@ export const mutationDomains = {
     "organizer-reports",
   ],
   payment: [
+    "organizer-overview",
     "orders",
     "payments",
     "overview",
@@ -35,6 +46,7 @@ export const mutationDomains = {
     "admin-stats",
   ],
   refund: [
+    "organizer-overview",
     "refunds",
     "orders",
     "tickets",
@@ -46,7 +58,13 @@ export const mutationDomains = {
     "admin-audit",
     "admin-audit-logs",
   ],
-  checkIn: ["check-ins", "organizer-events", "organizer-reports", "tickets"],
+  checkIn: [
+    "check-ins",
+    "organizer-overview",
+    "organizer-events",
+    "organizer-reports",
+    "tickets",
+  ],
   adminUser: [
     "admin-users",
     "admin-stats",
