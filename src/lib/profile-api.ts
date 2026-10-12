@@ -13,6 +13,7 @@ export type Profile = {
   role: string;
   status: string;
   createdAt: string;
+  googleLinked: boolean;
 };
 
 export type CheckoutProfileInput = Pick<
@@ -33,9 +34,17 @@ const profileSchema: z.ZodType<Profile> = z.object({
   role: z.enum(["ATTENDEE", "ORGANIZER", "ADMIN"]),
   status: z.enum(["ACTIVE", "SUSPENDED"]),
   createdAt: z.iso.datetime({ offset: true }),
+  googleLinked: z.boolean(),
 });
 export const getProfile = () => apiClient("/api/users/me", profileSchema);
 export const updateCheckoutProfile = (input: CheckoutProfileInput) =>
+  apiClient("/api/users/me", profileSchema, {
+    method: "PATCH",
+    ...jsonBody(input),
+  });
+export const updateProfile = (
+  input: CheckoutProfileInput & { displayName: string },
+) =>
   apiClient("/api/users/me", profileSchema, {
     method: "PATCH",
     ...jsonBody(input),

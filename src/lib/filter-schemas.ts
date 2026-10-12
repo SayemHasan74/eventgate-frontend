@@ -15,7 +15,7 @@ export const listFilterSchema = z.object({
 export const eventListFilterSchema = listFilterSchema.extend({
   status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"]).optional(),
 });
-export const orderListFilterSchema = listFilterSchema.extend({
+const orderStatusFilterSchema = listFilterSchema.extend({
   status: z
     .enum(["PENDING_PAYMENT", "PAID", "REFUNDED", "CANCELLED", "EXPIRED"])
     .optional(),
@@ -38,6 +38,13 @@ const day = z
     }
   }, "Enter a valid Bangladesh date.")
   .optional();
+export const orderListFilterSchema = orderStatusFilterSchema
+  .extend({ startDate: day, endDate: day })
+  .refine(
+    (value) =>
+      !value.startDate || !value.endDate || value.startDate <= value.endDate,
+    { path: ["endDate"], message: "End date must be on or after start date." },
+  );
 export const discoveryFilterSchema = listFilterSchema
   .omit({ status: true })
   .extend({

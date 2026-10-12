@@ -156,6 +156,13 @@ export const orderDetailSchema = orderSchema.and(
     cancellable: z.boolean(),
     financialReviewRequired: z.boolean(),
     fulfilledPaymentAttemptId: z.uuid().nullable(),
+    paidAt: timestamp.nullable(),
+    refundedAt: timestamp.nullable(),
+    refundEligibility: z.object({
+      eligible: z.boolean(),
+      reasons: z.array(z.string()),
+      deadline: timestamp.optional(),
+    }),
     refunds: z.array(refundSchema),
     ticketIds: z.array(z.uuid()),
     event: z.object({

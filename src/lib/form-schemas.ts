@@ -142,6 +142,14 @@ export const profileFormSchema = z.object({
 export const refundMessageSchema = z.object({
   userMessage: z.string().trim().max(1000),
 });
+export const accountProfileFormSchema = profileFormSchema.extend({
+  displayName: z.string().trim().min(2).max(120),
+  phone: profileFormSchema.shape.phone.or(z.literal("")),
+  address: profileFormSchema.shape.address.or(z.literal("")),
+  city: profileFormSchema.shape.city.or(z.literal("")),
+  postalCode: profileFormSchema.shape.postalCode.or(z.literal("")),
+  country: profileFormSchema.shape.country.or(z.literal("")),
+});
 export const refundReviewSchema = z
   .object({
     decision: z.enum(["approve", "reject"]),

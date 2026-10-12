@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Clock3, LoaderCircle, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
-import { getOrder, cancelOrder, OrderApiError } from "@/lib/order-api";
+import { getOrder, cancelOrder } from "@/lib/order-api";
+import { ReadFailure } from "@/components/read-failure";
+import { PurchaseReceipt } from "@/components/purchase-receipt";
 import { formatMoney, formatEventDate } from "@/lib/format";
 import { privateKey, invalidateMutation } from "@/lib/query-keys";
 import { useReservationClock } from "@/lib/reservation-clock";
@@ -24,9 +26,10 @@ export function OrderStatus({ orderId }: { orderId: string }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const refetch = query.refetch;
   const refresh = useCallback(() => {
-    if (session?.user.role === "ATTENDEE") void query.refetch();
-  }, [session?.user.role, query.refetch]);
+    if (session?.user.role === "ATTENDEE") void refetch();
+  }, [session?.user.role, refetch]);
   const order = query.data;
   const pending = order?.status === "PENDING_PAYMENT";
   const remaining = useReservationClock(
@@ -82,11 +85,12 @@ export function OrderStatus({ orderId }: { orderId: string }) {
       <section className={styles.notice}>
         <ReceiptText size={27} />
         <h1>We could not open this order.</h1>
-        <p>
-          {query.error instanceof OrderApiError
-            ? query.error.message
-            : "Please retry from your orders."}
-        </p>
+        <ReadFailure
+          error={query.error}
+          retry={refresh}
+          fetching={query.isFetching}
+          next={`/orders/${orderId}`}
+        />
         <button
           className="button"
           type="button"
@@ -133,6 +137,19 @@ export function OrderStatus({ orderId }: { orderId: string }) {
             {heading}
           </p>
           <h1>{order.eventNameSnapshot}</h1>
+          <p>
+            Current event status:{" "}
+            <strong>{order.event.status.replaceAll("_", " ")}</strong> ·{" "}
+            <Link href={`/events/${order.event.slug}`}>Event details</Link>
+          </p>
+          {order.paidAt && (
+            <p>Paid at {formatEventDate(order.paidAt)} (Bangladesh time).</p>
+          )}
+          {order.refundedAt && (
+            <p>
+              Refunded at {formatEventDate(order.refundedAt)} (Bangladesh time).
+            </p>
+          )}
           <div className={styles.lineItem}>
             <div>
               <strong>{order.ticketTierNameSnapshot}</strong>
@@ -231,7 +248,37 @@ export function OrderStatus({ orderId }: { orderId: string }) {
         </footer>
       </div>
       <CheckoutPanel key={order.id} order={order} payable={payable} />
-      <RefundAction orderId={order.id} status={order.status} />
+      <section className={styles.receipt}>
+        <div className={styles.content}>
+          <h2>Payment attempt history</h2>
+          {order.paymentAttempts.length ? (
+            <ul>
+              {order.paymentAttempts.map((attempt) => (
+                <li key={attempt.id}>
+                  Attempt #{attempt.id.slice(0, 8)} · {attempt.status} ·{" "}
+                  {formatMoney(attempt.amountPaisa)} · Started{" "}
+                  {formatEventDate(attempt.initiatedAt)}
+                  {attempt.completedAt
+                    ? ` · Completed ${formatEventDate(attempt.completedAt)}`
+                    : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No payment attempt has been started.</p>
+          )}
+          <Link className="text-link" href={`/payment/status`}>
+            Payment recovery guidance →
+          </Link>
+          <PurchaseReceipt order={order} />
+        </div>
+      </section>
+      <RefundAction
+        orderId={order.id}
+        status={order.status}
+        eligible={order.refundEligibility.eligible}
+        reasons={order.refundEligibility.reasons}
+      />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { invalidateMutation } from "@/lib/query-keys";
 
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -23,7 +24,14 @@ import styles from "./refund-action.module.css";
 export function RefundAction({
   orderId,
   status,
-}: Readonly<{ orderId: string; status: string }>) {
+  eligible,
+  reasons,
+}: Readonly<{
+  orderId: string;
+  status: string;
+  eligible: boolean;
+  reasons: string[];
+}>) {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const form = useForm<z.infer<typeof refundMessageSchema>>({
@@ -34,6 +42,40 @@ export function RefundAction({
   const isRequesting = form.formState.isSubmitting;
   const [requested, setRequested] = useState(false);
   if (status !== "PAID") return null;
+  if (!eligible) {
+    const messages: Record<string, string> = {
+      REFUND_ALREADY_EXISTS:
+        "An active or completed refund already exists for this payment.",
+      REFUND_WINDOW_CLOSED: "The attendee refund deadline has passed.",
+      TICKETS_NOT_UNUSED: "All tickets must be unused and active.",
+      EVENT_NOT_PUBLISHED:
+        "This event is no longer published; check the order for cancellation processing.",
+      PAYMENT_REQUIRES_INVESTIGATION:
+        "Payment needs investigation before a refund can be requested.",
+      CAPTURE_NOT_REFUNDABLE:
+        "This payment cannot currently be refunded through an attendee request.",
+      REFUND_REQUEST_LIMIT: "The refund request limit has been reached.",
+    };
+    return (
+      <section className={styles.action}>
+        <div>
+          <p>Refund request unavailable</p>
+          <span>
+            {reasons
+              .map(
+                (reason) =>
+                  messages[reason] ??
+                  "This booking does not currently meet the refund rules.",
+              )
+              .join(" ")}
+          </span>
+          <Link className="text-link" href="/refunds">
+            View your refund requests →
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   const request = form.handleSubmit(async ({ userMessage }) => {
     if (!session) return;

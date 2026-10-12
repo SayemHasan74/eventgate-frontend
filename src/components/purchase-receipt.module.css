@@ -1,0 +1,46 @@
+.receipt {
+  margin-top: 22px;
+  padding: 24px;
+  border: 2px solid var(--ink);
+  background: var(--card);
+}
+.receipt h2 {
+  margin-top: 0;
+}
+.receipt dl {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.6fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.receipt dt {
+  color: var(--soft);
+}
+.receipt dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media print {
+  :global(body *) {
+    visibility: hidden;
+  }
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+  .receipt {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    color: #111;
+    background: #fff;
+    border: 0;
+    box-shadow: none;
+    font-size: 12pt;
+  }
+  .receipt dt {
+    color: #333;
+  }
+  :global(body) {
+    background: #fff !important;
+  }
+}

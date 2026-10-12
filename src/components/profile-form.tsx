@@ -12,8 +12,15 @@ import {
   useFormFields,
   useUnsavedChanges,
 } from "./form-feedback";
-import { profileFormSchema } from "@/lib/form-schemas";
-import { updateCheckoutProfile, type Profile } from "@/lib/profile-api";
+import {
+  accountProfileFormSchema,
+  profileFormSchema,
+} from "@/lib/form-schemas";
+import {
+  updateCheckoutProfile,
+  updateProfile,
+  type Profile,
+} from "@/lib/profile-api";
 import { invalidateMutation } from "@/lib/query-keys";
 import styles from "./workspace.module.css";
 const fields = [
@@ -34,9 +41,16 @@ export function ProfileForm({
 }) {
   const client = useQueryClient();
   const { retrySession } = useAuth();
-  const form = useForm<z.infer<typeof profileFormSchema>>({
-    resolver: zodResolver(profileFormSchema),
+  const form = useForm<z.infer<typeof accountProfileFormSchema>>({
+    resolver: zodResolver(
+      checkout
+        ? profileFormSchema.extend({
+            displayName: accountProfileFormSchema.shape.displayName,
+          })
+        : accountProfileFormSchema,
+    ),
     defaultValues: {
+      displayName: profile.displayName,
       phone: profile.phone ?? "",
       address: profile.address ?? "",
       city: profile.city ?? "",
@@ -49,7 +63,23 @@ export function ProfileForm({
   const submit = form.handleSubmit(async (values) => {
     form.clearErrors();
     try {
-      await updateCheckoutProfile(values);
+      if (checkout) {
+        await updateCheckoutProfile({
+          phone: values.phone,
+          address: values.address,
+          city: values.city,
+          postalCode: values.postalCode,
+          country: values.country,
+        });
+      } else
+        await updateProfile({
+          ...values,
+          phone: values.phone || null,
+          address: values.address || null,
+          city: values.city || null,
+          postalCode: values.postalCode || null,
+          country: values.country || null,
+        });
       form.reset(values);
       await invalidateMutation(client, profile.id, "profile");
       await retrySession();
@@ -62,9 +92,19 @@ export function ProfileForm({
   return (
     <form className={styles.form} onSubmit={submit} noValidate>
       {!checkout && (
-        <p>
-          {profile.displayName} · {profile.email}
-        </p>
+        <>
+          <Field label="Display name">
+            <Input {...field("displayName")} autoComplete="name" />
+            <FormFeedback
+              form={form}
+              name="displayName"
+              id={field.errorId("displayName")}
+            />
+          </Field>
+          <Field label="Email (read-only)">
+            <Input type="email" value={profile.email} readOnly />
+          </Field>
+        </>
       )}
       <p>
         Contact details used for payment. Your account role is managed by an
@@ -81,6 +121,18 @@ export function ProfileForm({
         </Field>
       ))}
       <FormFeedback form={form} />
+      <p role="status">
+        {form.formState.isDirty
+          ? "You have unsaved changes."
+          : "No unsaved changes."}
+      </p>
+      <Button
+        type="button"
+        disabled={!form.formState.isDirty || form.formState.isSubmitting}
+        onClick={() => form.reset()}
+      >
+        Discard changes
+      </Button>
       <Button
         type="submit"
         variant="primary"

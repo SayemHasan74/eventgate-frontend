@@ -29,8 +29,17 @@ declare global {
 export function GoogleSignIn({
   onCredential,
   disabled,
-}: Readonly<{ onCredential: (idToken: string) => void; disabled: boolean }>) {
+  onUnavailable,
+}: Readonly<{
+  onCredential: (idToken: string) => void;
+  disabled: boolean;
+  onUnavailable?: () => void;
+}>) {
   const button = useRef<HTMLDivElement>(null);
+  const busy = useRef(disabled);
+  useEffect(() => {
+    busy.current = disabled;
+  }, [disabled]);
   const [isAvailable, setIsAvailable] = useState(true);
 
   useEffect(() => {
@@ -43,7 +52,10 @@ export function GoogleSignIn({
         );
         const clientId = config.enabled ? config.clientId : undefined;
         if (!clientId || !button.current || !active) {
-          if (active) setIsAvailable(false);
+          if (active) {
+            setIsAvailable(false);
+            onUnavailable?.();
+          }
           return;
         }
         const render = () => {
@@ -51,7 +63,9 @@ export function GoogleSignIn({
           window.google.accounts.id.initialize({
             client_id: clientId,
             callback: (credential) =>
-              credential.credential && onCredential(credential.credential),
+              !busy.current &&
+              credential.credential &&
+              onCredential(credential.credential),
           });
           button.current.replaceChildren();
           window.google.accounts.id.renderButton(button.current, {
@@ -73,18 +87,26 @@ export function GoogleSignIn({
           script.src = "https://accounts.google.com/gsi/client";
           script.async = true;
           script.onload = render;
-          script.onerror = () => active && setIsAvailable(false);
+          script.onerror = () => {
+            if (active) {
+              setIsAvailable(false);
+              onUnavailable?.();
+            }
+          };
           document.head.append(script);
         }
       } catch {
-        if (active) setIsAvailable(false);
+        if (active) {
+          setIsAvailable(false);
+          onUnavailable?.();
+        }
       }
     };
     void load();
     return () => {
       active = false;
     };
-  }, [onCredential]);
+  }, [onCredential, onUnavailable]);
 
   if (!isAvailable) return null;
   return (
