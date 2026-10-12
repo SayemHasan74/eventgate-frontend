@@ -1,6 +1,7 @@
 import { apiClient, apiList, jsonBody } from "./api-client";
 import { z } from "zod";
 import { orderSchema } from "./api-schemas";
+import { clearBookingIntent } from "./booking-intent";
 export { ApiError as OrderApiError } from "./api-error";
 export type Order = z.infer<typeof orderSchema>;
 export const reserveTickets = (ticketTierId: string, quantity: number) =>
@@ -18,9 +19,12 @@ export async function getOrders(filters = new URLSearchParams()) {
   const result = await apiList("/api/orders?" + filters, orderSchema);
   return { orders: result.data, meta: result.meta };
 }
-export const cancelOrder = (orderId: string) =>
-  apiClient(
+export const cancelOrder = async (orderId: string) => {
+  const result = await apiClient(
     "/api/orders/" + encodeURIComponent(orderId) + "/cancel",
     z.null(),
     { method: "POST" },
   );
+  clearBookingIntent();
+  return result;
+};

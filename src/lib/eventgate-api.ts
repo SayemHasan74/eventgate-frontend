@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { upstream } from "./server/upstream";
 import { z } from "zod";
 import { parseEnvelope, paginationSchema } from "./api-error";
@@ -39,6 +40,7 @@ export type PublicEvent = {
   startAt: string;
   endAt: string;
   imageUrl: string | null;
+  organizer: { displayName: string };
   ticketTiers: PublicTicketTier[];
 };
 
@@ -102,30 +104,32 @@ export async function getPublicEvents(
   }
 }
 
-export async function getPublicEvent(slug: string): Promise<PublicEventResult> {
-  try {
-    const response = await upstream(
-      `events/${encodeURIComponent(slug)}`,
-      {
-        cache: "no-store",
-      },
-      true,
-    );
+export const getPublicEvent = cache(
+  async (slug: string): Promise<PublicEventResult> => {
+    try {
+      const response = await upstream(
+        `events/${encodeURIComponent(slug)}`,
+        {
+          cache: "no-store",
+        },
+        true,
+      );
 
-    if (response.status === 404) return { status: "not-found" };
-    if (!response.ok) return { status: "unavailable" };
+      if (response.status === 404) return { status: "not-found" };
+      if (!response.ok) return { status: "unavailable" };
 
-    const payload = parseEnvelope(
-      response,
-      await response.json(),
-      publicEventSchema,
-    );
+      const payload = parseEnvelope(
+        response,
+        await response.json(),
+        publicEventSchema,
+      );
 
-    return { status: "ready", event: payload.data, retrievedAt: Date.now() };
-  } catch {
-    return { status: "unavailable" };
-  }
-}
+      return { status: "ready", event: payload.data, retrievedAt: Date.now() };
+    } catch {
+      return { status: "unavailable" };
+    }
+  },
+);
 export async function getPublicFacets(): Promise<
   | { status: "ready"; categories: string[]; cities: string[] }
   | { status: "unavailable" }
@@ -179,6 +183,7 @@ const publicEventSchema: z.ZodType<PublicEvent> = z.object({
   startAt: z.iso.datetime({ offset: true }),
   endAt: z.iso.datetime({ offset: true }),
   imageUrl: z.string().nullable(),
+  organizer: z.object({ displayName: z.string() }),
   ticketTiers: z.array(
     z.object({
       id: z.uuid(),

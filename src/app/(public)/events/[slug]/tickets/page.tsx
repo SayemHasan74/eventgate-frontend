@@ -12,7 +12,10 @@ import { TicketSelector } from "./ticket-selector";
 
 type TicketsPageProps = Readonly<{ params: Promise<{ slug: string }> }>;
 
-export const metadata: Metadata = { title: "Select tickets" };
+export const metadata: Metadata = {
+  title: "Select tickets",
+  robots: { index: false, follow: false },
+};
 
 export default async function TicketsPage({ params }: TicketsPageProps) {
   const { slug } = await params;
@@ -49,6 +52,7 @@ export default async function TicketsPage({ params }: TicketsPageProps) {
             </div>
           </header>
           <TicketSelector
+            eventId={result.event.id}
             slug={slug}
             eventStart={result.event.startAt}
             now={result.retrievedAt}
