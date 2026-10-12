@@ -16,7 +16,10 @@ const routes: Array<[string, string]> = [
   ["GET|POST", `organizer/events/${id}/ticket-tiers`],
   ["PATCH|DELETE", `organizer/events/${id}/ticket-tiers/${id}`],
   ["GET|POST", `organizer/events/${id}/check-ins`],
-  ["GET", `organizer/events/${id}/reports/(orders|statistics)`],
+  [
+    "GET",
+    `organizer/events/${id}/reports/(orders|statistics|sales|inventory|attendance|orders/export)`,
+  ],
   ["GET", "admin/users"],
   ["GET", `admin/users/${id}`],
   ["GET", "admin/events"],

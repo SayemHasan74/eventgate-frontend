@@ -27,7 +27,9 @@ export const userListFilterSchema = listFilterSchema.extend({
 export const auditListFilterSchema = listFilterSchema.extend({
   search: optionalText(160),
 });
-export const checkInHistoryFilterSchema = listFilterSchema.omit({ status: true });
+export const checkInHistoryFilterSchema = listFilterSchema.omit({
+  status: true,
+});
 export const ticketWalletFilterSchema = listFilterSchema.extend({
   period: z.enum(["upcoming", "past", "all"]).default("upcoming"),
   status: z.enum(["ACTIVE", "CHECKED_IN", "VOIDED", "REFUNDED"]).optional(),
@@ -63,6 +65,9 @@ export const orderListFilterSchema = orderStatusFilterSchema
       !value.startDate || !value.endDate || value.startDate <= value.endDate,
     { path: ["endDate"], message: "End date must be on or after start date." },
   );
+export const eventReportFilterSchema = orderListFilterSchema.safeExtend({
+  tierId: z.uuid().optional(),
+});
 export const discoveryFilterSchema = listFilterSchema
   .omit({ status: true })
   .extend({

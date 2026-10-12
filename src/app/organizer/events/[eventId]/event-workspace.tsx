@@ -198,9 +198,9 @@ export function EventWorkspace({
     );
   const inventory = report.data?.tiers.reduce(
     (sum, tier) => ({
-      capacity: sum.capacity + tier.capacity,
-      sold: sum.sold + tier.soldQuantity,
-      reserved: sum.reserved + tier.reservedQuantity,
+      capacity: sum.capacity + tier.currentCapacity,
+      sold: sum.sold + tier.currentSold,
+      reserved: sum.reserved + tier.currentReserved,
     }),
     { capacity: 0, sold: 0, reserved: 0 },
   );
@@ -278,14 +278,17 @@ export function EventWorkspace({
         ) : (
           <div className={shell.metrics}>
             <MetricCard
-              label="Paid revenue"
-              value={formatMoney(report.data.paidRevenuePaisa)}
+              label="Net ticket sales"
+              value={formatMoney(report.data.netTicketSalesPaisa)}
             />
             <MetricCard
-              label="Paid orders"
-              value={report.data.paidOrderCount}
+              label="Fulfilled purchases (historical)"
+              value={report.data.fulfilledPurchaseCount}
             />
-            <MetricCard label="Checked in" value={report.data.checkedIn} />
+            <MetricCard
+              label="Checked in"
+              value={report.data.checkedInPasses}
+            />
             <MetricCard label="Capacity" value={inventory?.capacity ?? 0} />
             <MetricCard label="Sold" value={inventory?.sold ?? 0} />
             <MetricCard label="Reserved" value={inventory?.reserved ?? 0} />

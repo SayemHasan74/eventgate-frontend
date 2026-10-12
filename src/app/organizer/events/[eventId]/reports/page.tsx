@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -17,7 +18,11 @@ export default function ReportsPage() {
         <Link className={styles.back} href="/organizer">
           <ArrowLeft size={16} aria-hidden="true" /> Organizer workspace
         </Link>
-        <ReportDashboard />
+        <Suspense
+          fallback={<p className={styles.loading}>Loading event reports…</p>}
+        >
+          <ReportDashboard />
+        </Suspense>
       </section>
     </>
   );

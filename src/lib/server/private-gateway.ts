@@ -37,6 +37,27 @@ export async function forwardPrivate(request: Request, path: string) {
         ...(hasBody ? { body: await request.text() } : {}),
       },
     );
+    if (
+      response.ok &&
+      /^organizer\/events\/[0-9a-f-]+\/reports\/orders\/export$/i.test(path)
+    ) {
+      if (
+        !response.body ||
+        !response.headers.get("content-type")?.startsWith("text/csv")
+      )
+        throw new SessionError("INVALID_API_RESPONSE", 502);
+      // Relay the authorized attachment without buffering it or exposing arbitrary headers.
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="event-${path.split("/")[2]}-orders.csv"`,
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+          "x-request-id": requestId,
+        },
+      });
+    }
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const error = responseError(response, payload);

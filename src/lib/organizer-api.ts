@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { apiClient, apiList, jsonBody } from "./api-client";
+import { eventStatisticsSchema } from "./event-report-api";
+export type { EventReport } from "./event-report-api";
 import { moneySchema, orderStatusSchema } from "./api-schemas";
 export { ApiError as OrganizerApiError } from "./api-error";
 export type ManagedEvent = {
@@ -37,23 +39,6 @@ export type CheckInRecord = {
   attendee: { displayName: string };
   ticketTier: { name: string };
   checkedInBy: { displayName: string } | null;
-};
-export type EventReport = {
-  orders: Array<{
-    status: string;
-    _count: { _all: number };
-    _sum: { totalAmountPaisaSnapshot: number | null };
-  }>;
-  tiers: Array<{
-    id: string;
-    name: string;
-    capacity: number;
-    soldQuantity: number;
-    reservedQuantity: number;
-  }>;
-  paidRevenuePaisa: number;
-  paidOrderCount: number;
-  checkedIn: number;
 };
 export type EventOrder = {
   id: string;
@@ -212,27 +197,6 @@ const historySchema: z.ZodType<CheckInRecord> = z.object({
   ticketTier: z.object({ name: z.string() }),
   checkedInBy: z.object({ displayName: z.string() }).nullable(),
 });
-const reportSchema: z.ZodType<EventReport> = z.object({
-  orders: z.array(
-    z.object({
-      status: orderStatusSchema,
-      _count: z.object({ _all: z.number().int().nonnegative() }),
-      _sum: z.object({ totalAmountPaisaSnapshot: moneySchema.nullable() }),
-    }),
-  ),
-  tiers: z.array(
-    z.object({
-      id: z.uuid(),
-      name: z.string(),
-      capacity: z.number().int().nonnegative(),
-      soldQuantity: z.number().int().nonnegative(),
-      reservedQuantity: z.number().int().nonnegative(),
-    }),
-  ),
-  paidRevenuePaisa: moneySchema,
-  paidOrderCount: z.number().int().nonnegative(),
-  checkedIn: z.number().int().nonnegative(),
-});
 const eventOrderSchema: z.ZodType<EventOrder> = z.object({
   id: z.uuid(),
   quantity: z.number().int().positive(),
@@ -359,7 +323,7 @@ export const checkInTicket = (id: string, qrToken: string) =>
     ...jsonBody({ qrToken }),
   });
 export const getEventReport = (id: string) =>
-  apiClient(eventPath(id) + "/reports/statistics", reportSchema);
+  apiClient(eventPath(id) + "/reports/statistics", eventStatisticsSchema);
 export const getEventOrders = async (
   id: string,
   filters = new URLSearchParams(),

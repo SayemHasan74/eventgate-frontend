@@ -1,99 +1,58 @@
 "use client";
-import { useUrlFilters } from "@/components/url-filters";
-import { listFilterSchema } from "@/lib/filter-schemas";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { DataTable, Skeleton, StatusBadge } from "@/components/ui";
-import { ErrorState, Pagination } from "@/components/ui/interactive";
-import { EmptyState } from "@/components/empty-state";
-import { getEventOrders } from "@/lib/organizer-api";
+import { useUrlFilters } from "@/components/url-filters";
+import { EventReportFilters } from "@/components/event-report-filters";
+import { eventReportFilterSchema } from "@/lib/filter-schemas";
+import { getEventInventory, reportParams } from "@/lib/event-report-api";
 import { privateKey } from "@/lib/query-keys";
-import { formatCurrency, formatEventDate } from "@/lib/format";
+import { EventReportOrders } from "../reports/event-report-orders";
 export function EventOrderLedger() {
   const { eventId } = useParams<{ eventId: string }>();
   const { session } = useAuth();
-  const filters = useUrlFilters(listFilterSchema);
-  const { page } = filters.values;
-  const setPage = filters.setPage;
-  const query = useQuery({
-    queryKey: privateKey("organizer-event-orders", session?.user.id, eventId, {
-      page,
+  const filters = useUrlFilters(eventReportFilterSchema);
+  const tiers = useQuery({
+    queryKey: privateKey("organizer-reports", session?.user.id, eventId, {
+      view: "inventory",
+      tierId: "",
     }),
-    queryFn: () =>
-      getEventOrders(
-        eventId,
-        new URLSearchParams({ page: String(page), limit: "20" }),
-      ),
-    enabled: !!session && filters.valid,
+    queryFn: () => getEventInventory(eventId),
+    enabled: !!session,
+    retry: false,
   });
+  const params = reportParams(filters.values);
+  if (filters.values.search) params.set("search", filters.values.search);
   return (
     <section>
       <h1>Event orders</h1>
       <p>
-        Booking history for this event, including unpaid and cancelled orders.
+        Find reservations and purchases by guest, tier, current status or
+        reservation date. For canonical revenue and attendance aggregates, use
+        Reports.
       </p>
-      {!filters.valid ? (
-        <p role="alert">{filters.error}</p>
-      ) : query.isPending ? (
-        <Skeleton />
-      ) : query.isError ? (
-        <ErrorState
-          message={query.error.message}
-          retry={() => void query.refetch()}
-        />
-      ) : !query.data.data.length ? (
-        <EmptyState
-          title="No orders yet."
-          description="Bookings will appear here when an attendee reserves tickets."
-        />
-      ) : (
-        <>
-          <DataTable
-            caption="Event bookings"
-            rows={query.data.data}
-            rowKey={(order) => order.id}
-            columns={[
-              {
-                key: "attendee",
-                label: "Attendee",
-                cell: (order) => (
-                  <>
-                    {order.attendee.displayName}
-                    <br />
-                    {order.attendee.email}
-                  </>
-                ),
-              },
-              {
-                key: "status",
-                label: "Status",
-                cell: (order) => <StatusBadge status={order.status} />,
-              },
-              {
-                key: "tier",
-                label: "Tickets",
-                cell: (order) => `${order.quantity} × ${order.ticketTier.name}`,
-              },
-              {
-                key: "amount",
-                label: "Total",
-                cell: (order) => formatCurrency(order.totalAmountPaisaSnapshot),
-              },
-              {
-                key: "created",
-                label: "Reserved",
-                cell: (order) => formatEventDate(order.createdAt),
-              },
-            ]}
-          />
-          <Pagination
-            page={page}
-            totalPages={query.data.meta.totalPages}
-            onPageChange={setPage}
-          />
-        </>
+      <EventReportFilters
+        values={filters.values}
+        tiers={tiers.data?.tiers ?? []}
+        search
+      />
+      <Link href={`/organizer/events/${eventId}/orders`}>Clear filters</Link>
+      {tiers.isError && (
+        <p role="alert">
+          Tier choices could not load. The order ledger can still load
+          independently.
+        </p>
       )}
+      {!filters.valid && <p role="alert">{filters.error}</p>}
+      <EventReportOrders
+        eventId={eventId}
+        userId={session?.user.id}
+        filters={params}
+        page={filters.values.page}
+        setPage={filters.setPage}
+        valid={filters.valid}
+      />
     </section>
   );
 }

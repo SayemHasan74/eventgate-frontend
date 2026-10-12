@@ -1,336 +1,448 @@
 "use client";
-import { formatMoney } from "@/lib/format";
-import { privateKey } from "@/lib/query-keys";
-
-import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  BarChart3,
-  CheckCircle2,
-  ClipboardCheck,
-  ReceiptText,
-  Ticket,
-} from "lucide-react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-
-import { ErrorState } from "@/components/ui/interactive";
 import { useAuth } from "@/components/auth-provider";
+import { useUrlFilters } from "@/components/url-filters";
+import { EventReportFilters } from "@/components/event-report-filters";
+import { DataTable, MetricCard, Skeleton } from "@/components/ui";
+import { ErrorState } from "@/components/ui/interactive";
+import { getManagedEvent } from "@/lib/organizer-api";
 import {
-  getEventOrders,
-  getEventReport,
-  getManagedEvent,
-  OrganizerApiError,
-} from "@/lib/organizer-api";
-
+  getEventSales,
+  getEventInventory,
+  getEventAttendance,
+  reportParams,
+  type SalesReport,
+  type InventoryReport,
+} from "@/lib/event-report-api";
+import { eventReportFilterSchema } from "@/lib/filter-schemas";
+import { privateKey } from "@/lib/query-keys";
+import { formatMoney, formatEventDate } from "@/lib/format";
+import { EventReportOrders } from "./event-report-orders";
 import styles from "./report-dashboard.module.css";
-
-const money = formatMoney;
-const dateTime = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
-
+const tooltipStyle = {
+  background: "var(--card)",
+  border: "1px solid var(--ink)",
+  color: "var(--ink)",
+};
+const ticks = { fill: "var(--soft)", fontSize: 12 };
 export function ReportDashboard() {
-  const { isReady, session } = useAuth();
+  const { session, isReady } = useAuth();
   const { eventId } = useParams<{ eventId: string }>();
+  const filters = useUrlFilters(eventReportFilterSchema);
+  const params = reportParams(filters.values);
   const allowed =
-    session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
-  const eventsQuery = useQuery({
+    !!session && ["ORGANIZER", "ADMIN"].includes(session.user.role);
+  const event = useQuery({
     queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
     queryFn: () => getManagedEvent(eventId),
-    enabled: isReady && Boolean(session) && allowed,
+    enabled: isReady && allowed,
     retry: false,
   });
-  const reportQuery = useQuery({
+  const enabled =
+    isReady && allowed && filters.valid && !!event.data && !event.isError;
+  const inventoryParams = new URLSearchParams(
+    filters.values.tierId ? { tierId: filters.values.tierId } : {},
+  );
+  const choices = useQuery({
     queryKey: privateKey("organizer-reports", session?.user.id, eventId, {
-      view: "statistics",
+      view: "inventory",
+      tierId: "",
     }),
-    queryFn: () => getEventReport(eventId),
-    enabled: isReady && Boolean(session) && allowed,
+    queryFn: () => getEventInventory(eventId),
+    enabled,
     retry: false,
   });
-  const ordersQuery = useQuery({
-    queryKey: privateKey("organizer-orders", session?.user.id, eventId, {}),
-    queryFn: () => getEventOrders(eventId),
-    enabled: isReady && Boolean(session) && allowed,
+  const inventory = useQuery({
+    queryKey: privateKey("organizer-reports", session?.user.id, eventId, {
+      view: "inventory",
+      tierId: filters.values.tierId ?? "",
+    }),
+    queryFn: () => getEventInventory(eventId, inventoryParams),
+    enabled,
     retry: false,
   });
-  const event = eventsQuery.data;
-
-  if (!isReady || eventsQuery.isLoading)
-    return <p className={styles.loading}>Loading event reports…</p>;
-  if (!session || !allowed)
-    return (
-      <section className={styles.gate}>
-        <BarChart3 size={29} aria-hidden="true" />
-        <h1>Organizer access required.</h1>
-        <p>Event reporting is available to its organizer only.</p>
-        <Link className="button button-primary" href="/organizer">
-          Organizer workspace
-        </Link>
-      </section>
-    );
-  if (eventsQuery.isError)
+  const sales = useQuery({
+    queryKey: privateKey("organizer-reports", session?.user.id, eventId, {
+      view: "sales",
+      filters: params.toString(),
+    }),
+    queryFn: () => getEventSales(eventId, params),
+    enabled,
+    retry: false,
+  });
+  const attendance = useQuery({
+    queryKey: privateKey("organizer-reports", session?.user.id, eventId, {
+      view: "attendance",
+      filters: params.toString(),
+    }),
+    queryFn: () => getEventAttendance(eventId, params),
+    enabled,
+    retry: false,
+  });
+  if (!isReady || (event.isPending && allowed)) return <Skeleton />;
+  if (!allowed) return <p>Organizer or administrator access required.</p>;
+  if (event.isError)
     return (
       <ErrorState
-        message={eventsQuery.error.message}
-        retry={() => void eventsQuery.refetch()}
+        message={event.error.message}
+        retry={() => void event.refetch()}
       />
     );
-  if (!event)
-    return (
-      <section className={styles.gate}>
-        <BarChart3 size={29} aria-hidden="true" />
-        <h1>Event not found.</h1>
-        <p>This event is not available in your workspace.</p>
-        <Link className="button button-primary" href="/organizer">
-          Back to events
-        </Link>
-      </section>
-    );
-  if (reportQuery.isLoading || ordersQuery.isLoading)
-    return <p className={styles.loading}>Loading event reports…</p>;
-  if (
-    reportQuery.isError ||
-    ordersQuery.isError ||
-    !reportQuery.data ||
-    !ordersQuery.data
-  )
-    return (
-      <section className={styles.gate}>
-        <BarChart3 size={29} aria-hidden="true" />
-        <h1>Reports unavailable.</h1>
-        <p>
-          {reportQuery.error instanceof OrganizerApiError
-            ? reportQuery.error.message
-            : ordersQuery.error instanceof OrganizerApiError
-              ? ordersQuery.error.message
-              : "Event reporting could not be loaded."}
-        </p>
-        <Link className="button button-primary" href="/organizer">
-          Back to events
-        </Link>
-      </section>
-    );
-
-  const report = reportQuery.data;
-  const totalSold = report.tiers.reduce(
-    (sum, tier) => sum + tier.soldQuantity,
-    0,
-  );
-  const totalCapacity = report.tiers.reduce(
-    (sum, tier) => sum + tier.capacity,
-    0,
-  );
-  const inventoryChart = report.tiers.map((tier) => ({
-    name: tier.name,
-    sold: tier.soldQuantity,
-    reserved: tier.reservedQuantity,
-    available: Math.max(
-      0,
-      tier.capacity - tier.soldQuantity - tier.reservedQuantity,
-    ),
-  }));
+  if (!event.data) return <p>Event unavailable.</p>;
+  const orderParams = new URLSearchParams(params);
+  if (filters.values.search) orderParams.set("search", filters.values.search);
   return (
     <div className={styles.dashboard}>
       <header>
-        <p className="eyebrow">
-          <span /> Organizer reporting
-        </p>
-        <h1>{event.title}</h1>
+        <p className="eyebrow">Organizer reports</p>
+        <h1>{event.data.title}</h1>
         <p>
-          Live figures from completed orders, ticket inventory, and event entry
-          records.
+          Sales, inventory, attendance and orders load independently. Figures
+          are server-derived, not estimates from a loaded page.
         </p>
-        <div className={styles.actions}>
-          {event.status === "PUBLISHED" && (
-            <Link
-              className="button button-primary"
-              href={`/organizer/events/${event.id}/check-in`}
-            >
-              <ClipboardCheck size={16} /> Open check-in desk
-            </Link>
-          )}
-          <Link href="/organizer">
-            All events <ArrowRight size={15} />
-          </Link>
-        </div>
+        <Link href={`/organizer/events/${eventId}`}>
+          Back to event overview
+        </Link>
       </header>
-      <section className={styles.metrics} aria-label="Event statistics">
-        <div>
-          <ReceiptText size={20} />
-          <span>Paid revenue</span>
-          <strong>{money(report.paidRevenuePaisa)}</strong>
-        </div>
-        <div>
-          <Ticket size={20} />
-          <span>Tickets sold</span>
-          <strong>
-            {totalSold}
-            <small> / {totalCapacity}</small>
-          </strong>
-        </div>
-        <div>
-          <CheckCircle2 size={20} />
-          <span>Checked in</span>
-          <strong>{report.checkedIn}</strong>
-        </div>
-        <div>
-          <BarChart3 size={20} />
-          <span>Paid orders</span>
-          <strong>{report.paidOrderCount}</strong>
-        </div>
-      </section>
-      <section className={styles.section}>
-        <div className={styles.heading}>
-          <div>
-            <p className="eyebrow">
-              <span /> Inventory
+      <EventReportFilters
+        values={filters.values}
+        tiers={choices.data?.tiers ?? []}
+        search
+      />
+      <Link href={`/organizer/events/${eventId}/reports`}>Clear filters</Link>
+      {!filters.valid && <p role="alert">{filters.error}</p>}
+      {choices.isError && (
+        <p role="alert">
+          Tier choices unavailable. Other report panels remain usable.
+        </p>
+      )}
+      {filters.valid && (
+        <>
+          <section className={styles.panel}>
+            <h2>Ticket sales</h2>
+            <p>
+              Dates select canonical purchase paidAt (Asia/Dhaka). Successful
+              booking refunds follow those purchases, even if completed later.
+              Current order status and tier filters select the purchase cohort.
             </p>
-            <h2>
-              Tier <b>health.</b>
-            </h2>
-          </div>
-        </div>
-        <div className={styles.tiers}>
-          {report.tiers.length === 0 ? (
-            <p className={styles.muted}>
-              No ticket tiers are available for this event.
+            {sales.isPending ? (
+              <Skeleton />
+            ) : sales.isError ? (
+              <ErrorState
+                message={sales.error.message}
+                retry={() => void sales.refetch()}
+              />
+            ) : (
+              <SalesPanel report={sales.data} />
+            )}
+          </section>
+          <section className={styles.panel}>
+            <h2>Current inventory and historical passes</h2>
+            <p>
+              Inventory is current and tier-filtered, not filtered by purchase
+              date or order status. Deleted tiers never contribute to current
+              capacity; tiers with order history remain visible.
             </p>
-          ) : (
-            report.tiers.map((tier) => {
-              const percentage = tier.capacity
-                ? Math.min(
-                    100,
-                    ((tier.soldQuantity + tier.reservedQuantity) /
-                      tier.capacity) *
-                      100,
-                  )
-                : 0;
-              return (
-                <div className={styles.tier} key={tier.id}>
-                  <div>
-                    <strong>{tier.name}</strong>
-                    <span>
-                      {tier.soldQuantity} sold · {tier.reservedQuantity}{" "}
-                      reserved · {tier.capacity} capacity
-                    </span>
-                  </div>
-                  <div className={styles.bar}>
-                    <i style={{ width: `${percentage}%` }} />
-                  </div>
+            {inventory.isPending ? (
+              <Skeleton />
+            ) : inventory.isError ? (
+              <ErrorState
+                message={inventory.error.message}
+                retry={() => void inventory.refetch()}
+              />
+            ) : (
+              <InventoryPanel report={inventory.data} />
+            )}
+          </section>
+          <section className={styles.panel}>
+            <h2>Admission</h2>
+            <p>
+              Issued passes are historical; valid unused passes reflect current
+              event, payment and refund eligibility. Dates filter actual
+              check-in time only. Status and tier select the order cohort.
+            </p>
+            {attendance.isPending ? (
+              <Skeleton />
+            ) : attendance.isError ? (
+              <ErrorState
+                message={attendance.error.message}
+                retry={() => void attendance.refetch()}
+              />
+            ) : (
+              <>
+                <div className={styles.metrics}>
+                  <MetricCard
+                    label="Historical issued passes"
+                    value={attendance.data.historicalIssuedPasses}
+                  />
+                  <MetricCard
+                    label="Valid unused passes now"
+                    value={attendance.data.validUnusedPasses}
+                  />
+                  <MetricCard
+                    label="Recorded check-ins in date range"
+                    value={attendance.data.checkedInPasses}
+                  />
                 </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-      {inventoryChart.length > 0 && (
-        <section
-          className={styles.chartSection}
-          aria-label="Ticket tier inventory chart"
-        >
-          <div className={styles.heading}>
-            <div>
-              <p className="eyebrow">
-                <span /> Visual report
-              </p>
-              <h2>
-                Room <b>mix.</b>
-              </h2>
-            </div>
-          </div>
-          <div className={styles.chart}>
-            <ResponsiveContainer height={280} width="100%">
-              <BarChart
-                data={inventoryChart}
-                margin={{ top: 20, right: 14, left: -20, bottom: 5 }}
-              >
-                <XAxis
-                  dataKey="name"
-                  tick={{ fill: "#20254f", fontSize: 11 }}
-                />
+                <p>
+                  Updated {formatEventDate(attendance.data.serverTime)}. A
+                  downloaded QR does not override server admission.
+                </p>
+              </>
+            )}
+          </section>
+        </>
+      )}
+      <div className={styles.panel}>
+        <EventReportOrders
+          eventId={eventId}
+          userId={session?.user.id}
+          filters={orderParams}
+          page={filters.values.page}
+          setPage={filters.setPage}
+          valid={enabled}
+        />
+      </div>
+    </div>
+  );
+}
+function SalesPanel({ report }: { report: SalesReport }) {
+  const days = report.salesByDay.slice(-60);
+  return (
+    <>
+      <div className={styles.metrics}>
+        <MetricCard
+          label="Gross ticket sales"
+          value={formatMoney(report.grossTicketSalesPaisa)}
+        />
+        <MetricCard
+          label="Successful booking refunds"
+          value={formatMoney(report.bookingRefundsPaisa)}
+        />
+        <MetricCard
+          label="Net ticket sales"
+          value={formatMoney(report.netTicketSalesPaisa)}
+        />
+        <MetricCard
+          label="Historical fulfilled purchases"
+          value={report.fulfilledPurchaseCount}
+        />
+      </div>
+      <p>
+        Gross counts each canonical purchase once, including refunded bookings.
+        Net = gross − successful canonical booking refunds. Pending refunds and
+        gateway fees are not deducted.
+      </p>
+      <dl className={styles.facts}>
+        <dt>Pending canonical booking refunds</dt>
+        <dd>{formatMoney(report.pendingBookingRefundsPaisa)}</dd>
+        <dt>Non-canonical captures</dt>
+        <dd>{formatMoney(report.excessCapturesPaisa)}</dd>
+        <dt>Successful non-canonical capture refunds</dt>
+        <dd>{formatMoney(report.excessCaptureRefundsPaisa)}</dd>
+      </dl>
+      <p>
+        Non-canonical metrics use capture completedAt dates and are separate
+        from ticket revenue.
+      </p>
+      {!!report.ambiguousPurchaseCount && (
+        <p role="alert">
+          {report.ambiguousPurchaseCount} historical purchases lack a usable
+          canonical identity/date. They are excluded from confirmed sales; ask
+          an administrator to investigate.
+        </p>
+      )}
+      {!days.length ? (
+        <p>
+          No canonical purchases match these filters. No chart data has been
+          invented.
+        </p>
+      ) : (
+        <>
+          <h3>Sales by purchase day · BDT · Asia/Dhaka</h3>
+          <p>
+            Chart shows the latest 60 days with actual sales; absent days are
+            not interpolated. The table contains all returned sale days.
+          </p>
+          <div
+            className={styles.chart}
+            role="img"
+            aria-label="Gross sales, booking refunds and net sales by Bangladesh purchase date; exact figures follow in the table."
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={days}>
+                <XAxis dataKey="day" tick={ticks} />
                 <YAxis
-                  allowDecimals={false}
-                  tick={{ fill: "#20254f", fontSize: 11 }}
+                  tick={ticks}
+                  tickFormatter={(value) => `৳${Number(value) / 100}`}
+                  width={85}
                 />
-                <Tooltip cursor={{ fill: "rgba(255, 68, 154, .12)" }} />
-                <Bar
-                  dataKey="sold"
-                  fill="#ff449a"
-                  name="Sold"
-                  stackId="tickets"
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(value) => formatMoney(Number(value))}
                 />
+                <Legend />
                 <Bar
-                  dataKey="reserved"
-                  fill="#3154ff"
-                  name="Reserved"
-                  stackId="tickets"
+                  dataKey="grossPaisa"
+                  name="Gross sales (BDT)"
+                  fill="var(--pink)"
                 />
                 <Bar
-                  dataKey="available"
-                  fill="#d6d2c8"
-                  name="Available"
-                  stackId="tickets"
+                  dataKey="bookingRefundsPaisa"
+                  name="Booking refunds (BDT)"
+                  fill="var(--soft)"
+                />
+                <Bar
+                  dataKey="netPaisa"
+                  name="Net sales (BDT)"
+                  fill="var(--cobalt)"
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </section>
+          <DataTable
+            caption="Sales by Bangladesh purchase day"
+            rows={report.salesByDay}
+            rowKey={(row) => row.day}
+            columns={[
+              { key: "day", label: "Day (Dhaka)", cell: (row) => row.day },
+              {
+                key: "gross",
+                label: "Gross BDT",
+                cell: (row) => formatMoney(row.grossPaisa),
+              },
+              {
+                key: "refund",
+                label: "Booking refunds BDT",
+                cell: (row) => formatMoney(row.bookingRefundsPaisa),
+              },
+              {
+                key: "net",
+                label: "Net BDT",
+                cell: (row) => formatMoney(row.netPaisa),
+              },
+              {
+                key: "count",
+                label: "Purchases",
+                cell: (row) => row.purchases,
+              },
+            ]}
+          />
+        </>
       )}
-      <section className={styles.section}>
-        <div className={styles.heading}>
-          <div>
-            <p className="eyebrow">
-              <span /> Orders
-            </p>
-            <h2>
-              Recent <b>sales.</b>
-            </h2>
+      <p>Updated {formatEventDate(report.serverTime)}</p>
+    </>
+  );
+}
+function InventoryPanel({ report }: { report: InventoryReport }) {
+  return (
+    <>
+      <div className={styles.metrics}>
+        <MetricCard
+          label="Current capacity"
+          value={report.summary.currentCapacity}
+        />
+        <MetricCard
+          label="Current sold stock"
+          value={report.summary.currentSold}
+        />
+        <MetricCard
+          label="Reserved stock"
+          value={report.summary.currentReserved}
+        />
+        <MetricCard
+          label="Available stock"
+          value={report.summary.currentAvailable}
+        />
+      </div>
+      {!report.tiers.length ? (
+        <p>No inventory or historical tiers match the selection.</p>
+      ) : (
+        <>
+          <div
+            className={styles.chart}
+            role="img"
+            aria-label="Current sold, reserved and available stock by tier; exact values follow in the table."
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={report.tiers}>
+                <XAxis dataKey="name" tick={ticks} />
+                <YAxis allowDecimals={false} tick={ticks} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Legend />
+                <Bar
+                  dataKey="currentSold"
+                  name="Current sold (passes)"
+                  stackId="stock"
+                  fill="var(--pink)"
+                />
+                <Bar
+                  dataKey="currentReserved"
+                  name="Reserved (passes)"
+                  stackId="stock"
+                  fill="var(--cobalt)"
+                />
+                <Bar
+                  dataKey="currentAvailable"
+                  name="Available (passes)"
+                  stackId="stock"
+                  fill="var(--soft)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <span>{ordersQuery.data.data.length} orders</span>
-        </div>
-        {ordersQuery.data.data.length === 0 ? (
-          <p className={styles.muted}>
-            No orders have been created for this event yet.
-          </p>
-        ) : (
-          <div className={styles.orders}>
-            {ordersQuery.data.data.map((order) => (
-              <article key={order.id}>
-                <div>
-                  <span className={styles.status}>
-                    {order.status.replaceAll("_", " ")}
-                  </span>
-                  <h3>{order.attendee.displayName}</h3>
-                  <p>
-                    {order.attendee.email} · {order.ticketTier.name} ·{" "}
-                    {order.quantity}{" "}
-                    {order.quantity === 1 ? "ticket" : "tickets"}
-                  </p>
-                </div>
-                <div>
-                  <strong>{money(order.totalAmountPaisaSnapshot)}</strong>
-                  <time>{dateTime(order.createdAt)}</time>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+          <DataTable
+            caption="Current stock versus historical issued passes"
+            rows={report.tiers}
+            rowKey={(row) => row.id}
+            columns={[
+              {
+                key: "tier",
+                label: "Tier",
+                cell: (row) =>
+                  row.name + (row.deletedAt ? " (historical)" : ""),
+              },
+              {
+                key: "capacity",
+                label: "Current capacity",
+                cell: (row) => row.currentCapacity,
+              },
+              {
+                key: "sold",
+                label: "Current sold",
+                cell: (row) => row.currentSold,
+              },
+              {
+                key: "reserved",
+                label: "Reserved",
+                cell: (row) => row.currentReserved,
+              },
+              {
+                key: "available",
+                label: "Available",
+                cell: (row) => row.currentAvailable,
+              },
+              {
+                key: "issued",
+                label: "Historical issued passes",
+                cell: (row) => row.historicalIssuedPasses,
+              },
+            ]}
+          />
+        </>
+      )}
+      <p>Updated {formatEventDate(report.serverTime)}</p>
+    </>
   );
 }
