@@ -7,7 +7,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
+import type { z } from "zod";
+import { signInSchema, registrationSchema } from "@/lib/form-schemas";
+import {
+  reportFormError,
+  useFormFields,
+  FormFeedback,
+} from "@/components/form-feedback";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/components/auth-provider";
@@ -20,16 +26,7 @@ import {
 } from "@/lib/auth-api";
 
 type AuthFormProps = Readonly<{ mode: "sign-in" | "register" }>;
-const authSchema = z.object({
-  displayName: z
-    .string()
-    .trim()
-    .min(2, "Enter a name with at least two characters.")
-    .optional(),
-  email: z.string().trim().email("Enter a valid email address."),
-  password: z.string().min(12, "Your password needs at least 12 characters."),
-});
-type AuthValues = z.infer<typeof authSchema>;
+type AuthValues = z.infer<typeof signInSchema> & { displayName?: string };
 
 const safeNextPath = (
   value: string | null,
@@ -52,7 +49,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [mutationError, setMutationError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<AuthValues>({
-    resolver: zodResolver(authSchema),
+    resolver: zodResolver(isRegister ? registrationSchema : signInSchema),
     defaultValues: {
       displayName: isRegister ? "" : undefined,
       email: "",
@@ -60,6 +57,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     },
   });
 
+  const field = useFormFields(form);
   const submit = form.handleSubmit(async ({ email, password, displayName }) => {
     if (isRegister && !displayName) return;
 
@@ -82,6 +80,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         error instanceof AuthApiError
           ? error.message
           : "Could not reach EventGate. Please try again.";
+      reportFormError(form, error);
       setMutationError(message);
       toast.error(message);
     } finally {
@@ -128,12 +127,14 @@ export function AuthForm({ mode }: AuthFormProps) {
           <input
             autoComplete="name"
             placeholder="e.g. Samira Rahman"
-            {...form.register("displayName")}
+            {...field("displayName")}
             required
           />
-          {form.formState.errors.displayName && (
-            <small>{form.formState.errors.displayName.message}</small>
-          )}
+          <FormFeedback
+            form={form}
+            name="displayName"
+            id={field.errorId("displayName")}
+          />
         </label>
       )}
       <label>
@@ -142,12 +143,10 @@ export function AuthForm({ mode }: AuthFormProps) {
           autoComplete="email"
           placeholder="you@example.com"
           type="email"
-          {...form.register("email")}
+          {...field("email")}
           required
         />
-        {form.formState.errors.email && (
-          <small>{form.formState.errors.email.message}</small>
-        )}
+        <FormFeedback form={form} name="email" id={field.errorId("email")} />
       </label>
       <label>
         <span>Password</span>
@@ -155,10 +154,11 @@ export function AuthForm({ mode }: AuthFormProps) {
           <input
             autoComplete={isRegister ? "new-password" : "current-password"}
             minLength={12}
+            maxLength={128}
             placeholder="At least 12 characters"
             required
             type={showPassword ? "text" : "password"}
-            {...form.register("password")}
+            {...field("password")}
           />
           <button
             aria-label={showPassword ? "Hide password" : "Show password"}
@@ -169,11 +169,13 @@ export function AuthForm({ mode }: AuthFormProps) {
           </button>
         </div>
       </label>
-      {form.formState.errors.password && (
-        <small>{form.formState.errors.password.message}</small>
-      )}
+      <FormFeedback
+        form={form}
+        name="password"
+        id={field.errorId("password")}
+      />
       <p className={[featureStyles["auth-password-note"]].join(" ")}>
-        Passwords must contain at least 12 characters.
+        Passwords must contain 12–128 characters.
       </p>
       <button
         className="button button-primary"

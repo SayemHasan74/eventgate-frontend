@@ -1,5 +1,8 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import Form from "next/form";
+import type { ReactNode } from "react";
+import { useUrlFilters, DebouncedSearchInput } from "@/components/url-filters";
+import { listFilterSchema, auditListFilterSchema } from "@/lib/filter-schemas";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
@@ -10,7 +13,6 @@ import { formatCurrency, formatEventDate } from "@/lib/format";
 import {
   DataTable,
   Button,
-  Input,
   FilterBar,
   Skeleton,
   StatusBadge,
@@ -114,9 +116,11 @@ async function records(kind: Kind, page: number, search: string) {
 }
 export function AdminRecordList({ kind }: { kind: Kind }) {
   const { session } = useAuth();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [draft, setDraft] = useState("");
+  const filters = useUrlFilters(
+    kind === "audit-logs" ? auditListFilterSchema : listFilterSchema,
+  );
+  const { page, search = "" } = filters.values;
+  const setPage = filters.setPage;
   const settings = config[kind];
   const query = useQuery({
     queryKey: privateKey("admin-" + kind, session?.user.id, "list", {
@@ -124,31 +128,30 @@ export function AdminRecordList({ kind }: { kind: Kind }) {
       search,
     }),
     queryFn: () => records(kind, page, search),
-    enabled: !!session,
+    enabled: !!session && filters.valid,
   });
   return (
     <section>
       <h1>{settings.title}</h1>
       <p>{settings.description}</p>
       <FilterBar>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            setSearch(draft.trim());
-            setPage(1);
-          }}
-        >
+        <Form scroll={false} action={`/admin/${kind}`}>
+          <input type="hidden" name="page" value="1" />
           <label>
             {kind === "audit-logs" ? "Exact action" : "Search"}
-            <Input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+            <DebouncedSearchInput
+              styled
+              name="search"
+              defaultValue={search}
+              maxLength={kind === "audit-logs" ? 160 : 120}
             />
           </label>
           <Button type="submit">Apply</Button>
-        </form>
+        </Form>
       </FilterBar>
-      {query.isPending ? (
+      {!filters.valid ? (
+        <p role="alert">{filters.error}</p>
+      ) : query.isPending ? (
         <Skeleton />
       ) : query.isError ? (
         <ErrorState

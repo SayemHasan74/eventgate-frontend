@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useUrlFilters } from "@/components/url-filters";
+import { orderListFilterSchema } from "@/lib/filter-schemas";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
@@ -18,11 +19,12 @@ import { privateKey } from "@/lib/query-keys";
 import { formatCurrency, formatEventDate } from "@/lib/format";
 export function OrderLedger() {
   const { session } = useAuth();
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("");
+  const filters = useUrlFilters(orderListFilterSchema);
+  const { page, status = "" } = filters.values;
+  const setPage = filters.setPage;
   const query = useQuery({
     queryKey: privateKey("orders", session?.user.id, "list", { page, status }),
-    enabled: !!session,
+    enabled: !!session && filters.valid,
     queryFn: () =>
       getOrders(
         new URLSearchParams({
@@ -42,8 +44,7 @@ export function OrderLedger() {
           <Select
             value={status}
             onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
+              filters.update("status", event.target.value);
             }}
           >
             <option value="">All orders</option>
@@ -61,7 +62,9 @@ export function OrderLedger() {
           </Select>
         </label>
       </FilterBar>
-      {query.isPending ? (
+      {!filters.valid ? (
+        <p role="alert">{filters.error}</p>
+      ) : query.isPending ? (
         <Skeleton />
       ) : query.isError ? (
         <ErrorState

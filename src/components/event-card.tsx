@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PublicEvent } from "@/lib/eventgate-api";
-import { formatCurrency, formatEventDate } from "@/lib/format";
+import { formatCurrency, formatEventRange } from "@/lib/format";
 import styles from "./ui/ui.module.css";
 export function EventCard({ event }: { event: PublicEvent }) {
   const available = event.ticketTiers.reduce(
@@ -18,7 +18,7 @@ export function EventCard({ event }: { event: PublicEvent }) {
           <Link href={`/events/${event.slug}`}>{event.title}</Link>
         </h2>
         <p>{event.description}</p>
-        <p>{formatEventDate(event.startAt)}</p>
+        <p>{formatEventRange(event.startAt, event.endAt)}</p>
         <p>
           {event.venue}, {event.city}
         </p>

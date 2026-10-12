@@ -1,9 +1,9 @@
 "use client";
-import { invalidatePrivate } from "@/lib/query-keys";
+import { invalidateMutation } from "@/lib/query-keys";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, LoaderCircle, Pencil, Save } from "lucide-react";
+import { CreditCard, LoaderCircle, Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -13,11 +13,8 @@ import {
   PaymentApiError,
   startCheckout,
 } from "@/lib/payment-api";
-import {
-  getProfile,
-  ProfileApiError,
-  updateCheckoutProfile,
-} from "@/lib/profile-api";
+import { getProfile } from "@/lib/profile-api";
+import { ProfileForm } from "@/components/profile-form";
 
 import styles from "./checkout-panel.module.css";
 
@@ -60,7 +57,6 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
   const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const checkoutKey = useRef<{ orderId: string; key: string } | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -81,12 +77,7 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
   const userId = session?.user.id;
   useEffect(() => {
     if (attemptQuery.data?.status === "SUCCEEDED" && userId)
-      void invalidatePrivate(queryClient, userId, [
-        "orders",
-        "tickets",
-        "refunds",
-        "overview",
-      ]);
+      void invalidateMutation(queryClient, userId, "payment");
   }, [attemptQuery.data?.status, userId, queryClient]);
   const profileQuery = useQuery({
     queryKey: privateKey("users", session?.user.id, "me", {}),
@@ -114,31 +105,6 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
   const profileComplete = fields.every((field) =>
     Boolean(profile[field.name]?.trim()),
   );
-
-  const saveProfile = async (formData: FormData) => {
-    setIsSaving(true);
-    try {
-      await updateCheckoutProfile({
-        phone: String(formData.get("phone") ?? "").trim(),
-        address: String(formData.get("address") ?? "").trim(),
-        city: String(formData.get("city") ?? "").trim(),
-        postalCode: String(formData.get("postalCode") ?? "").trim(),
-        country: String(formData.get("country") ?? "").trim(),
-      });
-      await profileQuery.refetch();
-      await invalidatePrivate(queryClient, session.user.id, ["users"]);
-      setIsEditing(false);
-      toast.success("Checkout profile saved.");
-    } catch (error) {
-      toast.error(
-        error instanceof ProfileApiError
-          ? error.message
-          : "Could not save your checkout profile.",
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const beginCheckout = async () => {
     setIsStarting(true);
@@ -217,37 +183,11 @@ export function CheckoutPanel({ orderId, payable }: CheckoutPanelProps) {
         </div>
       )}
       {!profileComplete || isEditing ? (
-        <form action={saveProfile} className={styles.form}>
-          <p>
-            SSLCommerz needs these details before it can open a payment session.
-          </p>
-          <div className={styles.fields}>
-            {fields.map((field) => (
-              <label key={field.name}>
-                <span>{field.label}</span>
-                <input
-                  autoComplete={field.autoComplete}
-                  defaultValue={profile[field.name] ?? ""}
-                  name={field.name}
-                  placeholder={field.placeholder}
-                  required
-                />
-              </label>
-            ))}
-          </div>
-          <button
-            className="button button-primary"
-            disabled={isSaving}
-            type="submit"
-          >
-            {isSaving ? (
-              <LoaderCircle className={styles.spinner} size={16} />
-            ) : (
-              <Save size={16} />
-            )}{" "}
-            {isSaving ? "Saving details" : "Save checkout details"}
-          </button>
-        </form>
+        <ProfileForm
+          profile={profile}
+          checkout
+          onSaved={() => setIsEditing(false)}
+        />
       ) : (
         <div className={styles.ready}>
           <p>Your checkout profile is ready for SSLCommerz.</p>

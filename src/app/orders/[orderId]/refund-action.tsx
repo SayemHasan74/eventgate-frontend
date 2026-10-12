@@ -1,13 +1,22 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
-import { invalidatePrivate } from "@/lib/query-keys";
+import { invalidateMutation } from "@/lib/query-keys";
 
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
+import {
+  FormFeedback,
+  useFormFields,
+  reportFormError,
+} from "@/components/form-feedback";
+import { refundMessageSchema } from "@/lib/form-schemas";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
-import { RefundApiError, requestRefund } from "@/lib/refund-api";
+import { requestRefund } from "@/lib/refund-api";
 
 import styles from "./refund-action.module.css";
 
@@ -17,43 +26,30 @@ export function RefundAction({
 }: Readonly<{ orderId: string; status: string }>) {
   const queryClient = useQueryClient();
   const { session } = useAuth();
-  const [isRequesting, setIsRequesting] = useState(false);
+  const form = useForm<z.infer<typeof refundMessageSchema>>({
+    resolver: zodResolver(refundMessageSchema),
+    defaultValues: { userMessage: "" },
+  });
+  const field = useFormFields(form);
+  const isRequesting = form.formState.isSubmitting;
   const [requested, setRequested] = useState(false);
-  const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
   if (status !== "PAID") return null;
 
-  const request = async () => {
+  const request = form.handleSubmit(async ({ userMessage }) => {
     if (!session) return;
-    setIsRequesting(true);
+    form.clearErrors();
     try {
-      setErrorMessage("");
-      await requestRefund(orderId, message);
-      await invalidatePrivate(queryClient, session.user.id, [
-        "orders",
-        "tickets",
-        "refunds",
-      ]);
+      await requestRefund(orderId, userMessage);
+      await invalidateMutation(queryClient, session.user.id, "refund");
       setRequested(true);
       toast.success("Refund request sent for review.");
     } catch (error) {
-      setErrorMessage(
-        error instanceof RefundApiError
-          ? error.message
-          : "Refund request could not be completed.",
-      );
-      toast.error(
-        error instanceof RefundApiError
-          ? error.message
-          : "Refund request could not be completed.",
-      );
-    } finally {
-      setIsRequesting(false);
+      reportFormError(form, error);
     }
-  };
+  });
 
   return (
-    <section className={styles.action}>
+    <form className={styles.action} noValidate onSubmit={request}>
       <div>
         <RotateCcw size={19} aria-hidden="true" />
         <p>{requested ? "Refund request sent" : "Need a refund?"}</p>
@@ -66,17 +62,17 @@ export function RefundAction({
       {!requested && (
         <label>
           Reason (optional)
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            maxLength={1000}
-            rows={3}
+          <textarea {...field("userMessage")} maxLength={1000} rows={3} />
+          <FormFeedback
+            form={form}
+            name="userMessage"
+            id={field.errorId("userMessage")}
           />
         </label>
       )}
-      {errorMessage && <p role="alert">{errorMessage}</p>}
+      <FormFeedback form={form} />
       {!requested && (
-        <button disabled={isRequesting} onClick={request} type="button">
+        <button disabled={isRequesting} type="submit">
           {isRequesting ? (
             <LoaderCircle className={styles.spinner} size={15} />
           ) : (
@@ -84,6 +80,6 @@ export function RefundAction({
           )}
         </button>
       )}
-    </section>
+    </form>
   );
 }

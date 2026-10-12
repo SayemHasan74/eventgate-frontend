@@ -1,23 +1,22 @@
 "use client";
-import { invalidatePrivate, privateKey } from "@/lib/query-keys";
+import { formatMoney } from "@/lib/format";
+import { invalidateMutation, privateKey } from "@/lib/query-keys";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { RefundReviewForm } from "./refund-review-form";
 
 import { useAuth } from "@/components/auth-provider";
 import {
   AdminRefundApiError,
   getAdminRefunds,
   retryAdminRefund,
-  reviewAdminRefund,
 } from "@/lib/admin-refund-api";
 
 import styles from "./admin-refunds.module.css";
 
-const money = (paisa: number) =>
-  `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
+const money = formatMoney;
 const date = (value: string) =>
   new Intl.DateTimeFormat("en-BD", {
     day: "numeric",
@@ -31,7 +30,6 @@ const date = (value: string) =>
 export function AdminRefundDesk() {
   const { isReady, session } = useAuth();
   const client = useQueryClient();
-  const [notes, setNotes] = useState<Record<string, string>>({});
   const allowed = session?.user.role === "ADMIN";
   const query = useQuery({
     queryKey: privateKey("admin-refunds", session?.user.id, "list", {}),
@@ -39,31 +37,9 @@ export function AdminRefundDesk() {
     enabled: isReady && allowed,
     retry: false,
   });
-  const update = useMutation({
-    mutationFn: ({
-      id,
-      decision,
-    }: {
-      id: string;
-      decision: "approve" | "reject";
-    }) => reviewAdminRefund(id, decision, notes[id]),
-    onSuccess: () =>
-      invalidatePrivate(client, session!.user.id, [
-        "admin-refunds",
-        "admin-stats",
-        "admin-operations",
-        "admin-audit",
-      ]),
-  });
   const retry = useMutation({
     mutationFn: (id: string) => retryAdminRefund(id),
-    onSuccess: () =>
-      invalidatePrivate(client, session!.user.id, [
-        "admin-refunds",
-        "admin-stats",
-        "admin-operations",
-        "admin-audit",
-      ]),
+    onSuccess: () => invalidateMutation(client, session!.user.id, "refund"),
   });
 
   if (!isReady)
@@ -79,7 +55,7 @@ export function AdminRefundDesk() {
         </Link>
       </section>
     );
-  const error = update.error ?? retry.error ?? query.error;
+  const error = retry.error ?? query.error;
   const refunds = query.data?.refunds ?? [];
   return (
     <div className={styles.desk}>
@@ -173,42 +149,7 @@ export function AdminRefundDesk() {
                 <strong>{money(refund.amountPaisa)}</strong>
                 {refund.status === "REQUESTED" &&
                   !refund.needsInvestigation && (
-                    <div>
-                      <label>
-                        Review note (required to reject)
-                        <textarea
-                          rows={3}
-                          maxLength={1000}
-                          value={notes[refund.id] ?? ""}
-                          onChange={(event) =>
-                            setNotes((current) => ({
-                              ...current,
-                              [refund.id]: event.target.value,
-                            }))
-                          }
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="button button-primary"
-                        disabled={update.isPending}
-                        onClick={() =>
-                          update.mutate({ id: refund.id, decision: "approve" })
-                        }
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.reject}
-                        disabled={update.isPending || !notes[refund.id]?.trim()}
-                        onClick={() =>
-                          update.mutate({ id: refund.id, decision: "reject" })
-                        }
-                      >
-                        Reject
-                      </button>
-                    </div>
+                    <RefundReviewForm refundId={refund.id} />
                   )}
                 {refund.status === "FAILED" &&
                   !refund.needsInvestigation &&
@@ -219,7 +160,9 @@ export function AdminRefundDesk() {
                     <button
                       type="button"
                       className={styles.retry}
-                      disabled={retry.isPending}
+                      disabled={
+                        retry.isPending && retry.variables === refund.id
+                      }
                       onClick={() => retry.mutate(refund.id)}
                     >
                       <RefreshCw size={15} /> Retry provider

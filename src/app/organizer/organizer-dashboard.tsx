@@ -1,4 +1,5 @@
 "use client";
+import Form from "next/form";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
@@ -11,8 +12,9 @@ import {
   MapPin,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { FilterBar, Input, Select } from "@/components/ui";
+import { useUrlFilters, DebouncedSearchInput } from "@/components/url-filters";
+import { eventListFilterSchema } from "@/lib/filter-schemas";
+import { FilterBar, Select } from "@/components/ui";
 import { Pagination, ErrorState } from "@/components/ui/interactive";
 
 import { useAuth } from "@/components/auth-provider";
@@ -34,10 +36,9 @@ export function OrganizerDashboard({
   catalogue?: boolean;
 }) {
   const { isReady, session } = useAuth();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [searchDraft, setSearchDraft] = useState("");
-  const [status, setStatus] = useState("");
+  const filters = useUrlFilters(eventListFilterSchema);
+  const { page, search = "", status = "" } = filters.values;
+  const setPage = filters.setPage;
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
@@ -56,7 +57,7 @@ export function OrganizerDashboard({
           ...(status ? { status } : {}),
         }),
       ),
-    enabled: isReady && Boolean(session) && allowed,
+    enabled: isReady && Boolean(session) && allowed && filters.valid,
     retry: false,
   });
 
@@ -132,31 +133,28 @@ export function OrganizerDashboard({
       )}
       {catalogue && (
         <FilterBar>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSearch(searchDraft.trim());
-              setPage(1);
-            }}
-          >
+          <Form scroll={false} action="/organizer/events">
+            <input type="hidden" name="page" value="1" />
+            <input type="hidden" name="status" value={status} />
             <label>
               Search events
-              <Input
-                value={searchDraft}
-                onChange={(event) => setSearchDraft(event.target.value)}
+              <DebouncedSearchInput
+                styled
+                name="search"
+                defaultValue={search}
+                maxLength={120}
               />
             </label>
             <button className="button" type="submit">
               Search
             </button>
-          </form>
+          </Form>
           <label>
             Status
             <Select
               value={status}
               onChange={(event) => {
-                setStatus(event.target.value);
-                setPage(1);
+                filters.update("status", event.target.value);
               }}
             >
               <option value="">All states</option>
@@ -181,7 +179,9 @@ export function OrganizerDashboard({
             </h2>
           </div>
         </div>
-        {eventsQuery.isLoading ? (
+        {!filters.valid ? (
+          <p role="alert">{filters.error}</p>
+        ) : eventsQuery.isLoading ? (
           <p className={styles.muted}>Loading your events…</p>
         ) : eventsQuery.isError ? (
           <ErrorState

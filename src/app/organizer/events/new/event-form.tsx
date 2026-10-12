@@ -1,15 +1,29 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
-import { invalidatePrivate } from "@/lib/query-keys";
+import { invalidateMutation } from "@/lib/query-keys";
 
 import { ArrowRight, LoaderCircle, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
+import {
+  FormFeedback,
+  useFormFields,
+  reportFormError,
+  useUnsavedChanges,
+} from "@/components/form-feedback";
+import { eventFormSchema, publishedEventFormSchema } from "@/lib/form-schemas";
+import { dhakaLocalToUtc, utcToDhakaLocal } from "@/lib/format";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
-import { createManagedEvent, OrganizerApiError } from "@/lib/organizer-api";
+import {
+  createManagedEvent,
+  updateManagedEvent,
+  type ManagedEvent,
+} from "@/lib/organizer-api";
 
 import styles from "./event-form.module.css";
 
@@ -20,61 +34,80 @@ const toSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-export function EventForm() {
+export function EventForm({ initialEvent }: { initialEvent?: ManagedEvent }) {
   const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mutationError, setMutationError] = useState("");
-  const [slug, setSlug] = useState("");
+  const form = useForm<z.infer<typeof eventFormSchema>>({
+    resolver: zodResolver(
+      initialEvent?.status === "PUBLISHED"
+        ? publishedEventFormSchema
+        : eventFormSchema,
+    ),
+    defaultValues: initialEvent
+      ? {
+          ...initialEvent,
+          startAt: utcToDhakaLocal(initialEvent.startAt),
+          endAt: utcToDhakaLocal(initialEvent.endAt),
+          imageUrl: initialEvent.imageUrl ?? "",
+        }
+      : {
+          title: "",
+          slug: "",
+          description: "",
+          category: "",
+          venue: "",
+          city: "",
+          address: "",
+          startAt: "",
+          endAt: "",
+          imageUrl: "",
+        },
+  });
+  const field = useFormFields(form);
+  const isSubmitting = form.formState.isSubmitting;
+  useUnsavedChanges(form.formState.isDirty);
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
 
-  const createEvent = async (formData: FormData) => {
-    const startAt = String(formData.get("startAt") ?? "");
-    const endAt = String(formData.get("endAt") ?? "");
-    if (new Date(startAt).getTime() <= Date.now()) {
-      toast.error("Your event must start in the future.");
-      return;
-    }
-    if (new Date(endAt).getTime() <= new Date(startAt).getTime()) {
-      toast.error("The end time must be after the start time.");
-      return;
-    }
+  const createEvent = form.handleSubmit(async (values) => {
     if (!session) return;
-    setMutationError("");
-    setIsSubmitting(true);
+    form.clearErrors();
     try {
-      await createManagedEvent({
-        title: String(formData.get("title") ?? "").trim(),
-        slug,
-        description: String(formData.get("description") ?? "").trim(),
-        category: String(formData.get("category") ?? "").trim(),
-        venue: String(formData.get("venue") ?? "").trim(),
-        city: String(formData.get("city") ?? "").trim(),
-        address: String(formData.get("address") ?? "").trim(),
-        startAt: new Date(startAt).toISOString(),
-        endAt: new Date(endAt).toISOString(),
-        imageUrl: String(formData.get("imageUrl") ?? "").trim() || null,
-      });
-      toast.success("Draft event created.");
-      await invalidatePrivate(queryClient, session.user.id, [
-        "organizer-events",
-        "admin-operations",
-      ]);
-      router.push("/organizer");
+      const input = {
+        ...values,
+        startAt: dhakaLocalToUtc(values.startAt),
+        endAt: dhakaLocalToUtc(values.endAt),
+        imageUrl: values.imageUrl || null,
+      };
+      const created = initialEvent
+        ? await updateManagedEvent(
+            initialEvent.id,
+            initialEvent.status === "PUBLISHED"
+              ? {
+                  title: input.title,
+                  description: input.description,
+                  imageUrl: input.imageUrl,
+                }
+              : Object.fromEntries(
+                  Object.entries(input).filter(
+                    ([key]) =>
+                      key !== "slug" && key in form.formState.dirtyFields,
+                  ),
+                ),
+          )
+        : await createManagedEvent(input);
+      form.reset(values);
+      await invalidateMutation(queryClient, session.user.id, "event");
+      toast.success(
+        initialEvent ? "Event details saved." : "Draft event created.",
+      );
+      router.push(`/organizer/events/${created.id}`);
       router.refresh();
     } catch (error) {
-      const message =
-        error instanceof OrganizerApiError
-          ? error.message
-          : "Your event could not be created.";
-      setMutationError(message);
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
+      reportFormError(form, error);
     }
-  };
+  });
 
   if (!isReady)
     return <p className={styles.loading}>Checking organizer access…</p>;
@@ -95,8 +128,14 @@ export function EventForm() {
     );
 
   return (
-    <form action={createEvent} className={styles.form}>
-      {mutationError && <p role="alert">{mutationError}</p>}
+    <form noValidate onSubmit={createEvent} className={styles.form}>
+      <FormFeedback form={form} />
+      {initialEvent?.status === "PUBLISHED" && (
+        <p>
+          Published events can change title, description, and image only. Dates
+          and location are locked.
+        </p>
+      )}
       <section className={styles.section}>
         <p className="eyebrow">
           <span /> Event fundamentals
@@ -109,42 +148,64 @@ export function EventForm() {
             <span>Event title</span>
             <input
               maxLength={180}
-              name="title"
-              onChange={(event) => setSlug(toSlug(event.target.value))}
+              {...field("title")}
+
               placeholder="e.g. Dhaka Design Night"
               required
+              onChange={(event) => {
+                void form.register("title").onChange(event);
+                if (!initialEvent && !form.formState.dirtyFields.slug)
+                  form.setValue("slug", toSlug(event.target.value));
+              }}
+            />
+            <FormFeedback
+              form={form}
+              name="title"
+              id={field.errorId("title")}
             />
           </label>
           <label>
             <span>Public URL slug</span>
             <input
               maxLength={200}
-              name="slug"
-              onChange={(event) => setSlug(toSlug(event.target.value))}
+              {...field("slug")}
+              readOnly={!!initialEvent}
+
               pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
               placeholder="dhaka-design-night"
               required
-              value={slug}
             />
+            <FormFeedback form={form} name="slug" id={field.errorId("slug")} />
           </label>
           <label>
             <span>Category</span>
             <input
               maxLength={80}
               minLength={2}
-              name="category"
+              {...field("category")}
+              readOnly={initialEvent?.status === "PUBLISHED"}
               placeholder="Design"
               required
+            />
+            <FormFeedback
+              form={form}
+              name="category"
+              id={field.errorId("category")}
             />
           </label>
           <label className={styles.wide}>
             <span>Description</span>
             <textarea
               minLength={20}
-              name="description"
+              {...field("description")}
               placeholder="Describe what attendees can expect…"
               required
               rows={5}
+            />
+            <FormFeedback
+              form={form}
+              name="description"
+              id={field.errorId("description")}
             />
           </label>
         </div>
@@ -158,21 +219,47 @@ export function EventForm() {
         </h2>
         <div className={styles.grid}>
           <label>
-            <span>Starts</span>
-            <input name="startAt" required type="datetime-local" />
+            <span>Starts (Bangladesh, UTC+06:00)</span>
+            <input
+              {...field("startAt")}
+              readOnly={initialEvent?.status === "PUBLISHED"}
+              required
+              type="datetime-local"
+            />
+            <FormFeedback
+              form={form}
+              name="startAt"
+              id={field.errorId("startAt")}
+            />
           </label>
           <label>
-            <span>Ends</span>
-            <input name="endAt" required type="datetime-local" />
+            <span>Ends (Bangladesh, UTC+06:00)</span>
+            <input
+              {...field("endAt")}
+              readOnly={initialEvent?.status === "PUBLISHED"}
+              required
+              type="datetime-local"
+            />
+            <FormFeedback
+              form={form}
+              name="endAt"
+              id={field.errorId("endAt")}
+            />
           </label>
           <label>
             <span>Venue</span>
             <input
               maxLength={160}
               minLength={2}
-              name="venue"
+              {...field("venue")}
+              readOnly={initialEvent?.status === "PUBLISHED"}
               placeholder="Venue name"
               required
+            />
+            <FormFeedback
+              form={form}
+              name="venue"
+              id={field.errorId("venue")}
             />
           </label>
           <label>
@@ -180,18 +267,26 @@ export function EventForm() {
             <input
               maxLength={100}
               minLength={2}
-              name="city"
+              {...field("city")}
+              readOnly={initialEvent?.status === "PUBLISHED"}
               placeholder="Dhaka"
               required
             />
+            <FormFeedback form={form} name="city" id={field.errorId("city")} />
           </label>
           <label className={styles.wide}>
             <span>Full address</span>
             <input
               minLength={5}
-              name="address"
+              {...field("address")}
+              readOnly={initialEvent?.status === "PUBLISHED"}
               placeholder="Street, area, city"
               required
+            />
+            <FormFeedback
+              form={form}
+              name="address"
+              id={field.errorId("address")}
             />
           </label>
         </div>
@@ -206,15 +301,26 @@ export function EventForm() {
         <div className={styles.grid}>
           <label className={styles.wide}>
             <span>HTTPS image URL</span>
-            <input name="imageUrl" placeholder="https://…" type="url" />
+            <input {...field("imageUrl")} placeholder="https://…" type="url" />
+            <FormFeedback
+              form={form}
+              name="imageUrl"
+              id={field.errorId("imageUrl")}
+            />
           </label>
         </div>
       </section>
       <div className={styles.actions}>
-        <Link href="/organizer">Cancel</Link>
+        <Link
+          href={
+            initialEvent ? `/organizer/events/${initialEvent.id}` : "/organizer"
+          }
+        >
+          Cancel
+        </Link>
         <button
           className="button button-primary"
-          disabled={isSubmitting}
+          disabled={isSubmitting || (!!initialEvent && !form.formState.isDirty)}
           type="submit"
         >
           {isSubmitting ? (
@@ -222,7 +328,11 @@ export function EventForm() {
           ) : (
             <Save size={17} />
           )}{" "}
-          {isSubmitting ? "Creating draft" : "Create draft event"}
+          {isSubmitting
+            ? "Saving…"
+            : initialEvent
+              ? "Save event details"
+              : "Create draft event"}
         </button>
       </div>
     </form>

@@ -1,4 +1,5 @@
 "use client";
+import { formatMoney } from "@/lib/format";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
@@ -10,8 +11,7 @@ import { getRefunds, RefundApiError } from "@/lib/refund-api";
 
 import styles from "./refunds.module.css";
 
-const money = (paisa: number) =>
-  `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
+const money = formatMoney;
 const date = (value: string) =>
   new Intl.DateTimeFormat("en-BD", {
     day: "numeric",

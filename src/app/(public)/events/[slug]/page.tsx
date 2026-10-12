@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/format";
 import type { Metadata } from "next";
 import {
   ArrowLeft,
@@ -36,8 +37,7 @@ const bangladeshTime = (value: string) =>
     timeZone: "Asia/Dhaka",
   }).format(new Date(value));
 
-const price = (paisa: number) =>
-  `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
+const price = formatMoney;
 
 const saleLabel = (tier: PublicTicketTier) => {
   const now = Date.now();
@@ -100,11 +100,16 @@ function EventDetails({ event }: Readonly<{ event: PublicEvent }>) {
         <div>
           <CalendarDays size={20} aria-hidden="true" />
           <p>Starts</p>
-          <strong>{bangladeshDate(event.startAt)}</strong>
+          <strong>
+            {bangladeshDate(event.startAt)}
+            {bangladeshDate(event.startAt) !== bangladeshDate(event.endAt)
+              ? ` — ${bangladeshDate(event.endAt)}`
+              : ""}
+          </strong>
         </div>
         <div>
           <Clock3 size={20} aria-hidden="true" />
-          <p>Time</p>
+          <p>Time (Bangladesh, UTC+06:00)</p>
           <strong>
             {bangladeshTime(event.startAt)} – {bangladeshTime(event.endAt)}
           </strong>

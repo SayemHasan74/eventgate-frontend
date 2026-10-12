@@ -1,5 +1,6 @@
 "use client";
-import { invalidatePrivate, privateKey } from "@/lib/query-keys";
+import Form from "next/form";
+import { invalidateMutation, privateKey } from "@/lib/query-keys";
 import featureStyles from "./user-manager.module.css";
 import { z } from "zod";
 import { apiClient, apiList, jsonBody } from "@/lib/api-client";
@@ -9,8 +10,11 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ConfirmationDialog } from "@/components/ui/interactive";
+import { UserChangeDialog, type UserCommand } from "./user-change-dialog";
+import { useUrlFilters, DebouncedSearchInput } from "@/components/url-filters";
+import { userListFilterSchema } from "@/lib/filter-schemas";
 import { FieldError } from "@/components/ui";
+import { Pagination } from "@/components/ui/interactive";
 
 type User = {
   id: string;
@@ -30,14 +34,13 @@ const userSchema: z.ZodType<User> = z.object({
 });
 export function UserManager() {
   const { isReady, session } = useAuth();
-  const [command, setCommand] = useState<{
-    id: string;
-    path: string;
-    body: unknown;
-  } | null>(null);
+  const [command, setCommand] = useState<UserCommand | null>(null);
   const queryClient = useQueryClient();
   const search = useSearchParams();
-  const qs = new URLSearchParams(search.toString());
+  const filters = useUrlFilters(userListFilterSchema);
+  const qs = new URLSearchParams(
+    Object.entries(filters.values).map(([key, value]) => [key, String(value)]),
+  );
   if (!qs.has("limit")) qs.set("limit", "50");
   const allowed = session?.user.role === "ADMIN";
   const users = useQuery({
@@ -45,7 +48,7 @@ export function UserManager() {
       query: qs.toString(),
     }),
     queryFn: () => apiList(`/api/admin/users?${qs}`, userSchema),
-    enabled: isReady && allowed,
+    enabled: isReady && allowed && filters.valid,
   });
   const update = useMutation({
     mutationFn: ({
@@ -63,11 +66,7 @@ export function UserManager() {
       }),
     onSuccess: () => {
       toast.success("User updated.");
-      return invalidatePrivate(queryClient, session!.user.id, [
-        "admin-users",
-        "admin-stats",
-        "admin-audit",
-      ]);
+      return invalidateMutation(queryClient, session!.user.id, "adminUser");
     },
   });
   if (!isReady) return <p className="loading">Loading users…</p>;
@@ -88,21 +87,29 @@ export function UserManager() {
       <h1>
         User <b>management.</b>
       </h1>
-      <form action="/admin/users">
-        <input
+      <Form scroll={false} action="/admin/users">
+        <input type="hidden" name="page" value="1" />
+        <DebouncedSearchInput
           name="search"
+          maxLength={120}
           defaultValue={search.get("search") ?? ""}
           placeholder="Search name or email"
         />
-        <select name="role" defaultValue={search.get("role") ?? ""}>
+        <select
+          key={search.get("role") ?? "all"}
+          name="role"
+          defaultValue={search.get("role") ?? ""}
+        >
           <option value="">All roles</option>
           <option>ATTENDEE</option>
           <option>ORGANIZER</option>
           <option>ADMIN</option>
         </select>
         <button className="button button-primary">Filter</button>
-      </form>
-      {users.isLoading ? (
+      </Form>
+      {!filters.valid ? (
+        <FieldError>{filters.error}</FieldError>
+      ) : users.isLoading ? (
         <p>Loading users…</p>
       ) : users.isError ? (
         <p>{users.error.message}</p>
@@ -129,7 +136,9 @@ export function UserManager() {
                     setCommand({
                       id: user.id,
                       path: "role",
-                      body: { role: e.target.value },
+                      body: {
+                        role: e.target.value as "ATTENDEE" | "ORGANIZER",
+                      },
                     })
                   }
                 >
@@ -164,15 +173,21 @@ export function UserManager() {
           ))}
         </div>
       )}
-      <ConfirmationDialog
-        open={!!command}
-        title="Confirm account change"
-        description="This change affects the user’s access. Existing sessions will use their updated permissions."
-        onDismiss={() => setCommand(null)}
-        onConfirm={async () => {
-          if (command) await update.mutateAsync(command);
-        }}
-      />
+      {filters.valid && users.data && (
+        <Pagination
+          page={filters.values.page}
+          totalPages={users.data.meta.totalPages}
+          onPageChange={filters.setPage}
+        />
+      )}
+      {command && (
+        <UserChangeDialog
+          key={command.id + command.path}
+          command={command}
+          onDismiss={() => setCommand(null)}
+          onConfirm={(value) => update.mutateAsync(value)}
+        />
+      )}
     </section>
   );
 }

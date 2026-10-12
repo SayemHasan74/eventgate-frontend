@@ -1,4 +1,5 @@
 "use client";
+import { formatMoney } from "@/lib/format";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
@@ -21,8 +22,7 @@ import { getProfile, ProfileApiError } from "@/lib/profile-api";
 
 import styles from "./account.module.css";
 
-const money = (paisa: number) =>
-  `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
+const money = formatMoney;
 
 export function AccountDashboard() {
   const { isReady, session, clearSession } = useAuth();

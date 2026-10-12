@@ -5,19 +5,12 @@ import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/empty-state";
 import { getPublicEvent } from "@/lib/eventgate-api";
+import { formatEventRange } from "@/lib/format";
 
 import styles from "./ticket-selector.module.css";
 import { TicketSelector } from "./ticket-selector";
 
 type TicketsPageProps = Readonly<{ params: Promise<{ slug: string }> }>;
-
-const eventDate = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
 
 export const metadata: Metadata = { title: "Select tickets" };
 
@@ -47,7 +40,8 @@ export default async function TicketsPage({ params }: TicketsPageProps) {
             </div>
             <div>
               <span>
-                <CalendarDays size={15} /> {eventDate(result.event.startAt)}
+                <CalendarDays size={15} />{" "}
+                {formatEventRange(result.event.startAt, result.event.endAt)}
               </span>
               <span>
                 <MapPin size={15} /> {result.event.venue}, {result.event.city}

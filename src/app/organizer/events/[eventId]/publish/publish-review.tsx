@@ -1,5 +1,5 @@
 "use client";
-import { invalidatePrivate } from "@/lib/query-keys";
+import { invalidateMutation } from "@/lib/query-keys";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,10 +57,7 @@ export function PublishReview() {
     setIsPublishing(true);
     try {
       const published = await publishManagedEvent(event.id);
-      await invalidatePrivate(queryClient, session.user.id, [
-        "organizer-events",
-        "admin-operations",
-      ]);
+      await invalidateMutation(queryClient, session.user.id, "event");
       toast.success("Event published and available to attendees.");
       router.push(`/events/${published.slug}`);
       router.refresh();

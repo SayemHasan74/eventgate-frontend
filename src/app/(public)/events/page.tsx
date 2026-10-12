@@ -1,3 +1,8 @@
+import Form from "next/form";
+import Link from "next/link";
+import { discoveryFilterSchema, nonEmptyParams } from "@/lib/filter-schemas";
+import { dhakaDayBounds, dhakaWeekend } from "@/lib/format";
+import { DebouncedSearchInput } from "@/components/url-filters";
 import styles from "./events.module.css";
 import type { Metadata } from "next";
 import { Search } from "lucide-react";
@@ -23,31 +28,59 @@ const sortOptions = [
   { value: "title", label: "Title A-Z" },
 ] as const;
 
-const asSingleValue = (value: string | string[] | undefined) =>
-  typeof value === "string" ? value.trim() : undefined;
-
-const asPage = (value: string | undefined) => {
-  const page = Number(value);
-  return Number.isInteger(page) && page > 0 ? page : 1;
-};
-
-const asSort = (value: string | undefined): EventDiscoveryQuery["sort"] =>
-  value === "latest" || value === "newest" || value === "title"
-    ? value
-    : "soonest";
-
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const rawQuery = await searchParams;
-  const query: EventDiscoveryQuery = {
-    page: asPage(asSingleValue(rawQuery.page)),
-    limit: 12,
-    search: asSingleValue(rawQuery.search),
-    category: asSingleValue(rawQuery.category),
-    city: asSingleValue(rawQuery.city),
-    sort: asSort(asSingleValue(rawQuery.sort)),
+  const draft = nonEmptyParams(rawQuery);
+  const parsed = discoveryFilterSchema.safeParse(draft);
+  const field = (name: string) => {
+    const errors = parsed.success
+      ? []
+      : parsed.error.issues.filter((issue) => issue.path[0] === name);
+    return {
+      name,
+      defaultValue: typeof draft[name] === "string" ? draft[name] : "",
+      "aria-invalid": errors.length > 0,
+      "aria-describedby": errors.length ? `filter-${name}-error` : undefined,
+    };
   };
-  const result = await getPublicEvents(query);
-
+  const fieldError = (name: string) => {
+    const errors = parsed.success
+      ? []
+      : parsed.error.issues.filter((issue) => issue.path[0] === name);
+    return errors.length ? (
+      <small id={`filter-${name}-error`} role="alert">
+        {errors.map((issue) => issue.message).join(" ")}
+      </small>
+    ) : null;
+  };
+  const filters = parsed.success
+    ? parsed.data
+    : discoveryFilterSchema.parse({});
+  const query: EventDiscoveryQuery = {
+    page: filters.page,
+    limit: 12,
+    search: filters.search,
+    city: filters.city,
+    category: filters.category,
+    sort: filters.sort,
+    startAfter: filters.startDate
+      ? dhakaDayBounds(filters.startDate).start
+      : undefined,
+    startBefore: filters.endDate
+      ? dhakaDayBounds(filters.endDate).end
+      : undefined,
+  };
+  const result = parsed.success ? await getPublicEvents(query) : null;
+  const href = (page: number, overrides: Record<string, string> = {}) => {
+    const params = new URLSearchParams(
+      Object.entries(filters).map(([key, value]) => [key, String(value)]),
+    );
+    params.set("page", String(page));
+    for (const [key, value] of Object.entries(overrides))
+      params.set(key, value);
+    return "/events?" + params;
+  };
+  const weekend = dhakaWeekend();
   return (
     <>
       <main
@@ -69,49 +102,96 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </p>
         </header>
 
-        <form className={[styles["event-filters"]].join(" ")} action="/events">
+        <Form
+          scroll={false}
+          className={[styles["event-filters"]].join(" ")}
+          action="/events"
+        >
+          <input type="hidden" name="page" value="1" />
           <label className={[styles["filter-search"]].join(" ")}>
             <span className="sr-only">Search events</span>
             <Search size={18} aria-hidden="true" />
-            <input
-              name="search"
+            <DebouncedSearchInput
+              {...field("search")}
+              maxLength={120}
               type="search"
-              defaultValue={query.search}
               placeholder="Search title, city, or category"
             />
+            {fieldError("search")}
           </label>
           <label>
             <span>City</span>
             <input
-              name="city"
-              defaultValue={query.city}
+              key={String(draft.city ?? "")}
+              {...field("city")}
+              maxLength={100}
               placeholder="Any city"
             />
+            {fieldError("city")}
           </label>
           <label>
             <span>Category</span>
             <input
-              name="category"
-              defaultValue={query.category}
+              key={String(draft.category ?? "")}
+              {...field("category")}
+              maxLength={80}
               placeholder="Any category"
             />
+            {fieldError("category")}
           </label>
           <label>
             <span>Sort</span>
-            <select name="sort" defaultValue={query.sort}>
+            <select
+              key={query.sort}
+              {...field("sort")}
+              defaultValue={
+                typeof draft.sort === "string" ? draft.sort : query.sort
+              }
+            >
               {sortOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
+            {fieldError("sort")}
+          </label>
+          <label>
+            <span>From (Bangladesh date)</span>
+            <input
+              key={String(draft.startDate ?? "")}
+              {...field("startDate")}
+              type="date"
+            />
+            {fieldError("startDate")}
+          </label>
+          <label>
+            <span>Through (Bangladesh date)</span>
+            <input
+              key={String(draft.endDate ?? "")}
+              {...field("endDate")}
+              type="date"
+            />
+            {fieldError("endDate")}
           </label>
           <button className="button button-primary" type="submit">
             Apply filters
           </button>
-        </form>
+        </Form>
 
-        {result.status === "unavailable" ? (
+        <p>
+          <Link href={href(1, weekend)}>
+            Bangladesh weekend: Friday–Saturday
+          </Link>{" "}
+          · <Link href="/events">Clear filters</Link>
+        </p>
+        {!parsed.success ? (
+          <p role="alert">
+            {parsed.error.issues
+              .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+              .join(" ")}
+          </p>
+        ) : !result || result.status === "unavailable" ? (
           <EmptyState
             title="The listings are taking a breath."
             description="EventGate could not reach the events service just now. Please try again in a moment."
@@ -140,6 +220,18 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 <EventCard event={event} key={event.id} />
               ))}
             </section>
+            <nav aria-label="Event pages">
+              {result.meta.page > 1 && (
+                <Link className="button" href={href(result.meta.page - 1)}>
+                  Previous
+                </Link>
+              )}
+              {result.meta.page < result.meta.totalPages && (
+                <Link className="button" href={href(result.meta.page + 1)}>
+                  Next
+                </Link>
+              )}
+            </nav>
           </>
         )}
       </main>

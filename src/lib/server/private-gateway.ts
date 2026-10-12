@@ -1,4 +1,5 @@
 import "server-only";
+import { revalidatePath } from "next/cache";
 import {
   authenticatedFetch,
   checkCsrf,
@@ -82,6 +83,17 @@ export async function forwardPrivate(request: Request, path: string) {
       payload.data = parsed.data;
     }
     const result = privateJson(payload, response.status);
+    if (
+      payload.success &&
+      hasBody &&
+      /^(organizer\/events|admin\/events|orders|refund-requests|admin\/refunds|payments\/orders)(\/|$)/.test(
+        path,
+      )
+    ) {
+      revalidatePath("/(public)/events", "page");
+      revalidatePath("/(public)/events/[slug]", "page");
+      revalidatePath("/(public)/events/[slug]/tickets", "page");
+    }
     result.headers.set(
       "x-request-id",
       response.headers.get("x-request-id") ?? requestId,

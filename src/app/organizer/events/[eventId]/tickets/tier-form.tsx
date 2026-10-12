@@ -1,5 +1,5 @@
 "use client";
-import { invalidatePrivate } from "@/lib/query-keys";
+import { invalidateMutation } from "@/lib/query-keys";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,28 +14,35 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
+import {
+  FormFeedback,
+  useFormFields,
+  reportFormError,
+} from "@/components/form-feedback";
+import { tierFormSchema } from "@/lib/form-schemas";
+import { dhakaLocalToUtc, formatMoney, bdtToPaisa } from "@/lib/format";
+import { ErrorState } from "@/components/ui/interactive";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
 import {
   createTicketTier,
   getManagedEvent,
-  OrganizerApiError,
   type TicketTier,
 } from "@/lib/organizer-api";
 
 import styles from "./tier-form.module.css";
 
-const money = (paisa: number) =>
-  `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
+const money = formatMoney;
 
 export function TierForm() {
   const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId;
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mutationError, setMutationError] = useState("");
   const [createdTiers, setCreatedTiers] = useState<TicketTier[]>([]);
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
@@ -46,49 +53,38 @@ export function TierForm() {
     retry: false,
   });
   const event = eventsQuery.data;
+  const form = useForm<z.infer<ReturnType<typeof tierFormSchema>>>({
+    resolver: zodResolver(tierFormSchema(event?.startAt)),
+    defaultValues: {
+      name: "",
+      price: "",
+      capacity: 1,
+      salesStartAt: "",
+      salesEndAt: "",
+    },
+  });
+  const field = useFormFields(form);
+  const isSubmitting = form.formState.isSubmitting;
 
-  const addTier = async (formData: FormData) => {
-    const salesStartAt = String(formData.get("salesStartAt") ?? "");
-    const salesEndAt = String(formData.get("salesEndAt") ?? "");
-    const eventStartsAt = event ? new Date(event.startAt).getTime() : 0;
-    if (
-      new Date(salesEndAt).getTime() <= new Date(salesStartAt).getTime() ||
-      new Date(salesEndAt).getTime() > eventStartsAt
-    ) {
-      toast.error(
-        "Sales must end after they start and no later than the event start.",
-      );
-      return;
-    }
+  const addTier = form.handleSubmit(async (values) => {
     if (!session || !event) return;
-    setMutationError("");
-    setIsSubmitting(true);
+    form.clearErrors();
     try {
       const tier = await createTicketTier(event.id, {
-        name: String(formData.get("name") ?? "").trim(),
-        pricePaisa: Math.round(Number(formData.get("price") ?? 0) * 100),
-        capacity: Number(formData.get("capacity") ?? 0),
-        salesStartAt: new Date(salesStartAt).toISOString(),
-        salesEndAt: new Date(salesEndAt).toISOString(),
+        name: values.name,
+        pricePaisa: bdtToPaisa(values.price),
+        capacity: values.capacity,
+        salesStartAt: dhakaLocalToUtc(values.salesStartAt),
+        salesEndAt: dhakaLocalToUtc(values.salesEndAt),
       });
       setCreatedTiers((tiers) => [...tiers, tier]);
-      await invalidatePrivate(queryClient, session.user.id, [
-        "organizer-events",
-        "organizer-reports",
-      ]);
+      form.reset();
+      await invalidateMutation(queryClient, session.user.id, "tier");
       toast.success(`${tier.name} tier created.`);
-      (document.getElementById("tier-form") as HTMLFormElement | null)?.reset();
     } catch (error) {
-      const message =
-        error instanceof OrganizerApiError
-          ? error.message
-          : "Your ticket tier could not be created.";
-      setMutationError(message);
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
+      reportFormError(form, error, { pricePaisa: "price" });
     }
-  };
+  });
 
   if (!isReady || eventsQuery.isLoading)
     return <p className={styles.loading}>Loading event workspace…</p>;
@@ -101,6 +97,13 @@ export function TierForm() {
           Organizer workspace <ArrowRight size={16} />
         </Link>
       </section>
+    );
+  if (eventsQuery.isError)
+    return (
+      <ErrorState
+        message={eventsQuery.error.message}
+        retry={() => void eventsQuery.refetch()}
+      />
     );
   if (!event)
     return (
@@ -159,46 +162,80 @@ export function TierForm() {
             Each tier has its own capacity, price, and sales window. Add every
             tier before publishing this event.
           </p>
-          <form action={addTier} className={styles.form} id="tier-form">
-            {mutationError && <p role="alert">{mutationError}</p>}
+          <form
+            noValidate
+            onSubmit={addTier}
+            className={styles.form}
+            id="tier-form"
+          >
+            <FormFeedback form={form} />
             <label>
               <span>Tier name</span>
               <input
                 maxLength={100}
                 minLength={2}
-                name="name"
+                {...field("name")}
                 placeholder="General admission"
                 required
+              />
+              <FormFeedback
+                form={form}
+                name="name"
+                id={field.errorId("name")}
               />
             </label>
             <label>
               <span>Price (BDT)</span>
               <input
                 min="0.01"
-                name="price"
+                {...field("price")}
                 placeholder="500"
                 required
                 step="0.01"
                 type="number"
+              />
+              <FormFeedback
+                form={form}
+                name="price"
+                id={field.errorId("price")}
               />
             </label>
             <label>
               <span>Capacity</span>
               <input
                 min="1"
-                name="capacity"
+                {...field("capacity", { valueAsNumber: true })}
                 placeholder="100"
                 required
                 type="number"
               />
+              <FormFeedback
+                form={form}
+                name="capacity"
+                id={field.errorId("capacity")}
+              />
             </label>
             <label>
-              <span>Sales start</span>
-              <input name="salesStartAt" required type="datetime-local" />
+              <span>Sales start (Bangladesh, UTC+06:00)</span>
+              <input
+                {...field("salesStartAt")}
+                required
+                type="datetime-local"
+              />
+              <FormFeedback
+                form={form}
+                name="salesStartAt"
+                id={field.errorId("salesStartAt")}
+              />
             </label>
             <label>
-              <span>Sales end</span>
-              <input name="salesEndAt" required type="datetime-local" />
+              <span>Sales end (Bangladesh, UTC+06:00)</span>
+              <input {...field("salesEndAt")} required type="datetime-local" />
+              <FormFeedback
+                form={form}
+                name="salesEndAt"
+                id={field.errorId("salesEndAt")}
+              />
             </label>
             <button
               className="button button-primary"

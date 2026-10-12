@@ -1,5 +1,5 @@
 "use client";
-import { invalidatePrivate } from "@/lib/query-keys";
+import { invalidateMutation } from "@/lib/query-keys";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,14 +12,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
+import {
+  FormFeedback,
+  useFormFields,
+  reportFormError,
+} from "@/components/form-feedback";
+import { checkInFormSchema } from "@/lib/form-schemas";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
 import {
   checkInTicket,
   getCheckInHistory,
-  getManagedEvents,
+  getManagedEvent,
   OrganizerApiError,
 } from "@/lib/organizer-api";
 
@@ -36,12 +44,17 @@ export function CheckInDesk() {
   const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
   const { eventId } = useParams<{ eventId: string }>();
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const form = useForm<z.infer<typeof checkInFormSchema>>({
+    resolver: zodResolver(checkInFormSchema),
+    defaultValues: { qrToken: "" },
+  });
+  const field = useFormFields(form);
+  const isCheckingIn = form.formState.isSubmitting;
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
-    queryFn: () => getManagedEvents(),
+    queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
+    queryFn: () => getManagedEvent(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
@@ -51,37 +64,20 @@ export function CheckInDesk() {
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.data.find(
-    (candidate) => candidate.id === eventId,
-  );
+  const event = eventsQuery.data;
 
-  const submit = async (formData: FormData) => {
+  const submit = form.handleSubmit(async ({ qrToken }) => {
     if (!session) return;
-    setIsCheckingIn(true);
+    form.clearErrors();
     try {
-      await checkInTicket(
-        eventId,
-        String(formData.get("qrToken") ?? "").trim(),
-      );
+      await checkInTicket(eventId, qrToken);
+      form.reset();
       toast.success("Ticket checked in successfully.");
-      await historyQuery.refetch();
-      await invalidatePrivate(queryClient, session.user.id, [
-        "check-ins",
-        "organizer-reports",
-      ]);
-      (
-        document.getElementById("check-in-form") as HTMLFormElement | null
-      )?.reset();
+      await invalidateMutation(queryClient, session.user.id, "checkIn");
     } catch (error) {
-      toast.error(
-        error instanceof OrganizerApiError
-          ? error.message
-          : "Could not check in this ticket.",
-      );
-    } finally {
-      setIsCheckingIn(false);
+      reportFormError(form, error);
     }
-  };
+  });
 
   if (!isReady || eventsQuery.isLoading)
     return <p className={styles.loading}>Opening check-in desk…</p>;
@@ -143,14 +139,22 @@ export function CheckInDesk() {
               Check in a <b>guest.</b>
             </h2>
           </div>
-          <form action={submit} id="check-in-form">
+          <form noValidate onSubmit={submit} id="check-in-form">
+            <FormFeedback form={form} />
             <label>
               <span>QR ticket token</span>
               <input
                 minLength={40}
-                name="qrToken"
+                {...field("qrToken")}
+                autoComplete="off"
+                maxLength={128}
                 placeholder="Paste the ticket QR token"
                 required
+              />
+              <FormFeedback
+                form={form}
+                name="qrToken"
+                id={field.errorId("qrToken")}
               />
             </label>
             <button

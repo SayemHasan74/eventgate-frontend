@@ -1,4 +1,5 @@
 "use client";
+import { formatMoney } from "@/lib/format";
 import { privateKey } from "@/lib/query-keys";
 
 import { useQuery } from "@tanstack/react-query";
@@ -20,8 +21,7 @@ import styles from "./order-status.module.css";
 
 type OrderStatusProps = Readonly<{ orderId: string }>;
 
-const money = (paisa: number) =>
-  `৳${new Intl.NumberFormat("en-BD").format(paisa / 100)}`;
+const money = formatMoney;
 
 export function OrderStatus({ orderId }: OrderStatusProps) {
   const { isReady, session } = useAuth();

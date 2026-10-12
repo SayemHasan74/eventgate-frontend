@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useUrlFilters } from "@/components/url-filters";
+import { listFilterSchema } from "@/lib/filter-schemas";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
@@ -12,7 +13,9 @@ import { formatCurrency, formatEventDate } from "@/lib/format";
 export function EventOrderLedger() {
   const { eventId } = useParams<{ eventId: string }>();
   const { session } = useAuth();
-  const [page, setPage] = useState(1);
+  const filters = useUrlFilters(listFilterSchema);
+  const { page } = filters.values;
+  const setPage = filters.setPage;
   const query = useQuery({
     queryKey: privateKey("organizer-event-orders", session?.user.id, eventId, {
       page,
@@ -22,7 +25,7 @@ export function EventOrderLedger() {
         eventId,
         new URLSearchParams({ page: String(page), limit: "20" }),
       ),
-    enabled: !!session,
+    enabled: !!session && filters.valid,
   });
   return (
     <section>
@@ -30,7 +33,9 @@ export function EventOrderLedger() {
       <p>
         Booking history for this event, including unpaid and cancelled orders.
       </p>
-      {query.isPending ? (
+      {!filters.valid ? (
+        <p role="alert">{filters.error}</p>
+      ) : query.isPending ? (
         <Skeleton />
       ) : query.isError ? (
         <ErrorState

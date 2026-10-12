@@ -1,4 +1,5 @@
 "use client";
+import { EventForm } from "../new/event-form";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
@@ -6,7 +7,7 @@ import { LinkButton, MetricCard, Skeleton, StatusBadge } from "@/components/ui";
 import { ErrorState } from "@/components/ui/interactive";
 import { getManagedEvent } from "@/lib/organizer-api";
 import { privateKey } from "@/lib/query-keys";
-import { formatEventDate } from "@/lib/format";
+import { formatEventDate, formatEventRange } from "@/lib/format";
 import styles from "@/components/workspace.module.css";
 export function EventWorkspace({ details = false }: { details?: boolean }) {
   const { eventId } = useParams<{ eventId: string }>();
@@ -26,6 +27,8 @@ export function EventWorkspace({ details = false }: { details?: boolean }) {
       />
     );
   const event = query.data;
+  if (details && event.capabilities.editable)
+    return <EventForm key={event.id + event.updatedAt} initialEvent={event} />;
   if (details)
     return (
       <section className={styles.panel}>
@@ -53,7 +56,8 @@ export function EventWorkspace({ details = false }: { details?: boolean }) {
       <StatusBadge status={event.status} />
       <h1>{event.title}</h1>
       <p>
-        {event.venue}, {event.city} · {formatEventDate(event.startAt)}
+        {event.venue}, {event.city} ·{" "}
+        {formatEventRange(event.startAt, event.endAt)}
       </p>
       <div className={styles.metrics}>
         <MetricCard label="Orders" value={event._count.orders} />
