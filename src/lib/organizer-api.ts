@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { apiClient, apiList, jsonBody } from "./api-client";
-import {
-  moneySchema,
-  orderStatusSchema,
-  ticketStatusSchema,
-} from "./api-schemas";
+import { moneySchema, orderStatusSchema } from "./api-schemas";
 export { ApiError as OrganizerApiError } from "./api-error";
 export type ManagedEvent = {
   id: string;
@@ -38,7 +34,7 @@ export type CheckInRecord = {
   id: string;
   sequence: number;
   checkedInAt: string;
-  attendee: { displayName: string; email: string };
+  attendee: { displayName: string };
   ticketTier: { name: string };
   checkedInBy: { displayName: string } | null;
 };
@@ -212,7 +208,7 @@ const historySchema: z.ZodType<CheckInRecord> = z.object({
   id: z.uuid(),
   sequence: z.number().int().positive(),
   checkedInAt: timestamp,
-  attendee: z.object({ displayName: z.string(), email: z.email() }),
+  attendee: z.object({ displayName: z.string() }),
   ticketTier: z.object({ name: z.string() }),
   checkedInBy: z.object({ displayName: z.string() }).nullable(),
 });
@@ -325,18 +321,43 @@ export async function getCheckInHistory(
     eventPath(id) + "/check-ins?" + filters,
     historySchema,
   );
-  return { records: result.data, total: result.meta.total, meta: result.meta };
+  return {
+    records: result.data,
+    total: result.meta.total,
+    meta: result.meta,
+    checkedInCount: result.summary?.checkedInCount,
+  };
 }
+const staffPassSchema = z.object({
+  id: z.uuid(),
+  sequence: z.number().int().positive(),
+  checkedInAt: timestamp.nullable(),
+  ticketTier: z.object({ name: z.string() }),
+  attendee: z.object({ displayName: z.string() }),
+});
+export const checkInResultSchema = z.discriminatedUnion("resultCode", [
+  z.object({
+    resultCode: z.literal("ACCEPTED"),
+    ticket: staffPassSchema.extend({ checkedInAt: timestamp }),
+  }),
+  z.object({
+    resultCode: z.literal("ALREADY_CHECKED_IN"),
+    ticket: staffPassSchema,
+  }),
+  z.object({ resultCode: z.literal("INVALID_TICKET") }),
+  z.object({ resultCode: z.literal("WRONG_EVENT") }),
+  z.object({ resultCode: z.literal("WINDOW_CLOSED") }),
+  z.object({
+    resultCode: z.literal("ADMISSION_BLOCKED"),
+    admissionState: z.string(),
+  }),
+]);
+export type CheckInResult = z.infer<typeof checkInResultSchema>;
 export const checkInTicket = (id: string, qrToken: string) =>
-  apiClient(
-    eventPath(id) + "/check-ins",
-    z.object({
-      id: z.uuid(),
-      status: ticketStatusSchema,
-      ticketTier: z.object({ name: z.string() }),
-    }),
-    { method: "POST", ...jsonBody({ qrToken }) },
-  );
+  apiClient(eventPath(id) + "/check-ins", checkInResultSchema, {
+    method: "POST",
+    ...jsonBody({ qrToken }),
+  });
 export const getEventReport = (id: string) =>
   apiClient(eventPath(id) + "/reports/statistics", reportSchema);
 export const getEventOrders = async (

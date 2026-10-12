@@ -47,7 +47,12 @@ export async function apiList<T>(
 ) {
   const { response, payload } = await request(path, init);
   const data = parseEnvelope(response, payload, z.array(schema)).data;
-  const parsed = z.object({ meta: paginationSchema }).safeParse(payload);
+  const parsed = z
+    .object({
+      meta: paginationSchema,
+      summary: z.record(z.string(), z.number().finite()).optional(),
+    })
+    .safeParse(payload);
   if (!parsed.success)
     throw new ApiError(
       "The service returned invalid pagination.",
@@ -56,7 +61,7 @@ export async function apiList<T>(
       [],
       response.headers.get("x-request-id") ?? undefined,
     );
-  return { data, meta: parsed.data.meta };
+  return { data, meta: parsed.data.meta, summary: parsed.data.summary };
 }
 export const jsonBody = (body: unknown): RequestInit => ({
   headers: { "Content-Type": "application/json" },

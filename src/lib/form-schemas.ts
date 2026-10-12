@@ -160,7 +160,13 @@ export const refundReviewSchema = z
     message: "Explain why this refund is rejected.",
   });
 export const checkInFormSchema = z.object({
-  qrToken: z.string().trim().min(40).max(128),
+  qrToken: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9_-]{43}$/,
+      "Use the opaque EventGate QR token, not a URL.",
+    ),
 });
 export const userMutationSchema = z.discriminatedUnion("path", [
   z.object({

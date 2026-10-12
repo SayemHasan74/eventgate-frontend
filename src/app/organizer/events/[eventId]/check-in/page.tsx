@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -17,7 +18,9 @@ export default function CheckInPage() {
         <Link className={styles.back} href="/organizer">
           <ArrowLeft size={16} aria-hidden="true" /> Organizer workspace
         </Link>
-        <CheckInDesk />
+        <Suspense fallback={<p className={styles.loading}>Opening event desk…</p>}>
+          <CheckInDesk />
+        </Suspense>
       </section>
     </>
   );

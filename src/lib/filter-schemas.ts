@@ -27,6 +27,7 @@ export const userListFilterSchema = listFilterSchema.extend({
 export const auditListFilterSchema = listFilterSchema.extend({
   search: optionalText(160),
 });
+export const checkInHistoryFilterSchema = listFilterSchema.omit({ status: true });
 export const ticketWalletFilterSchema = listFilterSchema.extend({
   period: z.enum(["upcoming", "past", "all"]).default("upcoming"),
   status: z.enum(["ACTIVE", "CHECKED_IN", "VOIDED", "REFUNDED"]).optional(),
