@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import { Modal } from "@/components/ui/interactive";
-import { Button, Field, Select } from "@/components/ui";
+import { Button, Field, Select, Textarea } from "@/components/ui";
 import {
   FormFeedback,
   reportFormError,
@@ -11,8 +11,16 @@ import {
 } from "@/components/form-feedback";
 import { userMutationSchema } from "@/lib/form-schemas";
 export type UserCommand =
-  | { id: string; path: "role"; body: { role: "ATTENDEE" | "ORGANIZER" } }
-  | { id: string; path: "status"; body: { status: "ACTIVE" | "SUSPENDED" } };
+  | {
+      id: string;
+      path: "role";
+      body: { role: "ATTENDEE" | "ORGANIZER"; reason?: string };
+    }
+  | {
+      id: string;
+      path: "status";
+      body: { status: "ACTIVE" | "SUSPENDED"; reason?: string };
+    };
 export function UserChangeDialog({
   command,
   onDismiss,
@@ -24,7 +32,7 @@ export function UserChangeDialog({
 }) {
   const form = useForm<z.infer<typeof userMutationSchema>>({
     resolver: zodResolver(userMutationSchema),
-    defaultValues: { path: command.path, ...command.body },
+    defaultValues: { path: command.path, ...command.body, reason: "" },
   });
   const field = useFormFields(form);
   const submit = form.handleSubmit(async (values) => {
@@ -32,8 +40,16 @@ export function UserChangeDialog({
     try {
       await onConfirm(
         values.path === "role"
-          ? { id: command.id, path: "role", body: { role: values.role } }
-          : { id: command.id, path: "status", body: { status: values.status } },
+          ? {
+              id: command.id,
+              path: "role",
+              body: { role: values.role, reason: values.reason },
+            }
+          : {
+              id: command.id,
+              path: "status",
+              body: { status: values.status, reason: values.reason },
+            },
       );
       onDismiss();
     } catch (error) {
@@ -62,6 +78,14 @@ export function UserChangeDialog({
             form={form}
             name={command.path}
             id={field.errorId(command.path)}
+          />
+        </Field>
+        <Field label="Reason (saved in audit history)">
+          <Textarea {...field("reason")} maxLength={1000} />
+          <FormFeedback
+            form={form}
+            name="reason"
+            id={field.errorId("reason")}
           />
         </Field>
         <FormFeedback form={form} />

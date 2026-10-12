@@ -1,196 +1,235 @@
 "use client";
-import { formatMoney } from "@/lib/format";
-import { privateKey } from "@/lib/query-keys";
-
-import { useQueries } from "@tanstack/react-query";
-import {
-  Activity,
-  ArrowRight,
-  BadgeDollarSign,
-  ShieldCheck,
-  Ticket,
-  UsersRound,
-} from "lucide-react";
 import Link from "next/link";
-
+import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import {
-  AdminReportApiError,
-  getAuditLogs,
-  getOperations,
-  getPlatformStats,
-} from "@/lib/admin-report-api";
-
-import styles from "./admin.module.css";
-
-const money = formatMoney;
-const date = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
-const count = (
-  items: Array<{ status?: string; role?: string; _count: { _all: number } }>,
-  key: "status" | "role",
-  value: string,
-) => items.find((item) => item[key] === value)?._count._all ?? 0;
-
+import { apiClient } from "@/lib/api-client";
+import { privateKey } from "@/lib/query-keys";
+import { MetricCard, Skeleton } from "@/components/ui";
+import { ErrorState } from "@/components/ui/interactive";
+import { formatMoney, formatEventDate } from "@/lib/format";
+import styles from "./admin-workflows.module.css";
+const count = z.number().int().nonnegative();
 export function AdminDashboard() {
-  const { isReady, session } = useAuth();
-  const allowed = session?.user.role === "ADMIN";
-  const [statsQuery, operationsQuery, auditQuery] = useQueries({
-    queries: [
-      {
-        queryKey: privateKey("admin-stats", session?.user.id, "list", {}),
-        queryFn: () => getPlatformStats(),
-        enabled: isReady && allowed,
-        retry: false,
-      },
-      {
-        queryKey: privateKey("admin-operations", session?.user.id, "list", {}),
-        queryFn: () => getOperations(),
-        enabled: isReady && allowed,
-        retry: false,
-      },
-      {
-        queryKey: privateKey("admin-audit", session?.user.id, "list", {}),
-        queryFn: () => getAuditLogs(),
-        enabled: isReady && allowed,
-        retry: false,
-      },
-    ],
-  });
-  if (!isReady)
-    return <p className={styles.loading}>Loading platform operations…</p>;
-  if (!session || !allowed)
-    return (
-      <section className={styles.gate}>
-        <ShieldCheck size={30} aria-hidden="true" />
-        <h1>Admin access required.</h1>
-        <p>Platform reporting is available to EventGate administrators only.</p>
-        <Link className="button button-primary" href="/account">
-          My account <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  if (statsQuery.isLoading || operationsQuery.isLoading || auditQuery.isLoading)
-    return <p className={styles.loading}>Loading platform operations…</p>;
-  const problem = statsQuery.error ?? operationsQuery.error ?? auditQuery.error;
-  if (problem || !statsQuery.data || !operationsQuery.data || !auditQuery.data)
-    return (
-      <section className={styles.gate}>
-        <Activity size={30} aria-hidden="true" />
-        <h1>Reports unavailable.</h1>
-        <p>
-          {problem instanceof AdminReportApiError
-            ? problem.message
-            : "Platform reports could not be loaded."}
-        </p>
-        <Link className="button button-primary" href="/admin/refunds">
-          Open refund desk <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  const stats = statsQuery.data;
-  const paidRevenue =
-    stats.orders.find((row) => row.status === "PAID")?._sum
-      ?.totalAmountPaisaSnapshot ?? 0;
+  const { session, isReady } = useAuth();
+  if (!isReady) return <Skeleton />;
+  if (session?.user.role !== "ADMIN")
+    return <p>Administrator access required.</p>;
   return (
-    <div className={styles.dashboard}>
-      <header>
-        <p className="eyebrow">
-          <span /> Platform administration
-        </p>
-        <h1>
-          Control <b>room.</b>
-        </h1>
-        <p>
-          Live operations data from events, payments, refunds, and the EventGate
-          audit trail.
-        </p>
-        <Link className="button button-primary" href="/admin/refunds">
-          Review refunds <ArrowRight size={16} />
-        </Link>{" "}
-        <Link href="/admin/users">
-          Manage users <ArrowRight size={16} />
-        </Link>
-      </header>
-      <section className={styles.metrics}>
-        <div>
-          <UsersRound size={20} />
-          <span>Registered users</span>
-          <strong>
-            {stats.users.reduce((sum, row) => sum + row._count._all, 0)}
-          </strong>
-        </div>
-        <div>
-          <Ticket size={20} />
-          <span>Published events</span>
-          <strong>{count(stats.events, "status", "PUBLISHED")}</strong>
-        </div>
-        <div>
-          <BadgeDollarSign size={20} />
-          <span>Paid revenue</span>
-          <strong>{money(paidRevenue)}</strong>
-        </div>
-        <div>
-          <Activity size={20} />
-          <span>Refunds waiting</span>
-          <strong>{count(stats.refunds, "status", "REQUESTED")}</strong>
-        </div>
-      </section>
-      <section className={styles.section}>
-        <div className={styles.heading}>
-          <div>
-            <p className="eyebrow">
-              <span /> Transaction watch
-            </p>
-            <h2>
-              Recent <b>activity.</b>
-            </h2>
-          </div>
-          <span>{operationsQuery.data.payments.length} payments tracked</span>
-        </div>
-        <div className={styles.activity}>
-          {operationsQuery.data.payments.slice(0, 6).map((payment) => (
-            <article key={payment.id}>
-              <div>
-                <span className={styles.status}>{payment.status}</span>
-                <h3>Order {payment.orderId.slice(0, 8).toUpperCase()}</h3>
-                <p>{date(payment.initiatedAt)}</p>
-              </div>
-              <strong>{money(payment.amountPaisa)}</strong>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className={styles.section}>
-        <div className={styles.heading}>
-          <div>
-            <p className="eyebrow">
-              <span /> Audit trail
-            </p>
-            <h2>
-              Latest <b>actions.</b>
-            </h2>
-          </div>
-          <span>{auditQuery.data.total} entries</span>
-        </div>
-        <div className={styles.audit}>
-          {auditQuery.data.logs.map((log) => (
-            <article key={log.id}>
-              <span>{log.action.replaceAll("_", " ")}</span>
-              <p>
-                {log.actor?.displayName ?? "System"} · {log.entityType} ·{" "}
-                {date(log.createdAt)}
-              </p>
-            </article>
-          ))}
-        </div>
-      </section>
+    <div className={styles.page}>
+      <h1>Platform overview</h1>
+      <p>
+        Each panel loads independently. Canonical purchases, not currently paid
+        orders, determine historical sales.
+      </p>
+      <div className={styles.metrics}>
+        <CountPanel
+          panel="users"
+          title="Registered accounts"
+          href="/admin/users"
+          userId={session.user.id}
+        />
+        <CountPanel
+          panel="events"
+          title="Published events"
+          href="/admin/events"
+          userId={session.user.id}
+        />
+        <CountPanel
+          panel="refunds"
+          title="Refunds awaiting review"
+          href="/admin/refunds?status=REQUESTED"
+          userId={session.user.id}
+        />
+      </div>
+      <SalesSummary userId={session.user.id} />
+      <IncidentSummary userId={session.user.id} />
+      <MaintenanceSummary userId={session.user.id} />
+      <nav className={styles.actions}>
+        <Link href="/admin/payments">Payment records</Link>
+        <Link href="/admin/audit-logs">Audit trail</Link>
+        <Link href="/admin/operations">Recovery jobs</Link>
+      </nav>
     </div>
+  );
+}
+function CountPanel({
+  panel,
+  title,
+  href,
+  userId,
+}: {
+  panel: string;
+  title: string;
+  href: string;
+  userId: string;
+}) {
+  const query = useQuery({
+    queryKey: privateKey("admin-stats", userId, panel, {}),
+    queryFn: () =>
+      apiClient(`/api/admin/reports/summary/${panel}`, z.object({ count })),
+    retry: false,
+  });
+  return (
+    <section className={styles.panel}>
+      <h2>{title}</h2>
+      {query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : (
+        <MetricCard label={title} value={query.data.count} />
+      )}
+      <Link href={href}>Open records</Link>
+    </section>
+  );
+}
+function SalesSummary({ userId }: { userId: string }) {
+  const query = useQuery({
+    queryKey: privateKey("admin-stats", userId, "sales", {}),
+    queryFn: () =>
+      apiClient(
+        "/api/admin/reports/summary/sales",
+        z.object({
+          grossTicketSalesPaisa: count,
+          bookingRefundsPaisa: count,
+          netTicketSalesPaisa: z.number().int().safe(),
+        }),
+      ),
+    retry: false,
+  });
+  return (
+    <section className={styles.panel}>
+      <h2>Canonical ticket sales · BDT</h2>
+      {query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : (
+        <div className={styles.metrics}>
+          <MetricCard
+            label="Gross historical sales"
+            value={formatMoney(query.data.grossTicketSalesPaisa)}
+          />
+          <MetricCard
+            label="Successful booking refunds"
+            value={formatMoney(query.data.bookingRefundsPaisa)}
+          />
+          <MetricCard
+            label="Net ticket sales"
+            value={formatMoney(query.data.netTicketSalesPaisa)}
+          />
+        </div>
+      )}
+      <p>
+        Excess captures and pending refunds are not deducted as booking refunds.
+        Gateway fees are not estimated.
+      </p>
+    </section>
+  );
+}
+function IncidentSummary({ userId }: { userId: string }) {
+  const query = useQuery({
+    queryKey: privateKey("admin-operations", userId, "incidents", {}),
+    queryFn: () =>
+      apiClient(
+        "/api/admin/reports/summary/incidents",
+        z.object({ payments: count, refunds: count }),
+      ),
+    retry: false,
+  });
+  return (
+    <section className={styles.panel}>
+      <h2>Uncertain outcomes</h2>
+      {query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : (
+        <div className={styles.metrics}>
+          <MetricCard
+            label="Unknown or stale payment attempts"
+            value={query.data.payments}
+          />
+          <MetricCard
+            label="Unknown/investigation refunds"
+            value={query.data.refunds}
+          />
+        </div>
+      )}
+      <div className={styles.actions}>
+        <Link href="/admin/payments?status=UNKNOWN">Unknown payments</Link>
+        <Link href="/admin/payments?status=PENDING">Pending attempts</Link>
+        <Link href="/admin/payments?status=INITIATING">
+          Initiating attempts
+        </Link>
+        <Link href="/admin/refunds?status=UNKNOWN">
+          Inspect unknown refunds
+        </Link>
+        <Link href="/admin/refunds">All refund investigations</Link>
+      </div>
+    </section>
+  );
+}
+function MaintenanceSummary({ userId }: { userId: string }) {
+  const query = useQuery({
+    queryKey: privateKey("admin-maintenance", userId, "summary", {}),
+    queryFn: () =>
+      apiClient(
+        "/api/admin/reports/maintenance",
+        z.object({
+          pending: count,
+          failed: count,
+          backlogAgeSeconds: z.number().nonnegative(),
+          state: z.object({ heartbeatAt: z.string().nullable() }).nullable(),
+          warnings: z.array(z.string()),
+        }),
+      ),
+    retry: false,
+  });
+  return (
+    <section className={styles.panel}>
+      <h2>Maintenance backlog</h2>
+      {query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : (
+        <>
+          <div className={styles.metrics}>
+            <MetricCard label="Pending jobs" value={query.data.pending} />
+            <MetricCard label="Failed jobs" value={query.data.failed} />
+            <MetricCard
+              label="Oldest due job (seconds)"
+              value={query.data.backlogAgeSeconds}
+            />
+          </div>
+          <p>
+            Heartbeat:{" "}
+            {query.data.state?.heartbeatAt
+              ? formatEventDate(query.data.state.heartbeatAt)
+              : "Not recorded"}
+          </p>
+          {query.data.warnings.map((warning) => (
+            <p key={warning} role="status">
+              {warning.replaceAll("_", " ")}
+            </p>
+          ))}
+        </>
+      )}
+      <Link href="/admin/operations">Investigate recovery jobs</Link>
+    </section>
   );
 }

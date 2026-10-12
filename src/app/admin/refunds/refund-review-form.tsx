@@ -27,7 +27,6 @@ export function RefundReviewForm({ refundId }: { refundId: string }) {
     form.clearErrors();
     try {
       await reviewAdminRefund(refundId, decision, reviewerNote || undefined);
-      await invalidateMutation(client, session.user.id, "refund");
       toast.success(
         decision === "approve"
           ? "Refund approved for processing."
@@ -35,12 +34,14 @@ export function RefundReviewForm({ refundId }: { refundId: string }) {
       );
     } catch (error) {
       reportFormError(form, error);
+    } finally {
+      await invalidateMutation(client, session.user.id, "refund");
     }
   });
   return (
     <form noValidate onSubmit={submit}>
       <label>
-        Review note (required to reject)
+        Review note (required for either decision)
         <textarea {...field("reviewerNote")} rows={3} maxLength={1000} />
         <FormFeedback
           form={form}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { AdminRefundDesk } from "./admin-refund-desk";
 import styles from "./admin-refunds.module.css";
@@ -12,7 +13,9 @@ export default function AdminRefundsPage() {
   return (
     <>
       <section className={`${styles.page} wrap`}>
-        <AdminRefundDesk />
+        <Suspense fallback={<p>Loading refund desk…</p>}>
+          <AdminRefundDesk />
+        </Suspense>
       </section>
     </>
   );

@@ -1,177 +1,175 @@
 "use client";
-import { formatMoney } from "@/lib/format";
-import { invalidateMutation, privateKey } from "@/lib/query-keys";
-
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { RefundReviewForm } from "./refund-review-form";
-
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
+import { useUrlFilters } from "@/components/url-filters";
+import { refundListFilterSchema } from "@/lib/filter-schemas";
 import {
-  AdminRefundApiError,
   getAdminRefunds,
   retryAdminRefund,
+  type AdminRefund,
 } from "@/lib/admin-refund-api";
-
-import styles from "./admin-refunds.module.css";
-
-const money = formatMoney;
-const date = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
-
+import { requestReconciliation } from "@/lib/admin-workflow-api";
+import { privateKey, invalidateMutation } from "@/lib/query-keys";
+import { AdminAction } from "@/components/admin-action";
+import {
+  Button,
+  Field,
+  Input,
+  Select,
+  FilterBar,
+  Skeleton,
+  StatusBadge,
+} from "@/components/ui";
+import { ErrorState, Pagination } from "@/components/ui/interactive";
+import { formatMoney, formatEventDate } from "@/lib/format";
+import { RefundReviewForm } from "./refund-review-form";
+import styles from "../admin-workflows.module.css";
 export function AdminRefundDesk() {
-  const { isReady, session } = useAuth();
-  const client = useQueryClient();
-  const allowed = session?.user.role === "ADMIN";
+  const { session } = useAuth();
+  const filters = useUrlFilters(refundListFilterSchema);
+  const values = filters.values;
+  const params = new URLSearchParams({
+    page: String(values.page),
+    limit: "20",
+  });
+  if (values.status) params.set("status", values.status);
+  if (values.search) params.set("search", values.search);
   const query = useQuery({
-    queryKey: privateKey("admin-refunds", session?.user.id, "list", {}),
-    queryFn: () => getAdminRefunds(),
-    enabled: isReady && allowed,
+    queryKey: privateKey("admin-refunds", session?.user.id, "list", {
+      filters: params.toString(),
+    }),
+    queryFn: () => getAdminRefunds(params),
+    enabled: session?.user.role === "ADMIN" && filters.valid,
     retry: false,
   });
-  const retry = useMutation({
-    mutationFn: (id: string) => retryAdminRefund(id),
-    onSuccess: () => invalidateMutation(client, session!.user.id, "refund"),
-  });
-
-  if (!isReady)
-    return <p className={styles.loading}>Loading refund operations…</p>;
-  if (!session || !allowed)
-    return (
-      <section className={styles.gate}>
-        <ShieldCheck size={30} aria-hidden="true" />
-        <h1>Admin access required.</h1>
-        <p>Refund review is limited to platform administrators.</p>
-        <Link className="button button-primary" href="/account">
-          My account <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  const error = retry.error ?? query.error;
-  const refunds = query.data?.refunds ?? [];
   return (
-    <div className={styles.desk}>
-      <header>
-        <p className="eyebrow">
-          <span /> Platform operations
-        </p>
-        <h1>
-          Refund <b>desk.</b>
-        </h1>
-        <p>
-          Review attendee requests and follow provider refund processing from
-          one controlled queue.
-        </p>
-      </header>
-      <section className={styles.summary}>
-        <div>
-          <span>All requests</span>
-          <strong>{query.data?.total ?? 0}</strong>
-        </div>
-        <div>
-          <span>Needs review</span>
-          <strong>
-            {refunds.filter((refund) => refund.status === "REQUESTED").length}
-          </strong>
-        </div>
-        <div>
-          <span>Completed</span>
-          <strong>
-            {refunds.filter((refund) => refund.status === "SUCCEEDED").length}
-          </strong>
-        </div>
-      </section>
-      {error && (
-        <p className={styles.error}>
-          <CircleAlert size={16} />{" "}
-          {error instanceof AdminRefundApiError
-            ? error.message
-            : "Refund operations could not be completed."}
-        </p>
-      )}
-      {query.isLoading ? (
-        <p className={styles.muted}>Loading requests…</p>
-      ) : query.isError ? null : refunds.length === 0 ? (
-        <section className={styles.empty}>
-          <ShieldCheck size={29} aria-hidden="true" />
-          <h2>Nothing to review.</h2>
-          <p>New attendee refund requests will appear here.</p>
-        </section>
+    <section className={styles.page}>
+      <h1>Refund operations</h1>
+      <p>
+        Only REQUESTED refunds are reviewed. Provider-confirmed failures may be
+        retried. Unknown outcomes need verification or merchant-portal
+        investigation, never a second speculative refund.
+      </p>
+      <form method="GET" key={JSON.stringify(values)}>
+        <input type="hidden" name="page" value="1" />
+        <FilterBar>
+          <Field label="Event search">
+            <Input name="search" defaultValue={values.search} />
+          </Field>
+          <Field label="Status">
+            <Select name="status" defaultValue={values.status ?? ""}>
+              <option value="">All statuses</option>
+              {[
+                "REQUESTED",
+                "APPROVED",
+                "REJECTED",
+                "PROCESSING",
+                "SUCCEEDED",
+                "FAILED",
+                "UNKNOWN",
+              ].map((status) => (
+                <option key={status}>{status}</option>
+              ))}
+            </Select>
+          </Field>
+          <Button type="submit">Apply</Button>
+        </FilterBar>
+      </form>
+      <Link href="/admin/refunds">Clear filters</Link>
+      {!filters.valid ? (
+        <p role="alert">{filters.error}</p>
+      ) : query.isPending ? (
+        <Skeleton />
+      ) : query.isError ? (
+        <ErrorState
+          message={query.error.message}
+          retry={() => void query.refetch()}
+        />
+      ) : values.page > Math.max(1, query.data.meta.totalPages) ? (
+        <Button onClick={() => filters.setPage(1)}>
+          Reset unavailable page
+        </Button>
       ) : (
-        <div className={styles.list}>
-          {refunds.map((refund) => (
-            <article key={refund.id}>
-              <div className={styles.details}>
-                <span className={styles.status}>
-                  {refund.status.replaceAll("_", " ")}
-                </span>
-                <h2>Order {refund.orderId.slice(0, 8).toUpperCase()}</h2>
-                <p>
-                  Requested {date(refund.requestedAt)} ·{" "}
-                  {refund.reason.replaceAll("_", " ")}
-                </p>
-                {refund.failureMessage && (
-                  <p className={styles.failure}>{refund.failureMessage}</p>
-                )}
-                {refund.userMessage && <p>Attendee: {refund.userMessage}</p>}
-                {refund.reviewerNote && <p>Review: {refund.reviewerNote}</p>}
-                {refund.needsInvestigation && (
-                  <p className={styles.failure}>
-                    Manual investigation required. Confirm this capture and its
-                    refund in the merchant portal. Do not initiate another
-                    refund.
-                  </p>
-                )}
-                {refund.activities.length > 0 && (
-                  <details>
-                    <summary>Request and review history</summary>
-                    <ol>
-                      {refund.activities.map((activity) => (
-                        <li key={activity.id}>
-                          {date(activity.createdAt)} ·{" "}
-                          {activity.action.replaceAll("_", " ")}
-                          {activity.note ? ` — ${activity.note}` : ""}
-                        </li>
-                      ))}
-                    </ol>
-                  </details>
-                )}
-              </div>
-              <div className={styles.actions}>
-                <strong>{money(refund.amountPaisa)}</strong>
-                {refund.status === "REQUESTED" &&
-                  !refund.needsInvestigation && (
-                    <RefundReviewForm refundId={refund.id} />
-                  )}
-                {refund.status === "FAILED" &&
-                  !refund.needsInvestigation &&
-                  [
-                    "PROVIDER_REFUND_REJECTED",
-                    "PROVIDER_REFUND_CONFIRMED_FAILED",
-                  ].includes(refund.failureCode ?? "") && (
-                    <button
-                      type="button"
-                      className={styles.retry}
-                      disabled={
-                        retry.isPending && retry.variables === refund.id
-                      }
-                      onClick={() => retry.mutate(refund.id)}
-                    >
-                      <RefreshCw size={15} /> Retry provider
-                    </button>
-                  )}
-              </div>
+        <>
+          <p>{query.data.total} matching refunds</p>
+          {!query.data.refunds.length && <p>No refunds match these filters.</p>}
+          {query.data.refunds.map((refund) => (
+            <article key={refund.id} className={styles.panel}>
+              <Link href={`/admin/refunds/${refund.id}`}>
+                <h2>Refund {refund.id.slice(0, 8)}</h2>
+              </Link>
+              <StatusBadge status={refund.status} />
+              <p>
+                {formatMoney(refund.amountPaisa)} · requested{" "}
+                {formatEventDate(refund.requestedAt)}
+              </p>
+              <Link href={`/admin/orders/${refund.orderId}`}>
+                Inspect order
+              </Link>
+              <RefundOperations refund={refund} />
             </article>
           ))}
-        </div>
+          <Pagination
+            page={values.page}
+            totalPages={query.data.meta.totalPages}
+            onPageChange={filters.setPage}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+export function RefundOperations({ refund }: { refund: AdminRefund }) {
+  const { session } = useAuth();
+  const client = useQueryClient();
+  const run = async (operation: () => Promise<unknown>) => {
+    try {
+      return await operation();
+    } finally {
+      if (session)
+        await Promise.all([
+          invalidateMutation(client, session.user.id, "refund"),
+          invalidateMutation(client, session.user.id, "admin"),
+        ]);
+    }
+  };
+  return (
+    <div className={styles.actions}>
+      {refund.userMessage && <p>Attendee message: {refund.userMessage}</p>}
+      {refund.reviewerNote && <p>Reviewer: {refund.reviewerNote}</p>}
+      {refund.failureMessage && <p role="status">{refund.failureMessage}</p>}
+      {refund.needsInvestigation && (
+        <p role="alert">
+          Requires merchant-portal investigation. Do not initiate another refund
+          to discover its outcome.
+        </p>
+      )}
+      {refund.status === "REQUESTED" && !refund.needsInvestigation && (
+        <RefundReviewForm refundId={refund.id} />
+      )}
+      {refund.status === "FAILED" &&
+        !refund.needsInvestigation &&
+        [
+          "PROVIDER_REFUND_REJECTED",
+          "PROVIDER_REFUND_CONFIRMED_FAILED",
+        ].includes(refund.failureCode ?? "") && (
+          <AdminAction
+            label="Retry confirmed failure"
+            description="Request another initiation only after the provider definitively confirmed failure. The server rechecks capture/state before contacting the provider."
+            onConfirm={(reason) =>
+              run(() => retryAdminRefund(refund.id, reason))
+            }
+          />
+        )}
+      {["UNKNOWN", "PROCESSING"].includes(refund.status) && (
+        <AdminAction
+          label="Schedule verification"
+          description="Queue provider status verification. This cannot force success or restart an uncertain refund. Missing provider references require manual merchant-portal investigation."
+          onConfirm={(reason) =>
+            run(() => requestReconciliation("refunds", refund.id, reason))
+          }
+        />
       )}
     </div>
   );

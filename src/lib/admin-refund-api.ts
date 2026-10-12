@@ -26,9 +26,9 @@ export const reviewAdminRefund = (
       }),
     },
   );
-export const retryAdminRefund = (id: string) =>
+export const retryAdminRefund = (id: string, reason: string) =>
   apiClient(
     "/api/refunds/admin/refunds/" + encodeURIComponent(id) + "/retry",
     z.null(),
-    { method: "POST" },
+    { method: "POST", ...jsonBody({ reason }) },
   );

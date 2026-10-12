@@ -153,7 +153,7 @@ export const accountProfileFormSchema = profileFormSchema.extend({
 export const refundReviewSchema = z
   .object({
     decision: z.enum(["approve", "reject"]),
-    reviewerNote: z.string().trim().max(1000),
+    reviewerNote: z.string().trim().min(5).max(1000),
   })
   .refine((value) => value.decision !== "reject" || !!value.reviewerNote, {
     path: ["reviewerNote"],
@@ -172,9 +172,11 @@ export const userMutationSchema = z.discriminatedUnion("path", [
   z.object({
     path: z.literal("role"),
     role: z.enum(["ATTENDEE", "ORGANIZER"]),
+    reason: z.string().trim().min(5).max(1000),
   }),
   z.object({
     path: z.literal("status"),
     status: z.enum(["ACTIVE", "SUSPENDED"]),
+    reason: z.string().trim().min(5).max(1000),
   }),
 ]);

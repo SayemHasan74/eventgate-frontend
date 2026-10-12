@@ -66,6 +66,7 @@ export const mutationDomains = {
     "tickets",
   ],
   adminUser: [
+    "admin-events",
     "admin-users",
     "admin-stats",
     "admin-audit",
@@ -74,6 +75,8 @@ export const mutationDomains = {
     "users",
   ],
   admin: [
+    "admin-jobs",
+    "admin-maintenance",
     "admin-events",
     "admin-payments",
     "admin-refunds",

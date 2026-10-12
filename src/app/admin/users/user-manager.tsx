@@ -1,5 +1,8 @@
 "use client";
 import Form from "next/form";
+import Link from "next/link";
+import { AdminAction } from "@/components/admin-action";
+import { adminDateParams } from "@/lib/admin-workflow-api";
 import { invalidateMutation, privateKey } from "@/lib/query-keys";
 import featureStyles from "./user-manager.module.css";
 import { z } from "zod";
@@ -12,7 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserChangeDialog, type UserCommand } from "./user-change-dialog";
 import { useUrlFilters, DebouncedSearchInput } from "@/components/url-filters";
-import { userListFilterSchema } from "@/lib/filter-schemas";
+import { adminUserFilterSchema } from "@/lib/filter-schemas";
 import { FieldError } from "@/components/ui";
 import { Pagination } from "@/components/ui/interactive";
 
@@ -37,10 +40,12 @@ export function UserManager() {
   const [command, setCommand] = useState<UserCommand | null>(null);
   const queryClient = useQueryClient();
   const search = useSearchParams();
-  const filters = useUrlFilters(userListFilterSchema);
-  const qs = new URLSearchParams(
-    Object.entries(filters.values).map(([key, value]) => [key, String(value)]),
-  );
+  const filters = useUrlFilters(adminUserFilterSchema);
+  const qs = adminDateParams(filters.values);
+  for (const key of ["page", "search", "role", "status"] as const) {
+    const value = filters.values[key];
+    if (value !== undefined && value !== "") qs.set(key, String(value));
+  }
   if (!qs.has("limit")) qs.set("limit", "50");
   const allowed = session?.user.role === "ADMIN";
   const users = useQuery({
@@ -66,8 +71,11 @@ export function UserManager() {
       }),
     onSuccess: () => {
       toast.success("User updated.");
-      return invalidateMutation(queryClient, session!.user.id, "adminUser");
     },
+    onSettled: () =>
+      session
+        ? invalidateMutation(queryClient, session.user.id, "adminUser")
+        : undefined,
   });
   if (!isReady) return <p className="loading">Loading users…</p>;
   if (!allowed)
@@ -87,7 +95,16 @@ export function UserManager() {
       <h1>
         User <b>management.</b>
       </h1>
-      <Form scroll={false} action="/admin/users">
+      <p>
+        Administrator roles are seed-only. You cannot suspend/delete yourself or
+        remove the last active administrator. Organizers with draft/published
+        events cannot be demoted or deleted. The server rechecks every action.
+      </p>
+      <Form
+        key={JSON.stringify(filters.values)}
+        scroll={false}
+        action="/admin/users"
+      >
         <input type="hidden" name="page" value="1" />
         <DebouncedSearchInput
           name="search"
@@ -105,6 +122,34 @@ export function UserManager() {
           <option>ORGANIZER</option>
           <option>ADMIN</option>
         </select>
+        <label>
+          Status
+          <select
+            name="status"
+            defaultValue={filters.values.status ?? ""}
+            key={filters.values.status ?? "all"}
+          >
+            <option value="">All statuses</option>
+            <option>ACTIVE</option>
+            <option>SUSPENDED</option>
+          </select>
+        </label>
+        <label>
+          Registered from (Dhaka)
+          <input
+            name="startDate"
+            type="date"
+            defaultValue={filters.values.startDate}
+          />
+        </label>
+        <label>
+          Through (Dhaka)
+          <input
+            name="endDate"
+            type="date"
+            defaultValue={filters.values.endDate}
+          />
+        </label>
         <button className="button button-primary">Filter</button>
       </Form>
       {!filters.valid ? (
@@ -113,13 +158,27 @@ export function UserManager() {
         <p>Loading users…</p>
       ) : users.isError ? (
         <p>{users.error.message}</p>
+      ) : users.data &&
+        filters.values.page > Math.max(1, users.data.meta.totalPages) ? (
+        <button
+          type="button"
+          className="button"
+          onClick={() => filters.setPage(1)}
+        >
+          Reset unavailable page
+        </button>
       ) : (
         <div className={[featureStyles["user-list"]].join(" ")}>
+          {users.data?.data.length === 0 && (
+            <p>No users match these filters.</p>
+          )}
           {users.data?.data.map((user) => (
             <article key={user.id}>
               <div>
                 <UserCog size={18} />
-                <strong>{user.displayName}</strong>
+                <Link href={`/admin/users/${user.id}`}>
+                  <strong>{user.displayName}</strong>
+                </Link>
                 <span>
                   {user.email} · {user.status}
                 </span>
@@ -165,6 +224,31 @@ export function UserManager() {
                 >
                   {user.status === "ACTIVE" ? "Suspend" : "Activate"}
                 </button>
+                <AdminAction
+                  label="Delete user"
+                  confirmation={user.email}
+                  disabled={user.id === session?.user.id}
+                  description="Soft-delete this account and revoke its sessions. Financial/audit history is retained. Last-admin and organizer-history restrictions are enforced by the server."
+                  onConfirm={async (reason) => {
+                    try {
+                      await apiClient(`/api/admin/users/${user.id}`, z.null(), {
+                        method: "DELETE",
+                        ...jsonBody({ reason }),
+                      });
+                    } finally {
+                      await invalidateMutation(
+                        queryClient,
+                        session!.user.id,
+                        "adminUser",
+                      );
+                    }
+                  }}
+                />
+                <Link
+                  href={`/admin/audit-logs?entityType=USER&entityId=${user.id}`}
+                >
+                  Audit history
+                </Link>
               </div>
               {update.isError && update.variables?.id === user.id && (
                 <FieldError>{update.error.message}</FieldError>

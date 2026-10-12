@@ -86,9 +86,10 @@ const eventSchema: z.ZodType<ManagedEvent> = z.object({
   createdAt: timestamp,
   updatedAt: timestamp,
 });
-export const getManagedEvent = (id: string) =>
+export const getManagedEvent = (id: string, admin = false) =>
   apiClient(
-    "/api/organizer/events/" + encodeURIComponent(id),
+    (admin ? "/api/admin/events/" : "/api/organizer/events/") +
+      encodeURIComponent(id),
     z.intersection(
       eventSchema,
       z.object({

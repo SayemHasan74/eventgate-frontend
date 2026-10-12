@@ -68,6 +68,29 @@ export const orderListFilterSchema = orderStatusFilterSchema
 export const eventReportFilterSchema = orderListFilterSchema.safeExtend({
   tierId: z.uuid().optional(),
 });
+export const adminUserFilterSchema = userListFilterSchema
+  .extend({ startDate: day, endDate: day })
+  .refine(
+    (value) =>
+      !value.startDate || !value.endDate || value.startDate <= value.endDate,
+    { path: ["endDate"], message: "End date must be on or after start date." },
+  );
+export const adminRecordFilterSchema = listFilterSchema
+  .extend({
+    startDate: day,
+    endDate: day,
+    organizerId: z.uuid().optional(),
+    actorId: z.uuid().optional(),
+    entityId: z.uuid().optional(),
+    entityType: optionalText(80),
+    type: optionalText(80),
+    jobId: z.uuid().optional(),
+  })
+  .refine(
+    (value) =>
+      !value.startDate || !value.endDate || value.startDate <= value.endDate,
+    { path: ["endDate"], message: "End date must be on or after start date." },
+  );
 export const discoveryFilterSchema = listFilterSchema
   .omit({ status: true })
   .extend({

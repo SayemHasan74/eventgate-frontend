@@ -12,6 +12,8 @@ const schema = z.object({
   pending: z.number().int().nonnegative(),
   running: z.number().int().nonnegative(),
   failed: z.number().int().nonnegative(),
+  unresolvedPayments: z.number().int().nonnegative(),
+  investigationRefunds: z.number().int().nonnegative(),
   expiredLeases: z.number().int().nonnegative(),
   backlogAgeSeconds: z.number().nonnegative(),
   warnings: z.array(z.string()),
@@ -20,6 +22,7 @@ const schema = z.object({
     .object({
       lastStartedAt: z.string().nullable(),
       lastCompletedAt: z.string().nullable(),
+      heartbeatAt: z.string().nullable(),
       lastFailure: z.string().nullable(),
     })
     .nullable(),
@@ -52,11 +55,25 @@ export function MaintenancePanel() {
             <MetricCard label="Running" value={query.data.running} />
             <MetricCard label="Failed" value={query.data.failed} />
             <MetricCard
+              label="Unknown payment outcomes"
+              value={query.data.unresolvedPayments}
+            />
+            <MetricCard
+              label="Refund investigations"
+              value={query.data.investigationRefunds}
+            />
+            <MetricCard
               label="Overdue leases"
               value={query.data.expiredLeases}
             />
           </div>
           <p>Oldest due job: {query.data.backlogAgeSeconds} seconds overdue.</p>
+          <p>
+            Last heartbeat:{" "}
+            {query.data.state?.heartbeatAt
+              ? formatEventDate(query.data.state.heartbeatAt)
+              : "Not recorded"}
+          </p>
           <p>
             Last started:{" "}
             {query.data.state?.lastStartedAt
