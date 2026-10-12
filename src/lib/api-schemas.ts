@@ -155,6 +155,8 @@ export const orderDetailSchema = orderSchema.and(
     payable: z.boolean(),
     cancellable: z.boolean(),
     financialReviewRequired: z.boolean(),
+    fulfilledPaymentAttemptId: z.uuid().nullable(),
+    refunds: z.array(refundSchema),
     ticketIds: z.array(z.uuid()),
     event: z.object({
       slug: z.string(),

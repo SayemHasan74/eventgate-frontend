@@ -15,6 +15,7 @@ import {
   definitiveFailure,
 } from "@/lib/operation-keys";
 import styles from "./checkout-panel.module.css";
+import { rememberCheckout } from "@/lib/checkout-context";
 
 export function CheckoutPanel({
   order,
@@ -106,6 +107,7 @@ export function CheckoutPanel({
       const key = operationKey("checkout", session.user.id, order.id);
       const result = await startCheckout(order.id, key);
       setStartedAttemptId(result.paymentAttemptId);
+      rememberCheckout(order.id, result.paymentAttemptId);
       if (result.status === "AVAILABLE") {
         window.location.assign(result.checkoutUrl);
       } else {

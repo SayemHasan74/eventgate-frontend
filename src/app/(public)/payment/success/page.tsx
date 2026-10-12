@@ -1,22 +1,15 @@
-import Link from "next/link";
-import { CheckCircle2, ArrowRight } from "lucide-react";
-export default function PaymentSuccessPage() {
+import { PaymentReturnStatus } from "@/components/payment-return-status";
+import { paymentReturnId } from "@/lib/payment-return-id";
+export default async function PaymentReturnPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
   return (
-    <main className="wrap payment-result">
-      <CheckCircle2 size={42} />
-      <p className="eyebrow">
-        <span /> Payment update
-      </p>
-      <h1>
-        Payment <b>received.</b>
-      </h1>
-      <p>
-        Your payment provider has returned to EventGate. Open your account to
-        see the confirmed order and tickets.
-      </p>
-      <Link className="button button-primary" href="/account">
-        View my orders <ArrowRight size={16} />
-      </Link>
-    </main>
+    <PaymentReturnStatus
+      orderId={paymentReturnId(query.orderId)}
+      returnPath="/payment/success"
+    />
   );
 }

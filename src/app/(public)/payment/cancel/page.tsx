@@ -1,22 +1,15 @@
-import Link from "next/link";
-import { ArrowRight, CircleX } from "lucide-react";
-export default function PaymentCancelPage() {
+import { PaymentReturnStatus } from "@/components/payment-return-status";
+import { paymentReturnId } from "@/lib/payment-return-id";
+export default async function PaymentReturnPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
   return (
-    <main className="wrap payment-result">
-      <CircleX size={42} />
-      <p className="eyebrow">
-        <span /> Payment cancelled
-      </p>
-      <h1>
-        Checkout <b>paused.</b>
-      </h1>
-      <p>
-        No payment was completed. Your order remains visible while its
-        reservation is still active.
-      </p>
-      <Link className="button button-primary" href="/account">
-        Return to orders <ArrowRight size={16} />
-      </Link>
-    </main>
+    <PaymentReturnStatus
+      orderId={paymentReturnId(query.orderId)}
+      returnPath="/payment/cancel"
+    />
   );
 }

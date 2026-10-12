@@ -7,8 +7,9 @@ export const startCheckout = (orderId: string, key: string) =>
     checkoutSchema,
     { method: "POST", headers: { "Idempotency-Key": key } },
   );
-export const getPaymentAttempt = (attemptId: string) =>
+export const getPaymentAttempt = (attemptId: string, signal?: AbortSignal) =>
   apiClient(
     "/api/payments/attempts/" + encodeURIComponent(attemptId),
     paymentAttemptSchema,
+    { signal },
   );

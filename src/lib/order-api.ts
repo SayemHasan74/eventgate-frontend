@@ -33,8 +33,10 @@ export const reserveTickets = async (
     throw error;
   }
 };
-export const getOrder = (orderId: string) =>
-  apiClient("/api/orders/" + encodeURIComponent(orderId), orderDetailSchema);
+export const getOrder = (orderId: string, signal?: AbortSignal) =>
+  apiClient("/api/orders/" + encodeURIComponent(orderId), orderDetailSchema, {
+    signal,
+  });
 export async function getOrders(filters = new URLSearchParams()) {
   const result = await apiList("/api/orders?" + filters, orderSchema);
   return { orders: result.data, meta: result.meta };

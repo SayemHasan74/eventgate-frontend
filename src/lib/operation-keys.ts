@@ -54,6 +54,7 @@ export function clearOperationKey(
 export function clearOperationKeys() {
   memory.clear();
   try {
+    window.sessionStorage.removeItem("eventgate.checkout-context");
     for (const id of Object.keys(window.sessionStorage))
       if (id.startsWith(prefix)) window.sessionStorage.removeItem(id);
   } catch {
