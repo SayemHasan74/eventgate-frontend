@@ -8,7 +8,7 @@ async function forward(
   const target = path.join("/");
   const id = "[0-9a-fA-F-]{36}";
   const routes = {
-    GET: /^(refund-requests|admin\/refunds)$/,
+    GET: new RegExp("^(refund-requests|admin/refunds)(/" + id + ")?$"),
     POST: new RegExp(
       "^(orders/" + id + "/refund-requests|admin/refunds/" + id + "/retry)$",
     ),
