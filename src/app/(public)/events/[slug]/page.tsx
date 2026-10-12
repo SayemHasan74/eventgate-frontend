@@ -40,9 +40,10 @@ const bangladeshTime = (value: string) =>
 const price = formatMoney;
 
 const saleLabel = (tier: PublicTicketTier) => {
+  if (tier.salesPaused) return "Sales paused";
   const now = Date.now();
   if (tier.availableQuantity === 0) return "Sold out";
-  if (new Date(tier.salesEndAt).getTime() < now) return "Sales closed";
+  if (new Date(tier.salesEndAt).getTime() <= now) return "Sales closed";
   if (new Date(tier.salesStartAt).getTime() > now) return "Coming soon";
   return "Available now";
 };

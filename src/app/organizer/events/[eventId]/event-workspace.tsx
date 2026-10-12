@@ -228,7 +228,7 @@ export function EventWorkspace({
       href: base + "/details",
     },
     {
-      label: "Saved active ticket tier",
+      label: "Eligible unpaused saved tier",
       complete: event.setupChecks.hasActiveTier,
       href: base + "/tickets",
     },
@@ -324,11 +324,9 @@ export function EventWorkspace({
               Open publication review to inspect the saved event and inventory
               before publishing.
             </p>
-            {event.capabilities.canPublish && (
-              <LinkButton variant="primary" href={base + "/publish"}>
-                Review publication
-              </LinkButton>
-            )}
+            <LinkButton variant="primary" href={base + "/publish"}>
+              Review publication
+            </LinkButton>
           </section>
         ) : (
           <section className={styles.panel}>
@@ -357,13 +355,7 @@ export function EventWorkspace({
             {event.capabilities.editable && (
               <LinkButton href={base + "/details"}>Edit details</LinkButton>
             )}
-            <LinkButton
-              href={
-                event.capabilities.canManageTiers
-                  ? base + "/tickets"
-                  : base + "/preview#inventory"
-              }
-            >
+            <LinkButton href={base + "/tickets"}>
               {event.capabilities.canManageTiers
                 ? "Manage tiers"
                 : "View inventory"}

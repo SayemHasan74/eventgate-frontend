@@ -73,19 +73,30 @@ export const eventFormSchema = eventFieldsSchema.superRefine((value, ctx) => {
   }
 });
 export const publishedEventFormSchema = eventFieldsSchema;
-export const tierFormSchema = (eventStart?: string) =>
+export const tierFormSchema = (
+  eventStart?: string,
+  options: {
+    requireFutureStart?: boolean;
+    minimumCapacity?: number;
+    futureEnd?: boolean;
+  } = {},
+) =>
   z
     .object({
       name: z.string().trim().min(2).max(100),
       price: z.string().refine((value) => {
         try {
-          bdtToPaisa(value);
-          return true;
+          return bdtToPaisa(value) <= 2147483647;
         } catch {
           return false;
         }
       }, "Enter a positive BDT amount with at most two decimals."),
-      capacity: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      capacity: z
+        .number()
+        .int()
+        .min(Math.max(1, options.minimumCapacity ?? 1))
+        .max(2147483647),
+      salesPaused: z.boolean(),
       salesStartAt: localDate,
       salesEndAt: localDate,
     })
@@ -93,7 +104,7 @@ export const tierFormSchema = (eventStart?: string) =>
       try {
         const start = Date.parse(dhakaLocalToUtc(value.salesStartAt));
         const end = Date.parse(dhakaLocalToUtc(value.salesEndAt));
-        if (start <= Date.now())
+        if ((options.requireFutureStart ?? true) && start <= Date.now())
           ctx.addIssue({
             code: "custom",
             path: ["salesStartAt"],
@@ -104,6 +115,12 @@ export const tierFormSchema = (eventStart?: string) =>
             code: "custom",
             path: ["salesEndAt"],
             message: "Sales must end after they start.",
+          });
+        if (options.futureEnd && end <= Date.now())
+          ctx.addIssue({
+            code: "custom",
+            path: ["salesEndAt"],
+            message: "Reopening sales requires a future end time.",
           });
         if (eventStart && end > Date.parse(eventStart))
           ctx.addIssue({

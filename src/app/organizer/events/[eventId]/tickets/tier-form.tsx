@@ -1,291 +1,291 @@
 "use client";
-import { invalidateMutation } from "@/lib/query-keys";
-import { privateKey } from "@/lib/query-keys";
-
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  CalendarDays,
-  Check,
-  LoaderCircle,
-  Plus,
-  Ticket,
-} from "lucide-react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import type { z } from "zod";
-import {
-  FormFeedback,
-  useFormFields,
-  reportFormError,
-} from "@/components/form-feedback";
-import { tierFormSchema } from "@/lib/form-schemas";
-import { dhakaLocalToUtc, formatMoney, bdtToPaisa } from "@/lib/format";
-import { ErrorState } from "@/components/ui/interactive";
+import { useParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
 import { useAuth } from "@/components/auth-provider";
 import {
-  createTicketTier,
+  Button,
+  FieldError,
+  LinkButton,
+  Skeleton,
+  StatusBadge,
+} from "@/components/ui";
+import {
+  ConfirmationDialog,
+  ErrorState,
+  Pagination,
+} from "@/components/ui/interactive";
+import { EmptyState } from "@/components/empty-state";
+import { useUrlFilters } from "@/components/url-filters";
+import { listFilterSchema } from "@/lib/filter-schemas";
+import {
   getManagedEvent,
-  type TicketTier,
+  getManagedTiers,
+  updateTicketTier,
+  deleteTicketTier,
+  type ManagedTier,
 } from "@/lib/organizer-api";
-
-import styles from "./tier-form.module.css";
-
-const money = formatMoney;
-
-export function TierForm() {
-  const queryClient = useQueryClient();
-  const { isReady, session } = useAuth();
-  const params = useParams<{ eventId: string }>();
-  const eventId = params.eventId;
-  const [createdTiers, setCreatedTiers] = useState<TicketTier[]>([]);
-  const allowed =
-    session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
-  const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
-    queryFn: () => getManagedEvent(eventId),
-    enabled: isReady && Boolean(session) && allowed,
-    retry: false,
-  });
-  const event = eventsQuery.data;
-  const form = useForm<z.infer<ReturnType<typeof tierFormSchema>>>({
-    resolver: zodResolver(tierFormSchema(event?.startAt)),
-    defaultValues: {
-      name: "",
-      price: "",
-      capacity: 1,
-      salesStartAt: "",
-      salesEndAt: "",
+import { invalidateMutation, privateKey } from "@/lib/query-keys";
+import { formatMoney, formatEventRange } from "@/lib/format";
+import { TierEditor } from "./tier-editor";
+import styles from "./tier-manager.module.css";
+type Action = "delete" | "close" | "pause" | "resume";
+function TierCard({
+  tier,
+  eventId,
+  onEdit,
+  onDeleted,
+}: {
+  tier: ManagedTier;
+  eventId: string;
+  onEdit: () => void;
+  onDeleted: () => void;
+}) {
+  const { session } = useAuth();
+  const client = useQueryClient();
+  const [action, setAction] = useState<Action | null>(null);
+  const mutation = useMutation({
+    mutationFn: async (action: Action) => {
+      if (action === "delete") await deleteTicketTier(eventId, tier.id);
+      else
+        await updateTicketTier(
+          eventId,
+          tier.id,
+          action === "close"
+            ? { closeSales: true }
+            : { salesPaused: action === "pause" },
+        );
+    },
+    onSuccess: async (_, action) => {
+      await invalidateMutation(client, session!.user.id, "tier");
+      toast.success(
+        action === "delete"
+          ? "Tier deleted; history remains protected."
+          : "Sales controls saved.",
+      );
+      if (action === "delete") onDeleted();
     },
   });
-  const field = useFormFields(form);
-  const isSubmitting = form.formState.isSubmitting;
-
-  const addTier = form.handleSubmit(async (values) => {
-    if (!session || !event) return;
-    form.clearErrors();
-    try {
-      const tier = await createTicketTier(event.id, {
-        name: values.name,
-        pricePaisa: bdtToPaisa(values.price),
-        capacity: values.capacity,
-        salesStartAt: dhakaLocalToUtc(values.salesStartAt),
-        salesEndAt: dhakaLocalToUtc(values.salesEndAt),
-      });
-      setCreatedTiers((tiers) => [...tiers, tier]);
-      form.reset();
-      await invalidateMutation(queryClient, session.user.id, "tier");
-      toast.success(`${tier.name} tier created.`);
-    } catch (error) {
-      reportFormError(form, error, { pricePaisa: "price" });
-    }
+  const explanation =
+    action === "delete"
+      ? "Only draft tiers without any order history can be deleted."
+      : action === "close"
+        ? "Sales end will be set to the backend’s current time. Existing held reservations are not cancelled; late payment stock reacquisition must pass the new sales rules."
+        : action === "pause"
+          ? "New purchases and late payment stock reacquisition will be blocked. Existing valid held reservations are not cancelled."
+          : "Sales will follow the saved window again. The backend will confirm that its end is still in the future.";
+  return (
+    <article className={styles.tier}>
+      <StatusBadge status={tier.salesPaused ? "PAUSED" : tier.saleState} />
+      <h2>{tier.name}</h2>
+      <strong>{formatMoney(tier.pricePaisa)}</strong>
+      <dl className={styles.stock}>
+        {[
+          ["Capacity", tier.capacity],
+          ["Reserved", tier.reservedQuantity],
+          ["Sold", tier.soldQuantity],
+          ["Available", tier.availableQuantity],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p>Sales: {formatEventRange(tier.salesStartAt, tier.salesEndAt)}</p>
+      {tier.restrictionCodes.includes("TIER_HISTORY_LOCKED") && (
+        <p>
+          Order history locks name, price, and sales start. Capacity cannot be
+          reduced.
+        </p>
+      )}
+      {tier.restrictionCodes.includes("PUBLISHED_TIER_FIELDS_LOCKED") && (
+        <p>
+          Published tier: name, price, and sales start are fixed. Only capacity
+          increases and sales controls are permitted.
+        </p>
+      )}
+      {!tier.canEdit && <p>Historical inventory is read-only.</p>}
+      <div className={styles.actions}>
+        {tier.canEdit && (
+          <Button disabled={mutation.isPending} onClick={onEdit}>
+            Edit tier
+          </Button>
+        )}
+        {tier.canCloseSales && (
+          <Button
+            disabled={mutation.isPending}
+            onClick={() => setAction("close")}
+          >
+            Close sales now
+          </Button>
+        )}
+        {tier.canPauseSales && (
+          <Button
+            disabled={mutation.isPending}
+            onClick={() => setAction("pause")}
+          >
+            Pause sales
+          </Button>
+        )}
+        {tier.canResumeSales && (
+          <Button
+            disabled={mutation.isPending}
+            onClick={() => setAction("resume")}
+          >
+            Resume sales
+          </Button>
+        )}
+        {tier.canDelete && (
+          <Button
+            variant="danger"
+            disabled={mutation.isPending}
+            onClick={() => setAction("delete")}
+          >
+            Delete tier
+          </Button>
+        )}
+      </div>
+      {mutation.isError && <FieldError>{mutation.error.message}</FieldError>}
+      <ConfirmationDialog
+        open={!!action}
+        title={`${action === "delete" ? "Delete" : action === "close" ? "Close sales for" : action === "pause" ? "Pause" : "Resume"} ${tier.name}?`}
+        description={explanation}
+        onDismiss={() => setAction(null)}
+        onConfirm={async () => {
+          if (action) await mutation.mutateAsync(action);
+        }}
+      />
+    </article>
+  );
+}
+export function TierForm() {
+  const { session } = useAuth();
+  const { eventId } = useParams<{ eventId: string }>();
+  const client = useQueryClient();
+  const filters = useUrlFilters(listFilterSchema);
+  const page = filters.values.page;
+  const [editor, setEditor] = useState<ManagedTier | "new" | null>(null);
+  const event = useQuery({
+    queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
+    queryFn: () => getManagedEvent(eventId),
+    enabled: !!session,
   });
-
-  if (!isReady || eventsQuery.isLoading)
-    return <p className={styles.loading}>Loading event workspace…</p>;
-  if (!session || !allowed)
-    return (
-      <section className={styles.gate}>
-        <h1>Organizer access required.</h1>
-        <p>Only organizer accounts can create ticket tiers.</p>
-        <Link className="button button-primary" href="/organizer">
-          Organizer workspace <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  if (eventsQuery.isError)
+  const tiers = useQuery({
+    queryKey: privateKey("organizer-tiers", session?.user.id, eventId, {
+      page,
+    }),
+    queryFn: () =>
+      getManagedTiers(
+        eventId,
+        new URLSearchParams({ page: String(page), limit: "20" }),
+      ),
+    enabled: !!session && filters.valid,
+  });
+  if (event.isPending) return <Skeleton />;
+  if (event.isError)
     return (
       <ErrorState
-        message={eventsQuery.error.message}
-        retry={() => void eventsQuery.refetch()}
+        message={event.error.message}
+        retry={() => void event.refetch()}
       />
     );
-  if (!event)
-    return (
-      <section className={styles.gate}>
-        <h1>Event not found.</h1>
-        <p>This event is not available in your organizer workspace.</p>
-        <Link className="button button-primary" href="/organizer">
-          Back to events <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  if (event.status !== "DRAFT")
-    return (
-      <section className={styles.gate}>
-        <h1>This event is locked.</h1>
-        <p>Ticket tiers can only be changed while an event is still a draft.</p>
-        <Link className="button button-primary" href="/organizer">
-          Back to events <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-
+  const saved = event.data;
   return (
-    <div className={styles.workspace}>
-      <header className={styles.eventStrip}>
+    <section className={styles.page}>
+      <header className={styles.header}>
         <div>
-          <p className="eyebrow">
-            <span /> Draft event
-          </p>
-          <h1>{event.title}</h1>
+          <StatusBadge status={saved.status} />
+          <h1>Ticket inventory</h1>
+          <p>{saved.title}</p>
+          <p>{formatEventRange(saved.startAt, saved.endAt)}</p>
         </div>
-        <div>
-          <span>
-            <CalendarDays size={15} />{" "}
-            {new Intl.DateTimeFormat("en-BD", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              timeZone: "Asia/Dhaka",
-            }).format(new Date(event.startAt))}
-          </span>
-          <span>
-            {event.venue}, {event.city}
-          </span>
+        <div className={styles.actions}>
+          {saved.status === "DRAFT" && saved.capabilities.canManageTiers && (
+            <Button variant="primary" onClick={() => setEditor("new")}>
+              Add ticket tier
+            </Button>
+          )}
+          <Button
+            disabled={tiers.isFetching}
+            onClick={() => void Promise.all([tiers.refetch(), event.refetch()])}
+          >
+            Refresh saved inventory
+          </Button>
         </div>
       </header>
-      <div className={styles.grid}>
-        <section>
-          <p className="eyebrow">
-            <span /> Ticket inventory
-          </p>
-          <h2>
-            Build the <b>door.</b>
-          </h2>
-          <p className={styles.intro}>
-            Each tier has its own capacity, price, and sales window. Add every
-            tier before publishing this event.
-          </p>
-          <form
-            noValidate
-            onSubmit={addTier}
-            className={styles.form}
-            id="tier-form"
-          >
-            <FormFeedback form={form} />
-            <label>
-              <span>Tier name</span>
-              <input
-                maxLength={100}
-                minLength={2}
-                {...field("name")}
-                placeholder="General admission"
-                required
-              />
-              <FormFeedback
-                form={form}
-                name="name"
-                id={field.errorId("name")}
-              />
-            </label>
-            <label>
-              <span>Price (BDT)</span>
-              <input
-                min="0.01"
-                {...field("price")}
-                placeholder="500"
-                required
-                step="0.01"
-                type="number"
-              />
-              <FormFeedback
-                form={form}
-                name="price"
-                id={field.errorId("price")}
-              />
-            </label>
-            <label>
-              <span>Capacity</span>
-              <input
-                min="1"
-                {...field("capacity", { valueAsNumber: true })}
-                placeholder="100"
-                required
-                type="number"
-              />
-              <FormFeedback
-                form={form}
-                name="capacity"
-                id={field.errorId("capacity")}
-              />
-            </label>
-            <label>
-              <span>Sales start (Bangladesh, UTC+06:00)</span>
-              <input
-                {...field("salesStartAt")}
-                required
-                type="datetime-local"
-              />
-              <FormFeedback
-                form={form}
-                name="salesStartAt"
-                id={field.errorId("salesStartAt")}
-              />
-            </label>
-            <label>
-              <span>Sales end (Bangladesh, UTC+06:00)</span>
-              <input {...field("salesEndAt")} required type="datetime-local" />
-              <FormFeedback
-                form={form}
-                name="salesEndAt"
-                id={field.errorId("salesEndAt")}
-              />
-            </label>
-            <button
-              className="button button-primary"
-              disabled={isSubmitting}
-              type="submit"
-            >
-              {isSubmitting ? (
-                <LoaderCircle className={styles.spinner} size={17} />
-              ) : (
-                <Plus size={17} />
-              )}{" "}
-              {isSubmitting ? "Adding tier" : "Add ticket tier"}
-            </button>
-          </form>
-        </section>
-        <aside className={styles.created}>
-          <div>
-            <Ticket size={21} aria-hidden="true" />
-            <span>Created this session</span>
-          </div>
-          {createdTiers.length === 0 ? (
-            <p>
-              New tiers will appear here immediately after the backend saves
-              them.
-            </p>
+      <p>
+        {saved.status === "DRAFT"
+          ? "Build and correct saved tiers before publication. Order history locks destructive edits."
+          : saved.status === "PUBLISHED"
+            ? "No new tiers or deletion after publication. Increase stock or adjust sales safely; pause a future sales window instead of giving it an invalid end time."
+            : "This event’s inventory is retained as read-only history."}
+      </p>
+      {!filters.valid ? (
+        <FieldError>{filters.error}</FieldError>
+      ) : tiers.isPending ? (
+        <Skeleton />
+      ) : tiers.isError ? (
+        <ErrorState
+          message={tiers.error.message}
+          retry={() => void tiers.refetch()}
+        />
+      ) : (
+        <>
+          <p>{tiers.data.meta.total} saved tiers</p>
+          {tiers.data.data.length ? (
+            <div className={styles.list}>
+              {tiers.data.data.map((tier) => (
+                <TierCard
+                  key={tier.id}
+                  tier={tier}
+                  eventId={eventId}
+                  onEdit={() => setEditor(tier)}
+                  onDeleted={() => {
+                    filters.setPage(1);
+                    void client.invalidateQueries({
+                      queryKey: ["organizer-tiers", session?.user.id],
+                    });
+                  }}
+                />
+              ))}
+            </div>
           ) : (
-            <>
-              <ul>
-                {createdTiers.map((tier) => (
-                  <li key={tier.id}>
-                    <Check size={16} aria-hidden="true" />
-                    <div>
-                      <strong>{tier.name}</strong>
-                      <span>
-                        {tier.capacity} capacity · {money(tier.pricePaisa)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                className="button button-primary"
-                href={`/organizer/events/${event.id}/publish`}
-              >
-                Review before publishing <ArrowRight size={15} />
-              </Link>
-            </>
+            <EmptyState
+              title="No ticket tiers on this page."
+              description={
+                saved.status === "DRAFT"
+                  ? "Create saved inventory before publishing."
+                  : "No saved inventory matches this page."
+              }
+            />
           )}
-        </aside>
+          <Pagination
+            page={page}
+            totalPages={tiers.data.meta.totalPages}
+            onPageChange={filters.setPage}
+          />
+        </>
+      )}
+      <div className={styles.actions}>
+        <LinkButton href={`/organizer/events/${eventId}`}>
+          Event overview
+        </LinkButton>
+        {saved.status === "DRAFT" && (
+          <LinkButton href={`/organizer/events/${eventId}/publish`}>
+            Review publication
+          </LinkButton>
+        )}
       </div>
-    </div>
+      {editor && (
+        <TierEditor
+          key={editor === "new" ? "new" : editor.id}
+          event={saved}
+          tier={editor === "new" ? undefined : editor}
+          onDismiss={() => setEditor(null)}
+        />
+      )}
+    </section>
   );
 }

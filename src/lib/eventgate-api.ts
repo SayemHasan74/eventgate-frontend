@@ -17,6 +17,7 @@ type ApiListResponse<T> = {
 };
 
 export type PublicTicketTier = {
+  salesPaused: boolean;
   id: string;
   name: string;
   pricePaisa: number;
@@ -145,6 +146,7 @@ const publicEventSchema: z.ZodType<PublicEvent> = z.object({
       pricePaisa: moneySchema,
       capacity: z.number().int().nonnegative(),
       availableQuantity: z.number().int().nonnegative(),
+      salesPaused: z.boolean().default(false),
       salesStartAt: z.iso.datetime({ offset: true }),
       salesEndAt: z.iso.datetime({ offset: true }),
     }),

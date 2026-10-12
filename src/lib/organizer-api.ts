@@ -23,6 +23,9 @@ export type ManagedEvent = {
   updatedAt: string;
 };
 export type TicketTier = {
+  salesPaused: boolean;
+  reservedQuantity: number;
+  soldQuantity: number;
   id: string;
   name: string;
   pricePaisa: number;
@@ -70,10 +73,13 @@ export type CreateEventInput = Omit<
   ManagedEvent,
   "id" | "status" | "createdAt" | "updatedAt"
 >;
-export type CreateTicketTierInput = Omit<
+export type CreateTicketTierInput = Pick<
   TicketTier,
-  "id" | "availableQuantity"
->;
+  "name" | "pricePaisa" | "capacity" | "salesStartAt" | "salesEndAt"
+> & { salesPaused?: boolean };
+export type UpdateTicketTierInput = Partial<CreateTicketTierInput> & {
+  closeSales?: true;
+};
 const timestamp = z.iso.datetime({ offset: true });
 const eventCapabilitiesSchema = z.object({
   editable: z.boolean(),
@@ -106,6 +112,34 @@ export const getManagedEvent = (id: string) =>
       eventSchema,
       z.object({
         capabilities: eventCapabilitiesSchema,
+        publicationReadiness: z.object({
+          ready: z.boolean(),
+          blockers: z.array(
+            z.object({
+              code: z.string(),
+              message: z.string(),
+              field: z.string().optional(),
+              tierId: z.string().optional(),
+            }),
+          ),
+          tiers: z.array(
+            z.object({
+              id: z.uuid(),
+              name: z.string(),
+              pricePaisa: moneySchema,
+              capacity: z.number().int().positive(),
+              reservedQuantity: z.number().int().nonnegative(),
+              soldQuantity: z.number().int().nonnegative(),
+              availableQuantity: z.number().int().nonnegative(),
+              salesStartAt: timestamp,
+              salesEndAt: timestamp,
+              salesPaused: z.boolean(),
+              eligible: z.boolean(),
+              reasons: z.array(z.string()),
+            }),
+          ),
+          checkedAt: timestamp,
+        }),
         setupChecks: z.object({
           futureStart: z.boolean(),
           validDates: z.boolean(),
@@ -163,6 +197,9 @@ export const getOrganizerOverview = () =>
     }),
   );
 const tierSchema: z.ZodType<TicketTier> = z.object({
+  salesPaused: z.boolean(),
+  reservedQuantity: z.number().int().nonnegative(),
+  soldQuantity: z.number().int().nonnegative(),
   id: z.uuid(),
   name: z.string(),
   pricePaisa: moneySchema,
@@ -237,7 +274,7 @@ export const createTicketTier = (id: string, input: CreateTicketTierInput) =>
 export const updateTicketTier = (
   id: string,
   tierId: string,
-  input: Partial<CreateTicketTierInput>,
+  input: UpdateTicketTierInput,
 ) =>
   apiClient(
     eventPath(id) + "/ticket-tiers/" + encodeURIComponent(tierId),
@@ -254,8 +291,32 @@ export const publishManagedEvent = (id: string) =>
   apiClient(eventPath(id) + "/publish", eventSchema, { method: "POST" });
 export const cancelManagedEvent = (id: string) =>
   apiClient(eventPath(id) + "/cancel", eventSchema, { method: "POST" });
+const managedTierSchema = z.intersection(
+  tierSchema,
+  z.object({
+    availableQuantity: z.number().int().nonnegative(),
+    saleState: z.enum([
+      "UNAVAILABLE",
+      "PAUSED",
+      "CLOSED",
+      "UPCOMING",
+      "SOLD_OUT",
+      "OPEN",
+    ]),
+    canEdit: z.boolean(),
+    canDelete: z.boolean(),
+    editableFields: z.array(z.string()),
+    minimumCapacity: z.number().int().nonnegative(),
+    restrictionCodes: z.array(z.string()),
+    canCloseSales: z.boolean(),
+    canPauseSales: z.boolean(),
+    canResumeSales: z.boolean(),
+    serverTime: timestamp,
+  }),
+);
+export type ManagedTier = z.infer<typeof managedTierSchema>;
 export const getManagedTiers = (id: string, filters = new URLSearchParams()) =>
-  apiList(eventPath(id) + "/ticket-tiers?" + filters, tierSchema);
+  apiList(eventPath(id) + "/ticket-tiers?" + filters, managedTierSchema);
 export async function getCheckInHistory(
   id: string,
   filters = new URLSearchParams(),

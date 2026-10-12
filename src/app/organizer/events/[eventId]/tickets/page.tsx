@@ -7,7 +7,7 @@ import styles from "./tier-form.module.css";
 
 export const metadata: Metadata = {
   title: "Ticket tiers",
-  description: "Create ticket tiers for an EventGate draft event.",
+  description: "Manage saved ticket inventory and sales controls.",
 };
 
 export default function TicketTiersPage() {

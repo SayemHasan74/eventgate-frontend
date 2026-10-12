@@ -21,9 +21,10 @@ type TicketSelectorProps = Readonly<{
 }>;
 
 const isOnSale = (tier: PublicTicketTier, now: number) =>
+  !tier.salesPaused &&
   tier.availableQuantity > 0 &&
   new Date(tier.salesStartAt).getTime() <= now &&
-  new Date(tier.salesEndAt).getTime() >= now;
+  new Date(tier.salesEndAt).getTime() > now;
 
 const price = formatMoney;
 
@@ -118,9 +119,11 @@ export function TicketSelector({ tiers, now }: TicketSelectorProps) {
                   <small>
                     {available
                       ? `${tier.availableQuantity} left`
-                      : tier.availableQuantity === 0
-                        ? "Sold out"
-                        : "Sales closed"}
+                      : tier.salesPaused
+                        ? "Sales paused"
+                        : tier.availableQuantity === 0
+                          ? "Sold out"
+                          : "Sales closed"}
                   </small>
                 </span>
                 <b>{price(tier.pricePaisa)}</b>
