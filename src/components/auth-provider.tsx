@@ -1,4 +1,5 @@
 "use client";
+import { clearOperationKeys } from "@/lib/operation-keys";
 import Link from "next/link";
 import {
   createContext,
@@ -14,7 +15,10 @@ import { authUserSchema, type AuthSession } from "@/lib/auth-types";
 import { z } from "zod";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { resetCsrf } from "@/lib/session-fetch";
-import { announceAuthChange, removeBrowserStorage } from "@/lib/browser-storage";
+import {
+  announceAuthChange,
+  removeBrowserStorage,
+} from "@/lib/browser-storage";
 export type { AuthSession, AuthUser } from "@/lib/auth-types";
 
 type State = "loading" | "authenticated" | "anonymous" | "unavailable";
@@ -97,6 +101,7 @@ export function AuthProvider({
     client.clear();
     pending.current = null;
     removeBrowserStorage("sessionStorage", "eventgate.booking-intent");
+    clearOperationKeys();
     apply(null);
     broadcast("logout");
   }, [apply, broadcast, client]);
@@ -120,6 +125,7 @@ export function AuthProvider({
       resetCsrf();
       client.clear();
       if (type === "logout") {
+        clearOperationKeys();
         removeBrowserStorage("sessionStorage", "eventgate.booking-intent");
         apply(null);
       } else {
@@ -144,6 +150,7 @@ export function AuthProvider({
       }
     };
     const ended = () => {
+      clearOperationKeys();
       generation.current += 1;
       pending.current = null;
       resetCsrf();
@@ -196,7 +203,8 @@ export function AuthProvider({
         <section className="not-found" role="alert">
           <h1>Access denied</h1>
           <p>
-            Your account cannot access this resource. Your session has not been ended.
+            Your account cannot access this resource. Your session has not been
+            ended.
           </p>
           <button type="button" onClick={() => void retrySession()}>
             Check access again

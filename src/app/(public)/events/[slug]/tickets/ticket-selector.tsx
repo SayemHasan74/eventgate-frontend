@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import type { PublicTicketTier } from "@/lib/eventgate-api";
 import { OrderApiError, reserveTickets } from "@/lib/order-api";
+import { existingOperationKey } from "@/lib/operation-keys";
 
 import styles from "./ticket-selector.module.css";
 import reservationStyles from "./reservation.module.css";
@@ -52,6 +53,7 @@ export function TicketSelector({
   const [isReserving, setIsReserving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [availabilityReady, setAvailabilityReady] = useState(false);
+  const [canRecover, setCanRecover] = useState(false);
   const selection = useRef({ tierId: sellableTiers[0]?.id ?? "", quantity: 1 });
   const busy = useRef(false);
   const request = useRef(0);
@@ -65,6 +67,51 @@ export function TicketSelector({
     : 0;
   const total = selectedTier ? selectedTier.pricePaisa * quantity : 0;
   const wrongRole = session && session.user.role !== "ATTENDEE";
+  useEffect(() => {
+    setCanRecover(
+      !!session &&
+        !!existingOperationKey(
+          "order",
+          session.user.id,
+          `${selectedTierId}:${quantity}`,
+        ),
+    );
+  }, [session, selectedTierId, quantity]);
+
+  const recoverReservation = async () => {
+    if (!session || wrongRole || busy.current) return;
+    busy.current = true;
+    setIsReserving(true);
+    request.current++;
+    try {
+      const order = await reserveTickets(
+        selectedTierId,
+        quantity,
+        session.user.id,
+      );
+      clearBookingIntent();
+      setCanRecover(false);
+      await invalidateMutation(queryClient, session.user.id, "order");
+      router.push(`/orders/${order.id}`);
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "The previous reservation could not be recovered. Retry the same operation.",
+      );
+      setCanRecover(
+        !!existingOperationKey(
+          "order",
+          session.user.id,
+          `${selectedTierId}:${quantity}`,
+        ),
+      );
+    } finally {
+      busy.current = false;
+      setIsReserving(false);
+      setIsRefreshing(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     if (busy.current) return;
@@ -154,6 +201,10 @@ export function TicketSelector({
       wrongRole
     )
       return;
+    if (canRecover) {
+      await recoverReservation();
+      return;
+    }
     if (!session) {
       if (
         !saveBookingIntent({
@@ -174,6 +225,13 @@ export function TicketSelector({
     setIsReserving(true);
     busy.current = true;
     request.current++;
+    saveBookingIntent({
+      eventId,
+      slug,
+      tierId: selectedTier.id,
+      quantity,
+      createdAt: Date.now(),
+    });
     try {
       setNotice("");
       const fresh = await getFreshAvailability(slug);
@@ -202,12 +260,23 @@ export function TicketSelector({
         );
         return;
       }
-      const order = await reserveTickets(selectedTier.id, quantity);
+      const order = await reserveTickets(
+        selectedTier.id,
+        quantity,
+        session.user.id,
+      );
       clearBookingIntent();
       await invalidateMutation(queryClient, session.user.id, "order");
       toast.success("Tickets reserved for 15 minutes.");
       router.push(`/orders/${order.id}`);
     } catch (error) {
+      setCanRecover(
+        !!existingOperationKey(
+          "order",
+          session.user.id,
+          `${selectedTierId}:${quantity}`,
+        ),
+      );
       setNotice(
         error instanceof Error
           ? error.message
@@ -230,6 +299,22 @@ export function TicketSelector({
         <p className={styles.notice} role="alert">
           {notice}
         </p>
+      )}
+      {canRecover && (
+        <div className={styles.notice}>
+          <p>
+            A previous reservation request may have reached the server. Recover
+            it with the same request key before starting another booking.
+          </p>
+          <button
+            type="button"
+            className="button"
+            disabled={isReserving || !!wrongRole}
+            onClick={() => void recoverReservation()}
+          >
+            Recover previous reservation
+          </button>
+        </div>
       )}
       <section aria-labelledby="tiers-heading">
         <p className="eyebrow">

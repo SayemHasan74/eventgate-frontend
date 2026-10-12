@@ -149,6 +149,21 @@ export const paymentAttemptSchema = z.object({
   initiatedAt: timestamp,
   completedAt: timestamp.nullable(),
 });
+export const orderDetailSchema = orderSchema.and(
+  z.object({
+    serverTime: timestamp,
+    payable: z.boolean(),
+    cancellable: z.boolean(),
+    financialReviewRequired: z.boolean(),
+    ticketIds: z.array(z.uuid()),
+    event: z.object({
+      slug: z.string(),
+      startAt: timestamp,
+      status: z.string(),
+    }),
+    paymentAttempts: z.array(paymentAttemptSchema),
+  }),
+);
 export const checkoutUrlSchema = z.url().refine((value) => {
   const url = new URL(value);
   return (
@@ -177,7 +192,7 @@ export const checkoutSchema = z.union([
   }),
   z
     .object({
-      status: z.literal("PROCESSING"),
+      status: z.enum(["PROCESSING", "UNKNOWN"]),
       paymentAttemptId: z.uuid(),
       merchantTransactionId: z.string(),
       paymentStatus: paymentStatusSchema,
