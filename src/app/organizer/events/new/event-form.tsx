@@ -25,6 +25,7 @@ export function EventForm() {
   const { isReady, session } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mutationError, setMutationError] = useState("");
   const [slug, setSlug] = useState("");
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
@@ -41,6 +42,7 @@ export function EventForm() {
       return;
     }
     if (!session) return;
+    setMutationError("");
     setIsSubmitting(true);
     try {
       await createManagedEvent({
@@ -63,11 +65,12 @@ export function EventForm() {
       router.push("/organizer");
       router.refresh();
     } catch (error) {
-      toast.error(
+      const message =
         error instanceof OrganizerApiError
           ? error.message
-          : "Your event could not be created.",
-      );
+          : "Your event could not be created.";
+      setMutationError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -93,6 +96,7 @@ export function EventForm() {
 
   return (
     <form action={createEvent} className={styles.form}>
+      {mutationError && <p role="alert">{mutationError}</p>}
       <section className={styles.section}>
         <p className="eyebrow">
           <span /> Event fundamentals

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import {
   createTicketTier,
-  getManagedEvents,
+  getManagedEvent,
   OrganizerApiError,
   type TicketTier,
 } from "@/lib/organizer-api";
@@ -35,18 +35,17 @@ export function TierForm() {
   const params = useParams<{ eventId: string }>();
   const eventId = params.eventId;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mutationError, setMutationError] = useState("");
   const [createdTiers, setCreatedTiers] = useState<TicketTier[]>([]);
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
-    queryFn: () => getManagedEvents(),
+    queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
+    queryFn: () => getManagedEvent(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.data.find(
-    (candidate) => candidate.id === eventId,
-  );
+  const event = eventsQuery.data;
 
   const addTier = async (formData: FormData) => {
     const salesStartAt = String(formData.get("salesStartAt") ?? "");
@@ -62,6 +61,7 @@ export function TierForm() {
       return;
     }
     if (!session || !event) return;
+    setMutationError("");
     setIsSubmitting(true);
     try {
       const tier = await createTicketTier(event.id, {
@@ -79,11 +79,12 @@ export function TierForm() {
       toast.success(`${tier.name} tier created.`);
       (document.getElementById("tier-form") as HTMLFormElement | null)?.reset();
     } catch (error) {
-      toast.error(
+      const message =
         error instanceof OrganizerApiError
           ? error.message
-          : "Your ticket tier could not be created.",
-      );
+          : "Your ticket tier could not be created.";
+      setMutationError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -159,6 +160,7 @@ export function TierForm() {
             tier before publishing this event.
           </p>
           <form action={addTier} className={styles.form} id="tier-form">
+            {mutationError && <p role="alert">{mutationError}</p>}
             <label>
               <span>Tier name</span>
               <input

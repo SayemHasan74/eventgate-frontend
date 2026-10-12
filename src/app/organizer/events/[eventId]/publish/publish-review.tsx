@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
 import {
-  getManagedEvents,
+  getManagedEvent,
   OrganizerApiError,
   publishManagedEvent,
 } from "@/lib/organizer-api";
@@ -40,20 +40,20 @@ export function PublishReview() {
   const router = useRouter();
   const [confirmed, setConfirmed] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [mutationError, setMutationError] = useState("");
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
-    queryFn: () => getManagedEvents(),
+    queryKey: privateKey("organizer-events", session?.user.id, eventId, {}),
+    queryFn: () => getManagedEvent(eventId),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
-  const event = eventsQuery.data?.data.find(
-    (candidate) => candidate.id === eventId,
-  );
+  const event = eventsQuery.data;
 
   const publish = async () => {
     if (!session || !event || !confirmed) return;
+    setMutationError("");
     setIsPublishing(true);
     try {
       const published = await publishManagedEvent(event.id);
@@ -65,11 +65,12 @@ export function PublishReview() {
       router.push(`/events/${published.slug}`);
       router.refresh();
     } catch (error) {
-      toast.error(
+      const message =
         error instanceof OrganizerApiError
           ? error.message
-          : "Your event could not be published.",
-      );
+          : "Your event could not be published.";
+      setMutationError(message);
+      toast.error(message);
     } finally {
       setIsPublishing(false);
     }
@@ -175,6 +176,7 @@ export function PublishReview() {
         <Link href={`/organizer/events/${event.id}/tickets`}>
           Back to ticket tiers
         </Link>
+        {mutationError && <p role="alert">{mutationError}</p>}
         <button
           className="button button-primary"
           disabled={!confirmed || isPublishing}

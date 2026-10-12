@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import featureStyles from "@/components/auth-styles.module.css";
 import { z } from "zod";
 import { apiClient } from "@/lib/api-client";
 
@@ -86,5 +87,11 @@ export function GoogleSignIn({
   }, [onCredential]);
 
   if (!isAvailable) return null;
-  return <div aria-disabled={disabled} className="auth-google" ref={button} />;
+  return (
+    <div
+      aria-disabled={disabled}
+      className={[featureStyles["auth-google"]].join(" ")}
+      ref={button}
+    />
+  );
 }

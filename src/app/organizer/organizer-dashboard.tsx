@@ -11,6 +11,9 @@ import {
   MapPin,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { FilterBar, Input, Select } from "@/components/ui";
+import { Pagination, ErrorState } from "@/components/ui/interactive";
 
 import { useAuth } from "@/components/auth-provider";
 import { getManagedEvents, OrganizerApiError } from "@/lib/organizer-api";
@@ -25,13 +28,34 @@ const formatDate = (date: string) =>
     timeZone: "Asia/Dhaka",
   }).format(new Date(date));
 
-export function OrganizerDashboard() {
+export function OrganizerDashboard({
+  catalogue = false,
+}: {
+  catalogue?: boolean;
+}) {
   const { isReady, session } = useAuth();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [status, setStatus] = useState("");
   const allowed =
     session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
   const eventsQuery = useQuery({
-    queryKey: privateKey("organizer-events", session?.user.id, "list", {}),
-    queryFn: () => getManagedEvents(),
+    queryKey: privateKey("organizer-events", session?.user.id, "list", {
+      page,
+      search,
+      status,
+      catalogue,
+    }),
+    queryFn: () =>
+      getManagedEvents(
+        new URLSearchParams({
+          page: String(page),
+          limit: catalogue ? "20" : "5",
+          ...(search ? { search } : {}),
+          ...(status ? { status } : {}),
+        }),
+      ),
     enabled: isReady && Boolean(session) && allowed,
     retry: false,
   });
@@ -80,11 +104,7 @@ export function OrganizerDashboard() {
           <p className="eyebrow">
             <span /> Organizer workspace
           </p>
-          <h1>
-            Make the room
-            <br />
-            <b>happen.</b>
-          </h1>
+          <h1>{catalogue ? "Your event catalogue" : "Organizer overview"}</h1>
           <p>
             Manage event fundamentals here. Ticket tiers, publishing, check-in,
             and reporting follow as dedicated tools.
@@ -94,20 +114,59 @@ export function OrganizerDashboard() {
           <CirclePlus size={17} /> Create event
         </Link>
       </header>
-      <section className={styles.stats} aria-label="Event statistics">
-        <div>
-          <span>All events</span>
-          <strong>{events.length}</strong>
-        </div>
-        <div>
-          <span>Published</span>
-          <strong>{published}</strong>
-        </div>
-        <div>
-          <span>Drafts</span>
-          <strong>{drafts}</strong>
-        </div>
-      </section>
+      {!catalogue && (
+        <section className={styles.stats} aria-label="Event statistics">
+          <div>
+            <span>All events</span>
+            <strong>{eventsQuery.data?.meta.total ?? "—"}</strong>
+          </div>
+          <div>
+            <span>Published in recent events</span>
+            <strong>{published}</strong>
+          </div>
+          <div>
+            <span>Drafts in recent events</span>
+            <strong>{drafts}</strong>
+          </div>
+        </section>
+      )}
+      {catalogue && (
+        <FilterBar>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearch(searchDraft.trim());
+              setPage(1);
+            }}
+          >
+            <label>
+              Search events
+              <Input
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+              />
+            </label>
+            <button className="button" type="submit">
+              Search
+            </button>
+          </form>
+          <label>
+            Status
+            <Select
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All states</option>
+              {["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"].map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </Select>
+          </label>
+        </FilterBar>
+      )}
       <section
         className={styles.events}
         aria-labelledby="managed-events-heading"
@@ -125,11 +184,14 @@ export function OrganizerDashboard() {
         {eventsQuery.isLoading ? (
           <p className={styles.muted}>Loading your events…</p>
         ) : eventsQuery.isError ? (
-          <p className={styles.muted}>
-            {eventsQuery.error instanceof OrganizerApiError
-              ? eventsQuery.error.message
-              : "Your events could not be loaded."}
-          </p>
+          <ErrorState
+            message={
+              eventsQuery.error instanceof OrganizerApiError
+                ? eventsQuery.error.message
+                : "Your events could not be loaded."
+            }
+            retry={() => void eventsQuery.refetch()}
+          />
         ) : events.length === 0 ? (
           <div className={styles.empty}>
             <CalendarDays size={26} aria-hidden="true" />
@@ -149,11 +211,7 @@ export function OrganizerDashboard() {
             {events.map((event) => (
               <Link
                 className={styles.eventCard}
-                href={
-                  event.status === "PUBLISHED"
-                    ? `/organizer/events/${event.id}/reports`
-                    : `/organizer/events/${event.id}/publish`
-                }
+                href={`/organizer/events/${event.id}`}
                 key={event.id}
               >
                 <div>
@@ -170,6 +228,18 @@ export function OrganizerDashboard() {
           </div>
         )}
       </section>
+      {catalogue && eventsQuery.data && (
+        <Pagination
+          page={page}
+          totalPages={eventsQuery.data.meta.totalPages}
+          onPageChange={setPage}
+        />
+      )}
+      {!catalogue && (
+        <Link className="text-link" href="/organizer/events">
+          Open the event catalogue
+        </Link>
+      )}
     </div>
   );
 }

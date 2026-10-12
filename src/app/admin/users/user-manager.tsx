@@ -1,11 +1,16 @@
 "use client";
 import { invalidatePrivate, privateKey } from "@/lib/query-keys";
+import featureStyles from "./user-manager.module.css";
 import { z } from "zod";
 import { apiClient, apiList, jsonBody } from "@/lib/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, UserCog } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ConfirmationDialog } from "@/components/ui/interactive";
+import { FieldError } from "@/components/ui";
 
 type User = {
   id: string;
@@ -25,6 +30,11 @@ const userSchema: z.ZodType<User> = z.object({
 });
 export function UserManager() {
   const { isReady, session } = useAuth();
+  const [command, setCommand] = useState<{
+    id: string;
+    path: string;
+    body: unknown;
+  } | null>(null);
   const queryClient = useQueryClient();
   const search = useSearchParams();
   const qs = new URLSearchParams(search.toString());
@@ -51,12 +61,14 @@ export function UserManager() {
         method: "PATCH",
         ...jsonBody(body),
       }),
-    onSuccess: () =>
-      invalidatePrivate(queryClient, session!.user.id, [
+    onSuccess: () => {
+      toast.success("User updated.");
+      return invalidatePrivate(queryClient, session!.user.id, [
         "admin-users",
         "admin-stats",
         "admin-audit",
-      ]),
+      ]);
+    },
   });
   if (!isReady) return <p className="loading">Loading users…</p>;
   if (!allowed)
@@ -69,7 +81,7 @@ export function UserManager() {
       </section>
     );
   return (
-    <section className="admin-users">
+    <section className={[featureStyles["admin-users"]].join(" ")}>
       <p className="eyebrow">
         <span /> Platform administration
       </p>
@@ -95,7 +107,7 @@ export function UserManager() {
       ) : users.isError ? (
         <p>{users.error.message}</p>
       ) : (
-        <div className="user-list">
+        <div className={[featureStyles["user-list"]].join(" ")}>
           {users.data?.data.map((user) => (
             <article key={user.id}>
               <div>
@@ -108,10 +120,13 @@ export function UserManager() {
               <div>
                 <select
                   aria-label={`Role for ${user.displayName}`}
-                  defaultValue={user.role}
-                  disabled={user.role === "ADMIN" || update.isPending}
+                  value={user.role}
+                  disabled={
+                    user.role === "ADMIN" ||
+                    (update.isPending && update.variables?.id === user.id)
+                  }
                   onChange={(e) =>
-                    update.mutate({
+                    setCommand({
                       id: user.id,
                       path: "role",
                       body: { role: e.target.value },
@@ -124,9 +139,12 @@ export function UserManager() {
                 </select>
                 <button
                   type="button"
-                  disabled={update.isPending}
+                  disabled={
+                    user.id === session?.user.id ||
+                    (update.isPending && update.variables?.id === user.id)
+                  }
                   onClick={() =>
-                    update.mutate({
+                    setCommand({
                       id: user.id,
                       path: "status",
                       body: {
@@ -139,10 +157,22 @@ export function UserManager() {
                   {user.status === "ACTIVE" ? "Suspend" : "Activate"}
                 </button>
               </div>
+              {update.isError && update.variables?.id === user.id && (
+                <FieldError>{update.error.message}</FieldError>
+              )}
             </article>
           ))}
         </div>
       )}
+      <ConfirmationDialog
+        open={!!command}
+        title="Confirm account change"
+        description="This change affects the user’s access. Existing sessions will use their updated permissions."
+        onDismiss={() => setCommand(null)}
+        onConfirm={async () => {
+          if (command) await update.mutateAsync(command);
+        }}
+      />
     </section>
   );
 }

@@ -4,6 +4,8 @@ import { currentSession, sessionIdentity } from "@/lib/server/browser-session";
 import { SessionError } from "@/lib/server/session-store";
 import type { AuthUser } from "@/lib/auth-types";
 import { SessionUnavailable } from "./session-unavailable";
+import { WorkspaceShell } from "./workspace-shell";
+import { ThemeToggle } from "./theme-toggle";
 
 export async function ProtectedLayout({
   children,
@@ -22,8 +24,11 @@ export async function ProtectedLayout({
     if (error instanceof SessionError && error.status === 403)
       return (
         <section className="not-found" role="alert">
+          <ThemeToggle />
           <h1>Access denied</h1>
-          <p>Your account cannot open this workspace. You are still signed in.</p>
+          <p>
+            Your account cannot open this workspace. You are still signed in.
+          </p>
           <a href="/account">My account</a>
         </section>
       );
@@ -43,10 +48,11 @@ export async function ProtectedLayout({
   if (roles && !roles.includes(user.role))
     return (
       <section className="not-found">
+        <ThemeToggle />
         <h1>Access denied</h1>
         <p>This workspace is not available for your account role.</p>
         <a href="/account">My account</a>
       </section>
     );
-  return children;
+  return <WorkspaceShell initialUser={user}>{children}</WorkspaceShell>;
 }

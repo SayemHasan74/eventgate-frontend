@@ -75,6 +75,13 @@ export type CreateTicketTierInput = Omit<
   "id" | "availableQuantity"
 >;
 const timestamp = z.iso.datetime({ offset: true });
+const eventCapabilitiesSchema = z.object({
+  editable: z.boolean(),
+  canPublish: z.boolean(),
+  canCancel: z.boolean(),
+  canDelete: z.boolean(),
+  canManageTiers: z.boolean(),
+});
 const eventSchema: z.ZodType<ManagedEvent> = z.object({
   id: z.uuid(),
   title: z.string(),
@@ -91,6 +98,20 @@ const eventSchema: z.ZodType<ManagedEvent> = z.object({
   createdAt: timestamp,
   updatedAt: timestamp,
 });
+export const getManagedEvent = (id: string) =>
+  apiClient(
+    "/api/organizer/events/" + encodeURIComponent(id),
+    z.intersection(
+      eventSchema,
+      z.object({
+        capabilities: eventCapabilitiesSchema,
+        _count: z.object({
+          orders: z.number().int().nonnegative(),
+          ticketTiers: z.number().int().nonnegative(),
+        }),
+      }),
+    ),
+  );
 const tierSchema: z.ZodType<TicketTier> = z.object({
   id: z.uuid(),
   name: z.string(),

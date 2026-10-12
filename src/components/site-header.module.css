@@ -1,0 +1,49 @@
+.header {
+  width: min(1280px, calc(100% - 40px));
+  margin-inline: auto;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.desktopNav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.desktopNav > a {
+  padding-block: 12px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.menuButton {
+  display: none;
+}
+.drawer {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+}
+.mobileNav {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.mobileNav > a {
+  min-height: 44px;
+  padding: 12px;
+  border-bottom: 1px solid var(--soft);
+}
+@media (max-width: 959px) {
+  .desktopNav {
+    display: none;
+  }
+  .menuButton {
+    display: inline-flex;
+  }
+}
