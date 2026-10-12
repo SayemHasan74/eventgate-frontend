@@ -1,178 +1,220 @@
 "use client";
-import { privateKey } from "@/lib/query-keys";
-
+import { useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  MapPin,
-  QrCode,
-  RotateCcw,
-  Ticket,
-} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-
 import { useAuth } from "@/components/auth-provider";
-import { getTicket, getTicketQr, TicketApiError } from "@/lib/ticket-api";
-
+import { EventImage } from "@/components/event-image";
+import { ReadFailure } from "@/components/read-failure";
+import { getTicket, getTicketQr } from "@/lib/ticket-api";
+import { privateKey } from "@/lib/query-keys";
+import { formatEventRange, formatEventDate } from "@/lib/format";
+import { admissionLabels, admissionExplanations } from "@/lib/ticket-status";
 import styles from "./ticket-pass.module.css";
-
-const date = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
-const time = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
-
+const subscribe = (callback: () => void) => {
+  document.addEventListener("visibilitychange", callback);
+  return () => document.removeEventListener("visibilitychange", callback);
+};
+const visible = () => document.visibilityState === "visible";
 export function TicketPass() {
   const { isReady, session } = useAuth();
   const { ticketId } = useParams<{ ticketId: string }>();
+  const [requested, setRequested] = useState(false);
+  const isVisible = useSyncExternalStore(subscribe, visible, () => false);
   const ticketQuery = useQuery({
     queryKey: privateKey("tickets", session?.user.id, ticketId, {}),
-    queryFn: () => getTicket(ticketId),
-    enabled: isReady && Boolean(session?.user.role === "ATTENDEE"),
+    queryFn: ({ signal }) => getTicket(ticketId, signal),
+    enabled: isReady && session?.user.role === "ATTENDEE",
     retry: false,
+    staleTime: 0,
+    refetchOnWindowFocus: "always",
+    refetchIntervalInBackground: false,
+    refetchInterval: (query) => {
+      const ticket = query.state.data;
+      if (!ticket) return false;
+      const now = Date.now();
+      return now >= Date.parse(ticket.checkInWindow.opensAt) - 900000 &&
+        now <= Date.parse(ticket.checkInWindow.closesAt)
+        ? 15000
+        : 60000;
+    },
   });
+  const eligible =
+    !!ticketQuery.data?.canShowQr &&
+    !ticketQuery.isFetching &&
+    !ticketQuery.isError &&
+    isVisible;
   const qrQuery = useQuery({
     queryKey: privateKey("tickets", session?.user.id, ticketId, { view: "qr" }),
-    queryFn: () => getTicketQr(ticketId),
-    enabled: Boolean(ticketQuery.data?.status === "ACTIVE" && session),
+    queryFn: ({ signal }) => getTicketQr(ticketId, signal),
+    enabled: requested && eligible && session?.user.role === "ATTENDEE",
     retry: false,
-    staleTime: Infinity,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: "always",
   });
-
   if (!isReady || ticketQuery.isLoading)
     return <p className={styles.loading}>Opening your pass…</p>;
-  if (!session || session.user.role !== "ATTENDEE")
+  if (session?.user.role !== "ATTENDEE")
     return (
       <section className={styles.gate}>
-        <Ticket size={28} aria-hidden="true" />
         <h1>Attendee access required.</h1>
-        <p>Event passes are private to the attendee account that owns them.</p>
-        <Link className="button button-primary" href="/tickets">
-          My tickets
+        <Link className="button" href="/account">
+          My account
         </Link>
       </section>
     );
   if (ticketQuery.isError || !ticketQuery.data)
     return (
-      <section className={styles.gate}>
-        <Ticket size={28} aria-hidden="true" />
-        <h1>Pass unavailable.</h1>
-        <p>
-          {ticketQuery.error instanceof TicketApiError
-            ? ticketQuery.error.message
-            : "This pass could not be opened."}
-        </p>
-        <Link className="button button-primary" href="/tickets">
-          My tickets
-        </Link>
-      </section>
+      <ReadFailure
+        error={ticketQuery.error}
+        retry={() => void ticketQuery.refetch()}
+        fetching={ticketQuery.isFetching}
+        next={`/tickets/${ticketId}`}
+      />
     );
-
   const ticket = ticketQuery.data;
-  const qrSource = qrQuery.data?.dataUrl ?? null;
+  const qr =
+    eligible && !qrQuery.isFetching && !qrQuery.isError
+      ? qrQuery.data?.dataUrl
+      : null;
   return (
-    <div className={styles.pass}>
-      <header>
-        <p className="eyebrow">
-          <span /> EventGate attendee pass
-        </p>
-        <span className={styles.status}>
-          {ticket.status.replaceAll("_", " ")}
-        </span>
-      </header>
-      <section className={styles.body}>
-        <div className={styles.details}>
-          <h1>{ticket.event.title}</h1>
-          <p className={styles.tier}>
-            {ticket.ticketTier.name} · Pass #{ticket.sequence}
+    <div>
+      <div className={styles.pass}>
+        <header>
+          <p className="eyebrow">
+            <span />
+            Private attendee pass
           </p>
-          <dl>
-            <div>
-              <dt>
-                <CalendarDays size={16} /> Date
-              </dt>
-              <dd>{date(ticket.event.startAt)}</dd>
-            </div>
-            <div>
-              <dt>
-                <Clock3 size={16} /> Time
-              </dt>
-              <dd>
-                {time(ticket.event.startAt)} – {time(ticket.event.endAt)}
-              </dd>
-            </div>
-            <div>
-              <dt>
-                <MapPin size={16} /> Venue
-              </dt>
-              <dd>
-                {ticket.event.venue}, {ticket.event.city}
-              </dd>
-            </div>
-          </dl>
-          <Link
-            className={styles.manageOrder}
-            href={`/orders/${ticket.orderId}`}
-          >
-            <RotateCcw size={16} aria-hidden="true" /> Manage booking &amp;
-            refund <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-        <aside className={styles.qr}>
-          {ticket.status === "ACTIVE" ? (
-            qrQuery.isLoading ? (
-              <>
-                <QrCode size={42} />
-                <span>Loading QR…</span>
-              </>
-            ) : qrSource ? (
+          <span className={styles.status}>
+            {admissionLabels[ticket.effectiveAdmissionState]}
+          </span>
+        </header>
+        <EventImage
+          publicView
+          src={ticket.event.imageUrl}
+          title={ticket.event.title}
+        />
+        <section className={styles.body}>
+          <div className={styles.details}>
+            <h1>{ticket.event.title}</h1>
+            <p className={styles.tier}>
+              {ticket.ticketTier.name} · Pass #{ticket.sequence}
+            </p>
+            <p>
+              {formatEventRange(ticket.event.startAt, ticket.event.endAt)}{" "}
+              (Bangladesh time)
+            </p>
+            <p>
+              {ticket.event.venue}, {ticket.event.city}
+            </p>
+            <p>
+              Check-in:{" "}
+              {formatEventRange(
+                ticket.checkInWindow.opensAt,
+                ticket.checkInWindow.closesAt,
+              )}{" "}
+              (Bangladesh time)
+            </p>
+            <p role="status">
+              {admissionExplanations[ticket.effectiveAdmissionState]}
+            </p>
+            {ticket.checkedInAt && (
+              <p>Admitted at {formatEventDate(ticket.checkedInAt)}.</p>
+            )}
+            <nav className={styles.actions}>
+              <Link className="button" href={`/events/${ticket.event.slug}`}>
+                Event details
+              </Link>
+              <Link className="button" href={`/orders/${ticket.orderId}`}>
+                Order / refund
+              </Link>
+              <button
+                type="button"
+                className="button"
+                disabled={ticketQuery.isFetching}
+                onClick={() => void ticketQuery.refetch()}
+              >
+                Refresh pass
+              </button>
+            </nav>
+          </div>
+          <aside className={styles.qr}>
+            {qr ? (
               <>
                 <Image
-                  alt={`QR pass for ${ticket.event.title}`}
-                  height={185}
-                  src={qrSource}
+                  alt={`Private QR for pass ${ticket.sequence}`}
+                  src={qr}
+                  width={240}
+                  height={240}
                   unoptimized
-                  width={185}
                 />
                 <span>Present at entry</span>
               </>
             ) : (
               <>
-                <QrCode size={42} />
-                <span>QR unavailable</span>
+                <strong>
+                  {ticketQuery.isFetching
+                    ? "Revalidating…"
+                    : !ticket.canShowQr
+                      ? "QR blocked"
+                      : qrQuery.isFetching
+                        ? "Loading QR…"
+                        : "QR stays private"}
+                </strong>
+                <p>
+                  {!ticket.canShowQr &&
+                  ticket.effectiveAdmissionState === "ACTIVE"
+                    ? "Open the QR during the published check-in window."
+                    : "Only an eligible pass can expose its QR."}
+                </p>
               </>
-            )
-          ) : (
-            <>
-              <CheckCircle2 size={45} />
-              <strong>
-                {ticket.status === "CHECKED_IN"
-                  ? "Checked in"
-                  : ticket.status.replaceAll("_", " ")}
-              </strong>
-              {ticket.checkedInAt && <span>{time(ticket.checkedInAt)}</span>}
-            </>
-          )}
-        </aside>
-      </section>
-      <footer>
-        <span>Keep this pass private until the event door.</span>
-        <span>Ticket ID {ticket.id.slice(0, 8).toUpperCase()}</span>
-      </footer>
+            )}
+            {eligible && !requested && (
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={() => setRequested(true)}
+              >
+                Show private QR
+              </button>
+            )}
+            {eligible && requested && qrQuery.isError && (
+              <button
+                className="button"
+                type="button"
+                onClick={() => void qrQuery.refetch()}
+              >
+                Retry QR eligibility read
+              </button>
+            )}
+            {qr && (
+              <a
+                className="button"
+                href={qr}
+                download={`eventgate-pass-${ticket.sequence}.png`}
+              >
+                Download QR PNG
+              </a>
+            )}
+          </aside>
+        </section>
+        <footer>
+          <span>
+            Saved images never bypass server validation. Keep your QR private.
+          </span>
+          <span>Ticket #{ticket.id.slice(0, 8)}</span>
+        </footer>
+      </div>
+      <button
+        className="button"
+        type="button"
+        disabled={!qr}
+        onClick={() => window.print()}
+      >
+        Print this ticket
+      </button>
     </div>
   );
 }

@@ -1,127 +1,160 @@
 "use client";
-import { useQueryClient } from "@tanstack/react-query";
-import { invalidateMutation } from "@/lib/query-keys";
-
-import { LoaderCircle, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import type { z } from "zod";
+import { useAuth } from "@/components/auth-provider";
+import { Modal } from "@/components/ui/interactive";
+import { RefundTimeline } from "@/components/refund-timeline";
 import {
   FormFeedback,
   useFormFields,
   reportFormError,
 } from "@/components/form-feedback";
 import { refundMessageSchema } from "@/lib/form-schemas";
-import { toast } from "sonner";
-
-import { useAuth } from "@/components/auth-provider";
-import { requestRefund } from "@/lib/refund-api";
-
+import { requestRefund, type Refund } from "@/lib/refund-api";
+import type { OrderDetail } from "@/lib/order-api";
+import { formatMoney } from "@/lib/format";
+import { invalidateMutation, privateKey } from "@/lib/query-keys";
 import styles from "./refund-action.module.css";
-
-export function RefundAction({
-  orderId,
-  status,
-  eligible,
-  reasons,
-}: Readonly<{
-  orderId: string;
-  status: string;
-  eligible: boolean;
-  reasons: string[];
-}>) {
-  const queryClient = useQueryClient();
+const explanations: Record<string, string> = {
+  REFUND_ALREADY_EXISTS:
+    "An active or completed refund already exists for this capture.",
+  REFUND_WINDOW_CLOSED: "The refund deadline has passed.",
+  TICKETS_NOT_UNUSED: "Every pass must be unused and active.",
+  EVENT_NOT_PUBLISHED:
+    "The event is no longer published. Track any automatic refund below.",
+  PAYMENT_REQUIRES_INVESTIGATION: "Payment requires investigation.",
+  CAPTURE_NOT_REFUNDABLE: "This capture cannot currently be refunded.",
+  REFUND_REQUEST_LIMIT: "The request limit has been reached.",
+  ORDER_NOT_PAID: "This order is not a paid booking.",
+};
+export function RefundAction({ order }: { order: OrderDetail }) {
   const { session } = useAuth();
+  const client = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [submitted, setSubmitted] = useState<Refund | null>(null);
   const form = useForm<z.infer<typeof refundMessageSchema>>({
     resolver: zodResolver(refundMessageSchema),
     defaultValues: { userMessage: "" },
   });
   const field = useFormFields(form);
-  const isRequesting = form.formState.isSubmitting;
-  const [requested, setRequested] = useState(false);
-  if (status !== "PAID") return null;
-  if (!eligible) {
-    const messages: Record<string, string> = {
-      REFUND_ALREADY_EXISTS:
-        "An active or completed refund already exists for this payment.",
-      REFUND_WINDOW_CLOSED: "The attendee refund deadline has passed.",
-      TICKETS_NOT_UNUSED: "All tickets must be unused and active.",
-      EVENT_NOT_PUBLISHED:
-        "This event is no longer published; check the order for cancellation processing.",
-      PAYMENT_REQUIRES_INVESTIGATION:
-        "Payment needs investigation before a refund can be requested.",
-      CAPTURE_NOT_REFUNDABLE:
-        "This payment cannot currently be refunded through an attendee request.",
-      REFUND_REQUEST_LIMIT: "The refund request limit has been reached.",
-    };
-    return (
-      <section className={styles.action}>
-        <div>
-          <p>Refund request unavailable</p>
-          <span>
-            {reasons
-              .map(
-                (reason) =>
-                  messages[reason] ??
-                  "This booking does not currently meet the refund rules.",
-              )
-              .join(" ")}
-          </span>
-          <Link className="text-link" href="/refunds">
-            View your refund requests →
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
-  const request = form.handleSubmit(async ({ userMessage }) => {
-    if (!session) return;
+  const pending = form.formState.isSubmitting;
+  const unseen =
+    submitted && !order.refunds.some((refund) => refund.id === submitted.id)
+      ? submitted
+      : null;
+  const eligible = order.refundEligibility.eligible && !unseen;
+  const submit = form.handleSubmit(async ({ userMessage }) => {
+    if (!session || !eligible) return;
     form.clearErrors();
     try {
-      await requestRefund(orderId, userMessage);
-      await invalidateMutation(queryClient, session.user.id, "refund");
-      setRequested(true);
-      toast.success("Refund request sent for review.");
+      const refund = await requestRefund(order.id, userMessage);
+      setSubmitted(refund);
+      setOpen(false);
+      form.reset();
+      await invalidateMutation(client, session.user.id, "refund");
     } catch (error) {
       reportFormError(form, error);
+      // Read after an ambiguous mutation outcome; never retry the refund request automatically.
+      await client.invalidateQueries({
+        queryKey: privateKey("orders", session.user.id, order.id, {}),
+      });
     }
   });
-
+  if (order.status !== "PAID" && !order.refunds.length && !unseen) return null;
   return (
-    <form className={styles.action} noValidate onSubmit={request}>
+    <section className={styles.action}>
       <div>
-        <RotateCcw size={19} aria-hidden="true" />
-        <p>{requested ? "Refund request sent" : "Need a refund?"}</p>
-        <span>
-          {requested
-            ? "Your request is waiting for an administrator review."
-            : "Eligible paid orders can be requested for review up to 24 hours before the event."}
-        </span>
+        <h2>Booking refund</h2>
+        <p>
+          Refunds apply to the whole booking, not individual passes. Provider
+          completion is tracked on the persisted refund record.
+        </p>
+        {order.refunds.map((refund) => (
+          <section key={refund.id}>
+            <RefundTimeline refund={refund} />
+            <Link className="text-link" href={`/refunds/${refund.id}`}>
+              Open refund details →
+            </Link>
+          </section>
+        ))}
+        {unseen && (
+          <>
+            <RefundTimeline refund={unseen} />
+            <Link href={`/refunds/${unseen.id}`}>Open submitted request →</Link>
+          </>
+        )}
+        {eligible ? (
+          <button
+            className="button"
+            type="button"
+            onClick={() => setOpen(true)}
+          >
+            Request whole-booking refund
+          </button>
+        ) : (
+          <p role="status">
+            {unseen
+              ? "Your request is recorded. Waiting for the order read to update; duplicate submission is disabled."
+              : order.refundEligibility.reasons
+                  .map(
+                    (reason) =>
+                      explanations[reason] ??
+                      "This booking does not meet the current refund rules.",
+                  )
+                  .join(" ")}
+          </p>
+        )}
+        <Link className="text-link" href="/refunds">
+          All refund records →
+        </Link>
       </div>
-      {!requested && (
-        <label>
-          Reason (optional)
-          <textarea {...field("userMessage")} maxLength={1000} rows={3} />
+      <Modal
+        open={open}
+        title="Confirm whole-booking refund request"
+        onDismiss={() => setOpen(false)}
+        busy={pending}
+      >
+        <p>
+          {order.eventNameSnapshot} · {order.quantity} passes ·{" "}
+          {formatMoney(order.totalAmountPaisaSnapshot)}
+        </p>
+        <p>
+          Submitting blocks admission while this request is active. Approval
+          voids every pass in this booking. An administrator reviews the
+          request; submission does not confirm that money has been returned.
+        </p>
+        <form onSubmit={submit} noValidate>
+          <label>
+            Your message (optional)
+            <textarea {...field("userMessage")} maxLength={1000} rows={4} />
+          </label>
           <FormFeedback
             form={form}
             name="userMessage"
             id={field.errorId("userMessage")}
           />
-        </label>
-      )}
-      <FormFeedback form={form} />
-      {!requested && (
-        <button disabled={isRequesting} type="submit">
-          {isRequesting ? (
-            <LoaderCircle className={styles.spinner} size={15} />
-          ) : (
-            "Request refund"
-          )}
-        </button>
-      )}
-    </form>
+          <FormFeedback form={form} />
+          <button
+            className="button button-primary"
+            type="submit"
+            disabled={pending || !eligible}
+          >
+            {pending ? "Submitting…" : "Submit refund request"}
+          </button>
+          <button
+            className="button"
+            type="button"
+            disabled={pending}
+            onClick={() => setOpen(false)}
+          >
+            Close
+          </button>
+        </form>
+      </Modal>
+    </section>
   );
 }

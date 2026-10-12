@@ -1,132 +1,211 @@
 "use client";
-import { privateKey } from "@/lib/query-keys";
-
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarDays, MapPin, Ticket } from "lucide-react";
 import Link from "next/link";
-
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { getTickets, TicketApiError } from "@/lib/ticket-api";
-
+import { useUrlFilters } from "@/components/url-filters";
+import { ticketWalletFilterSchema } from "@/lib/filter-schemas";
+import { privateKey } from "@/lib/query-keys";
+import { getTicketBookings } from "@/lib/ticket-api";
+import { formatEventRange } from "@/lib/format";
+import { admissionLabels } from "@/lib/ticket-status";
+import { EventImage } from "@/components/event-image";
+import { ReadFailure } from "@/components/read-failure";
+import { Pagination } from "@/components/ui/interactive";
+import { FilterBar, Input, Select } from "@/components/ui";
 import styles from "./tickets.module.css";
-
-const eventDate = (value: string) =>
-  new Intl.DateTimeFormat("en-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Dhaka",
-  }).format(new Date(value));
-
 export function TicketWallet() {
-  const { isReady, session } = useAuth();
+  const { session, isReady } = useAuth();
+  const filters = useUrlFilters(ticketWalletFilterSchema);
+  const { page, period, status = "", search = "" } = filters.values;
   const query = useQuery({
-    queryKey: privateKey("tickets", session?.user.id, "list", {}),
-    queryFn: () => getTickets(),
-    enabled: isReady && Boolean(session?.user.role === "ATTENDEE"),
+    queryKey: privateKey("tickets", session?.user.id, "bookings", {
+      page,
+      period,
+      status,
+      search,
+    }),
+    queryFn: () =>
+      getTicketBookings(
+        new URLSearchParams({
+          page: String(page),
+          limit: "12",
+          period,
+          ...(status ? { status } : {}),
+          ...(search ? { search } : {}),
+        }),
+      ),
+    enabled: isReady && session?.user.role === "ATTENDEE" && filters.valid,
     retry: false,
+    refetchOnWindowFocus: true,
   });
-  if (!isReady)
-    return <p className={styles.loading}>Opening your ticket wallet…</p>;
-  if (!session)
+  if (!isReady) return <p>Opening your wallet…</p>;
+  if (session?.user.role !== "ATTENDEE")
     return (
       <section className={styles.gate}>
-        <Ticket size={29} aria-hidden="true" />
-        <h1>Sign in to see your tickets.</h1>
-        <p>Your event passes are private to your attendee account.</p>
-        <Link
-          className="button button-primary"
-          href="/auth/sign-in?next=/tickets"
-        >
-          Sign in <ArrowRight size={16} />
+        <h1>Attendee access required.</h1>
+        <Link className="button" href="/account">
+          My account
         </Link>
       </section>
     );
-  if (session.user.role !== "ATTENDEE")
-    return (
-      <section className={styles.gate}>
-        <Ticket size={29} aria-hidden="true" />
-        <h1>Attendee tickets only.</h1>
-        <p>Ticket wallet access is available through an attendee account.</p>
-        <Link className="button button-primary" href="/account">
-          My account <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  const tickets = query.data?.data ?? [];
+  const groups = query.data?.data ?? [];
+  const events = [...new Set(groups.map((group) => group.eventId))];
   return (
     <div className={styles.wallet}>
       <header>
         <p className="eyebrow">
-          <span /> Attendee wallet
+          <span />
+          Grouped ticket wallet
         </p>
         <h1>
           Your <b>passes.</b>
         </h1>
         <p>
-          Each active ticket includes a private QR pass for entry. Open it only
-          when you are ready to check in.
+          Each booking stays together on one page. Pass details and private QR
+          codes load only when opened.
         </p>
       </header>
-      {query.isLoading ? (
-        <p className={styles.muted}>Loading tickets…</p>
+      <FilterBar>
+        <label>
+          Search event, tier or city
+          <Input
+            value={search}
+            type="search"
+            onChange={(event) => filters.update("search", event.target.value)}
+            maxLength={120}
+          />
+        </label>
+        <label>
+          Period
+          <Select
+            value={period}
+            onChange={(event) => filters.update("period", event.target.value)}
+          >
+            <option value="upcoming">Upcoming / ongoing</option>
+            <option value="past">Past</option>
+            <option value="all">All dates</option>
+          </Select>
+        </label>
+        <label>
+          Stored pass status
+          <Select
+            value={status}
+            onChange={(event) => filters.update("status", event.target.value)}
+          >
+            <option value="">All statuses</option>
+            {["ACTIVE", "CHECKED_IN", "VOIDED", "REFUNDED"].map((value) => (
+              <option key={value} value={value}>
+                {value.replaceAll("_", " ")}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </FilterBar>
+      <Link className="text-link" href="/tickets">
+        Clear filters
+      </Link>
+      {!filters.valid ? (
+        <p role="alert">{filters.error}</p>
+      ) : query.isPending ? (
+        <p>Loading booking groups…</p>
       ) : query.isError ? (
-        <p className={styles.muted}>
-          {query.error instanceof TicketApiError
-            ? query.error.message
-            : "Your tickets could not be loaded."}
-        </p>
-      ) : tickets.length === 0 ? (
+        <ReadFailure
+          error={query.error}
+          retry={() => void query.refetch()}
+          fetching={query.isFetching}
+          next="/tickets"
+        />
+      ) : page > Math.max(1, query.data.meta.totalPages) ? (
+        <button
+          type="button"
+          className="button"
+          onClick={() => filters.setPage(1)}
+        >
+          This page no longer exists. Reset to page one
+        </button>
+      ) : !groups.length ? (
         <section className={styles.empty}>
-          <Ticket size={28} aria-hidden="true" />
-          <h2>No passes yet.</h2>
+          <h2>No matching passes.</h2>
           <p>
-            After a successful ticket payment, your event pass will appear here.
+            Try another filter or open your order history. Unpaid holds are
+            orders, not issued passes.
           </p>
-          <Link className="button button-primary" href="/events">
-            Browse events <ArrowRight size={16} />
+          <Link className="button" href="/orders">
+            Order history
           </Link>
         </section>
       ) : (
-        <div className={styles.list}>
-          {tickets.map((ticket) => (
-            <Link
-              className={styles.ticketCard}
-              href={`/tickets/${ticket.id}`}
-              key={ticket.id}
-            >
-              <div className={styles.date}>
-                <strong>
-                  {new Intl.DateTimeFormat("en-BD", {
-                    day: "numeric",
-                    timeZone: "Asia/Dhaka",
-                  }).format(new Date(ticket.event.startAt))}
-                </strong>
-                <span>
-                  {new Intl.DateTimeFormat("en-BD", {
-                    month: "short",
-                    timeZone: "Asia/Dhaka",
-                  }).format(new Date(ticket.event.startAt))}
-                </span>
-              </div>
-              <div className={styles.ticketMain}>
-                <span className={styles.status}>
-                  {ticket.status.replaceAll("_", " ")}
-                </span>
-                <h2>{ticket.event.title}</h2>
+        <>
+          <p>
+            {query.data.meta.total} matching bookings · showing complete
+            bookings, including all their pass statuses.
+          </p>
+          {events.map((eventId) => {
+            const event = groups.find(
+              (group) => group.eventId === eventId,
+            )!.event;
+            return (
+              <section className={styles.bookingEvent} key={eventId}>
+                <div className={styles.cover}>
+                  <EventImage
+                    publicView
+                    src={event.imageUrl}
+                    title={event.title}
+                  />
+                </div>
+                <h2>{event.title}</h2>
                 <p>
-                  <CalendarDays size={14} /> {eventDate(ticket.event.startAt)}{" "}
-                  <i /> <MapPin size={14} /> {ticket.event.city}
+                  {formatEventRange(event.startAt, event.endAt)} · {event.venue}
+                  , {event.city}
                 </p>
-              </div>
-              <aside>
-                <span>{ticket.ticketTier.name}</span>
-                <Ticket size={25} aria-hidden="true" />
-                <small>Pass #{ticket.sequence}</small>
-              </aside>
-            </Link>
-          ))}
-        </div>
+                {groups
+                  .filter((group) => group.eventId === eventId)
+                  .map((group) => (
+                    <article className={styles.booking} key={group.orderId}>
+                      <h3>
+                        {group.tierName} · {group.passCount} issued passes
+                      </h3>
+                      <p>
+                        Booking #{group.orderId.slice(0, 8).toUpperCase()} ·{" "}
+                        {Object.entries(group.statusCounts)
+                          .map(
+                            ([state, count]) =>
+                              `${count} ${admissionLabels[state] ?? state}`,
+                          )
+                          .join(" · ")}
+                      </p>
+                      <nav
+                        className={styles.passLinks}
+                        aria-label="Booking passes"
+                      >
+                        {group.tickets.map((ticket) => (
+                          <Link
+                            className="button"
+                            key={ticket.id}
+                            href={`/tickets/${ticket.id}`}
+                          >
+                            Pass {ticket.sequence} ·{" "}
+                            {admissionLabels[ticket.effectiveAdmissionState]}
+                          </Link>
+                        ))}
+                      </nav>
+                      <Link
+                        className="text-link"
+                        href={`/orders/${group.orderId}`}
+                      >
+                        Manage this booking / refund →
+                      </Link>
+                    </article>
+                  ))}
+              </section>
+            );
+          })}
+          <Pagination
+            page={page}
+            totalPages={query.data.meta.totalPages}
+            onPageChange={filters.setPage}
+          />
+        </>
       )}
     </div>
   );

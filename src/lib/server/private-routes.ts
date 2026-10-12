@@ -7,6 +7,7 @@ const routes: Array<[string, string]> = [
   ["GET|PATCH", "users/me"],
   ["GET", "users/me/overview"],
   ["GET", "tickets"],
+  ["GET", "tickets/bookings"],
   ["GET", `tickets/${id}(/qr)?`],
   ["GET|POST", "organizer/events"],
   ["GET|PATCH|DELETE", `organizer/events/${id}`],

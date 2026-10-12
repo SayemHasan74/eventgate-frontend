@@ -273,12 +273,7 @@ export function OrderStatus({ orderId }: { orderId: string }) {
           <PurchaseReceipt order={order} />
         </div>
       </section>
-      <RefundAction
-        orderId={order.id}
-        status={order.status}
-        eligible={order.refundEligibility.eligible}
-        reasons={order.refundEligibility.reasons}
-      />
+      <RefundAction order={order} />
     </>
   );
 }

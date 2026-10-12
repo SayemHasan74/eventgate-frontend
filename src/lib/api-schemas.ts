@@ -66,6 +66,23 @@ export const ticketSchema = z.object({
   status: ticketStatusSchema,
   checkedInAt: timestamp.nullable(),
   createdAt: timestamp,
+  effectiveAdmissionState: z.enum([
+    "ACTIVE",
+    "CHECKED_IN",
+    "VOIDED",
+    "REFUNDED",
+    "REFUND_PENDING",
+    "PAYMENT_REVIEW",
+    "CANCELLED",
+    "EVENT_ENDED",
+  ]),
+  canShowQr: z.boolean(),
+  checkInWindow: z.object({
+    opensAt: timestamp,
+    closesAt: timestamp,
+    isOpen: z.boolean(),
+  }),
+  serverTime: timestamp,
   event: z.object({
     title: z.string(),
     slug: z.string(),
@@ -73,6 +90,7 @@ export const ticketSchema = z.object({
     city: z.string(),
     startAt: timestamp,
     endAt: timestamp,
+    imageUrl: z.string().nullable(),
   }),
   ticketTier: z.object({ name: z.string() }),
 });
