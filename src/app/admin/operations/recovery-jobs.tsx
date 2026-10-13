@@ -83,6 +83,8 @@ export function RecoveryJobs() {
                 "NOTIFY_EVENT_CANCELLATION",
                 "SEND_EVENT_REMINDER",
                 "REFRESH_EVENT_REMINDERS",
+                "DISPATCH_WAITLIST_ALERTS",
+                "CLOSE_TIER_WAITLIST",
               ].map((type) => (
                 <option key={type}>{type}</option>
               ))}

@@ -29,6 +29,7 @@ import { privateKey, invalidateMutation } from "@/lib/query-keys";
 import { usePageVisible } from "@/lib/use-page-visible";
 import { formatEventRange, formatMoney } from "@/lib/format";
 import styles from "./saved-events.module.css";
+import { WaitlistControl } from "@/components/waitlist-control";
 function SavedCard({
   row,
   onChanged,
@@ -114,6 +115,12 @@ function SavedCard({
               {tier.saleState.replaceAll("_", " ").toLowerCase()} ·{" "}
               {tier.availableQuantity} available
             </span>
+            <WaitlistControl
+              eventId={event.id}
+              tierId={tier.id}
+              slug={event.slug}
+              saleState={tier.saleState}
+            />
             {tier.saleState === "UPCOMING" && (
               <small>
                 Window: {formatEventRange(tier.salesStartAt, tier.salesEndAt)}

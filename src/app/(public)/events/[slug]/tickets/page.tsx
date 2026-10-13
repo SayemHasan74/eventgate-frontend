@@ -10,16 +10,29 @@ import { formatEventRange } from "@/lib/format";
 import styles from "./ticket-selector.module.css";
 import { TicketSelector } from "./ticket-selector";
 
-type TicketsPageProps = Readonly<{ params: Promise<{ slug: string }> }>;
+type TicketsPageProps = Readonly<{
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ tierId?: string | string[] }>;
+}>;
 
 export const metadata: Metadata = {
   title: "Select tickets",
   robots: { index: false, follow: false },
 };
 
-export default async function TicketsPage({ params }: TicketsPageProps) {
+export default async function TicketsPage({
+  params,
+  searchParams,
+}: TicketsPageProps) {
   const { slug } = await params;
   const result = await getPublicEvent(slug);
+  const requestedTier = (await searchParams).tierId;
+  const initialTierId =
+    typeof requestedTier === "string" &&
+    result.status === "ready" &&
+    result.event.ticketTiers.some((tier) => tier.id === requestedTier)
+      ? requestedTier
+      : undefined;
   if (result.status === "not-found") notFound();
 
   return (
@@ -52,11 +65,13 @@ export default async function TicketsPage({ params }: TicketsPageProps) {
             </div>
           </header>
           <TicketSelector
+            key={`${result.event.id}:${initialTierId ?? "default"}`}
             eventId={result.event.id}
             slug={slug}
             eventStart={result.event.startAt}
             now={result.retrievedAt}
             tiers={result.event.ticketTiers}
+            initialTierId={initialTierId}
           />
         </main>
       )}

@@ -14,9 +14,16 @@ export type BookingIntent = z.infer<typeof schema>;
 export function clearBookingIntent() {
   removeBrowserStorage("sessionStorage", key);
 }
-export function saveBookingIntent(intent: BookingIntent) {
+export function saveBookingIntent(
+  intent: Omit<BookingIntent, "createdAt"> & { createdAt?: number },
+) {
   try {
-    window.sessionStorage.setItem(key, JSON.stringify(schema.parse(intent)));
+    window.sessionStorage.setItem(
+      key,
+      JSON.stringify(
+        schema.parse({ ...intent, createdAt: intent.createdAt ?? Date.now() }),
+      ),
+    );
     return true;
   } catch {
     return false;

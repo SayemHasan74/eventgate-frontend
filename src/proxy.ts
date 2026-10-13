@@ -23,6 +23,7 @@ export function proxy(request: NextRequest) {
 }
 export const config = {
   matcher: [
+    "/waitlists/:path*",
     "/saved-events/:path*",
     "/notifications/:path*",
     "/account/:path*",

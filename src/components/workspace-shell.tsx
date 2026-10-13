@@ -18,6 +18,7 @@ const links = {
     ["/tickets", "My tickets"],
     ["/refunds", "Refunds"],
     ["/saved-events", "Saved events"],
+    ["/waitlists", "Stock alerts"],
   ],
   ORGANIZER: [
     ["/organizer", "Overview"],

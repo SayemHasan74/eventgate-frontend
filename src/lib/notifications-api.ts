@@ -11,7 +11,10 @@ const localPath = z
       /^\/(?:orders|refunds|tickets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
         path,
       ) ||
-      /^\/events\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(path),
+      /^\/events\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(path) ||
+      /^\/events\/[a-z0-9]+(?:-[a-z0-9]+)*\/tickets\?tierId=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+        path,
+      ),
     "Unsafe notification destination",
   );
 const notification = z.object({

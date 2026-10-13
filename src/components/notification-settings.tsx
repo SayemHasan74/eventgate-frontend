@@ -40,7 +40,7 @@ const options: Array<[keyof PreferenceFields, string, string]> = [
   [
     "waitlistAlerts",
     "Waitlist availability alerts",
-    "Applies when waitlists are available; not a ticket reservation.",
+    "Sold-out tier stock alerts; alerts never reserve tickets.",
   ],
   [
     "marketingEmail",

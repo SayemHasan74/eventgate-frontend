@@ -132,6 +132,7 @@ export const getManagedEvent = (id: string, admin = false) =>
           closesAt: timestamp,
           isOpen: z.boolean(),
         }),
+        interestedCount: z.number().int().nonnegative(),
         cancellationImpact: z.object({
           paidOrders: z.number().int().nonnegative(),
           activeTickets: z.number().int().nonnegative(),

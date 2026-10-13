@@ -1,5 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 export const mutationDomains = {
+  waitlist: [
+    "waitlists",
+    "waitlist-membership",
+    "notifications",
+    "saved-events",
+  ],
   save: ["saved-events", "saved-membership", "notifications"],
   notification: ["notifications", "notification-preferences"],
   profile: ["users", "identity", "checkout", "notification-preferences"],
@@ -25,6 +31,8 @@ export const mutationDomains = {
     "readiness",
   ],
   order: [
+    "waitlists",
+    "waitlist-membership",
     "organizer-overview",
     "orders",
     "payments",
@@ -35,6 +43,8 @@ export const mutationDomains = {
     "organizer-reports",
   ],
   payment: [
+    "waitlists",
+    "waitlist-membership",
     "organizer-overview",
     "orders",
     "payments",

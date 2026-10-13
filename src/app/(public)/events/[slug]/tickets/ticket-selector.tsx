@@ -29,6 +29,7 @@ type TicketSelectorProps = Readonly<{
   slug: string;
   eventStart: string;
   eventId: string;
+  initialTierId?: string;
 }>;
 
 const price = formatMoney;
@@ -39,26 +40,39 @@ export function TicketSelector({
   slug,
   eventStart,
   eventId,
+  initialTierId,
 }: TicketSelectorProps) {
   const [tiers, setTiers] = useState(initialTiers);
   const [now, setNow] = useState(initialNow);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(
+    initialTierId
+      ? "Your alerted tier is selected. This is not a reservation; review fresh availability before booking."
+      : "",
+  );
   const isOnSale = (tier: PublicTicketTier, now: number) =>
     tierSaleState(tier, eventStart, now) === "OPEN";
   const sellableTiers = tiers.filter((tier) => isOnSale(tier, now));
   const [selectedTierId, setSelectedTierId] = useState(
-    sellableTiers[0]?.id ?? "",
+    initialTierId ?? sellableTiers[0]?.id ?? "",
   );
   const [quantity, setQuantity] = useState(1);
   const [isReserving, setIsReserving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [availabilityReady, setAvailabilityReady] = useState(false);
   const [canRecover, setCanRecover] = useState(false);
-  const selection = useRef({ tierId: sellableTiers[0]?.id ?? "", quantity: 1 });
+  const selection = useRef({
+    tierId: initialTierId ?? sellableTiers[0]?.id ?? "",
+    quantity: 1,
+  });
   const busy = useRef(false);
   const request = useRef(0);
+  const restored = useRef(false);
+  const invalidateReads = useCallback(() => {
+    request.current++;
+  }, []);
   const queryClient = useQueryClient();
   const { isReady, session } = useAuth();
+  const currentUserId = session?.user.id;
   const pathname = usePathname();
   const router = useRouter();
   const selectedTier = sellableTiers.find((tier) => tier.id === selectedTierId);
@@ -67,16 +81,6 @@ export function TicketSelector({
     : 0;
   const total = selectedTier ? selectedTier.pricePaisa * quantity : 0;
   const wrongRole = session && session.user.role !== "ATTENDEE";
-  useEffect(() => {
-    setCanRecover(
-      !!session &&
-        !!existingOperationKey(
-          "order",
-          session.user.id,
-          `${selectedTierId}:${quantity}`,
-        ),
-    );
-  }, [session, selectedTierId, quantity]);
 
   const recoverReservation = async () => {
     if (!session || wrongRole || busy.current) return;
@@ -113,66 +117,90 @@ export function TicketSelector({
     }
   };
 
-  const refresh = useCallback(async () => {
-    if (busy.current) return;
+  const refresh = useCallback(() => {
+    if (busy.current) return Promise.resolve();
     const version = ++request.current;
-    setIsRefreshing(true);
-    try {
-      const fresh = await getFreshAvailability(slug);
-      if (version !== request.current) return;
-      setTiers(fresh.ticketTiers);
-      setNow(Date.parse(fresh.serverTime));
-      setAvailabilityReady(true);
-      const tier = fresh.ticketTiers.find(
-        (item) => item.id === selection.current.tierId,
-      );
-      if (!tier?.canPurchase) {
-        setNotice(
-          "Your selected tier is not currently on sale. Choose an available tier; nothing was reserved.",
+    return getFreshAvailability(slug)
+      .then((fresh) => {
+        if (version !== request.current) return;
+        if (!restored.current) {
+          restored.current = true;
+          const intent = initialTierId
+            ? null
+            : readBookingIntent(eventId, slug);
+          if (intent) {
+            selection.current = {
+              tierId: intent.tierId,
+              quantity: intent.quantity,
+            };
+            setSelectedTierId(intent.tierId);
+            setQuantity(intent.quantity);
+            setNotice(
+              "Your ticket selection was restored. Review current availability before reserving.",
+            );
+          }
+        }
+        const recoverable =
+          !!currentUserId &&
+          !!existingOperationKey(
+            "order",
+            currentUserId,
+            `${selection.current.tierId}:${selection.current.quantity}`,
+          );
+        setCanRecover(recoverable);
+        setTiers(fresh.ticketTiers);
+        setNow(Date.parse(fresh.serverTime));
+        setAvailabilityReady(true);
+        const tier = fresh.ticketTiers.find(
+          (item) => item.id === selection.current.tierId,
         );
-      } else if (
-        selection.current.quantity > Math.min(10, tier.availableQuantity)
-      ) {
-        const limit = Math.min(10, tier.availableQuantity);
-        selection.current.quantity = limit;
-        setQuantity(limit);
+        if (recoverable) {
+          setNotice(
+            "A previous reservation request may have reached the server. Recover the same request before changing the tier or quantity.",
+          );
+        } else if (!tier?.canPurchase) {
+          setNotice(
+            "Your selected tier is not currently on sale. Choose an available tier; nothing was reserved.",
+          );
+        } else if (
+          selection.current.quantity > Math.min(10, tier.availableQuantity)
+        ) {
+          const limit = Math.min(10, tier.availableQuantity);
+          selection.current.quantity = limit;
+          setQuantity(limit);
+          setNotice(
+            `Availability changed. Quantity was reduced to ${limit}. Review before reserving.`,
+          );
+        }
+      })
+      .catch((error) => {
+        if (version !== request.current) return;
+        setAvailabilityReady(false);
         setNotice(
-          `Availability changed. Quantity was reduced to ${limit}. Review before reserving.`,
+          error instanceof Error
+            ? error.message
+            : "Availability could not be checked. Retry before reserving.",
         );
-      }
-    } catch (error) {
-      if (version !== request.current) return;
-      setAvailabilityReady(false);
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "Availability could not be checked. Retry before reserving.",
-      );
-    } finally {
-      if (version === request.current) setIsRefreshing(false);
-    }
-  }, [slug]);
+      })
+      .finally(() => {
+        if (version === request.current) setIsRefreshing(false);
+      });
+  }, [slug, eventId, initialTierId, currentUserId]);
 
   useEffect(() => {
-    const intent = readBookingIntent(eventId, slug);
-    if (intent) {
-      selection.current = { tierId: intent.tierId, quantity: intent.quantity };
-      setSelectedTierId(intent.tierId);
-      setQuantity(intent.quantity);
-      setNotice(
-        "Your ticket selection was restored. Review current availability, then reserve when ready.",
-      );
-    }
     void refresh();
     const visible = () => {
-      if (document.visibilityState === "visible") void refresh();
+      if (document.visibilityState === "visible") {
+        setIsRefreshing(true);
+        void refresh();
+      }
     };
     document.addEventListener("visibilitychange", visible);
     return () => {
-      request.current++;
+      invalidateReads();
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [eventId, slug, refresh]);
+  }, [refresh, invalidateReads]);
 
   const unavailableReason =
     sellableTiers.length > 0
@@ -186,10 +214,21 @@ export function TicketSelector({
     setSelectedTierId(id);
     setQuantity(1);
     selection.current = { tierId: id, quantity: 1 };
+    setCanRecover(
+      !!session && !!existingOperationKey("order", session.user.id, `${id}:1`),
+    );
   };
   const changeQuantity = (value: number) => {
     selection.current.quantity = value;
     setQuantity(value);
+    setCanRecover(
+      !!session &&
+        !!existingOperationKey(
+          "order",
+          session.user.id,
+          `${selectedTierId}:${value}`,
+        ),
+    );
   };
 
   const reserve = async () => {
@@ -212,7 +251,6 @@ export function TicketSelector({
           slug,
           tierId: selectedTier.id,
           quantity,
-          createdAt: Date.now(),
         })
       ) {
         toast.info(
@@ -230,7 +268,6 @@ export function TicketSelector({
       slug,
       tierId: selectedTier.id,
       quantity,
-      createdAt: Date.now(),
     });
     try {
       setNotice("");
@@ -300,7 +337,7 @@ export function TicketSelector({
           {notice}
         </p>
       )}
-      {canRecover && (
+      {canRecover && session?.user.role === "ATTENDEE" && (
         <div className={styles.notice}>
           <p>
             A previous reservation request may have reached the server. Recover
@@ -345,7 +382,10 @@ export function TicketSelector({
           type="button"
           className="text-link"
           disabled={isRefreshing || isReserving}
-          onClick={() => void refresh()}
+          onClick={() => {
+            setIsRefreshing(true);
+            void refresh();
+          }}
         >
           Refresh availability
         </button>
@@ -371,7 +411,9 @@ export function TicketSelector({
                   name="ticket-tier"
                   value={tier.id}
                   checked={selected}
-                  disabled={!available || isReserving || isRefreshing}
+                  disabled={
+                    !available || isReserving || isRefreshing || canRecover
+                  }
                   onChange={() => chooseTier(tier.id)}
                 />
                 <span>
@@ -411,7 +453,9 @@ export function TicketSelector({
               <div>
                 <button
                   aria-label="Remove one ticket"
-                  disabled={quantity <= 1 || isReserving || isRefreshing}
+                  disabled={
+                    quantity <= 1 || isReserving || isRefreshing || canRecover
+                  }
                   onClick={() => changeQuantity(quantity - 1)}
                   type="button"
                 >
@@ -421,7 +465,10 @@ export function TicketSelector({
                 <button
                   aria-label="Add one ticket"
                   disabled={
-                    quantity >= quantityLimit || isReserving || isRefreshing
+                    quantity >= quantityLimit ||
+                    isReserving ||
+                    isRefreshing ||
+                    canRecover
                   }
                   onClick={() => changeQuantity(quantity + 1)}
                   type="button"
@@ -447,7 +494,7 @@ export function TicketSelector({
                 !availabilityReady ||
                 !!wrongRole
               }
-              onClick={reserve}
+              onClick={() => void reserve()}
               type="button"
             >
               {isReserving ? (

@@ -17,6 +17,7 @@ import { eventSaleSummary, tierSaleState } from "@/lib/public-sale";
 import { formatMoney, formatEventRange } from "@/lib/format";
 import { eventUrl } from "@/lib/event-url";
 import styles from "./event-details.module.css";
+import { WaitlistControl } from "@/components/waitlist-control";
 
 type EventPageProps = Readonly<{ params: Promise<{ slug: string }> }>;
 const labels = {
@@ -103,10 +104,20 @@ function EventDetails({ event }: { event: PublicEvent }) {
                 {event.ticketTiers.map((tier) => {
                   const state = tierSaleState(tier, event.startAt);
                   return (
-                    <li className={styles.tier} key={tier.id}>
+                    <li
+                      className={styles.tier}
+                      id={`tier-${tier.id}`}
+                      key={tier.id}
+                    >
                       <div>
                         <span className={styles.status}>{labels[state]}</span>
                         <h3>{tier.name}</h3>
+                        <WaitlistControl
+                          eventId={event.id}
+                          tierId={tier.id}
+                          slug={event.slug}
+                          saleState={state}
+                        />
                         <p>
                           {state === "UPCOMING"
                             ? `Sales open ${formatEventRange(tier.salesStartAt, tier.salesEndAt)} (Bangladesh time)`

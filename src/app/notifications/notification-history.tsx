@@ -93,6 +93,7 @@ export function NotificationHistory() {
                 "SAVED_SALE_REMINDER",
                 "SAVED_EVENT_REMINDER",
                 "BOOKING_REMINDER",
+                "WAITLIST_STOCK_ALERT",
               ].map((type) => (
                 <option key={type} value={type}>
                   {type.replaceAll("_", " ").toLowerCase()}

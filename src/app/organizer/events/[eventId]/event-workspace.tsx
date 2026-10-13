@@ -335,6 +335,11 @@ export function EventWorkspace({
           <section className={styles.panel}>
             <h2>Admission window</h2>
             <p>
+              {event.interestedCount} active stock-alert memberships. These are
+              interest counts, not reserved tickets; attendee contacts are not
+              exposed.
+            </p>
+            <p>
               {formatEventRange(
                 event.checkInWindow.opensAt,
                 event.checkInWindow.closesAt,
