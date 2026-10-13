@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 export const mutationDomains = {
-  profile: ["users", "identity", "checkout"],
+  notification: ["notifications", "notification-preferences"],
+  profile: ["users", "identity", "checkout", "notification-preferences"],
   event: [
     "organizer-events",
     "organizer-overview",

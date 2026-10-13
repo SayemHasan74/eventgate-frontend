@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import type { AuthUser } from "@/lib/auth-types";
 import { ThemeToggle } from "./theme-toggle";
 import { LogoutButton } from "./logout-button";
+import { NotificationBadge } from "./notification-badge";
 import { useAuth } from "./auth-provider";
 import { Button } from "./ui";
 import { Modal } from "./ui/interactive";
@@ -49,6 +50,7 @@ function WorkspaceNavigation({
     >
       {[
         ...links[user.role],
+        ["/notifications", "Notifications"],
         ["/account/profile", "My profile"],
         ["/events", "Browse events"],
       ].map(([href, label]) => (
@@ -136,6 +138,7 @@ export function WorkspaceShell({
             <span>{user.role.toLowerCase()} workspace</span>
           </div>
           <div>
+            <NotificationBadge />
             <ThemeToggle />
             <LogoutButton />
           </div>

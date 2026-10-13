@@ -1,6 +1,12 @@
 const id =
   "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const routes: Array<[string, string]> = [
+  ["GET", "notifications"],
+  ["PATCH", `notifications/${id}/read`],
+  ["POST", "notifications/read-all"],
+  ["GET|PATCH", "users/me/notification-preferences"],
+  ["POST", "users/me/email-verification(/confirm)?"],
+  ["GET", "admin/reports/notification-deliveries"],
   ["GET|POST", "orders"],
   ["GET", `orders/${id}`],
   ["POST", `orders/${id}/cancel`],

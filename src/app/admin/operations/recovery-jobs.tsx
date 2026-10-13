@@ -79,6 +79,8 @@ export function RecoveryJobs() {
                 "RECONCILE_REFUND",
                 "PROCESS_EVENT_CANCELLATION",
                 "COMPLETE_EVENT",
+                "DELIVER_NOTIFICATION",
+                "NOTIFY_EVENT_CANCELLATION",
               ].map((type) => (
                 <option key={type}>{type}</option>
               ))}
@@ -178,7 +180,8 @@ export function RecoveryJobs() {
                   key: "retry",
                   label: "Recovery",
                   cell: (job) =>
-                    job.status === "FAILED" ? (
+                    job.status === "FAILED" &&
+                    job.type !== "DELIVER_NOTIFICATION" ? (
                       <AdminAction
                         label="Retry failed job"
                         disabled={!job.reference}
