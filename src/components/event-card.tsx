@@ -5,14 +5,23 @@ import { formatMoney, formatEventRange } from "@/lib/format";
 import { EventImage } from "./event-image";
 import styles from "./event-card.module.css";
 import { SaveEventButton } from "./save-event-button";
-export function EventCard({ event }: { event: PublicEvent }) {
-  const sale = eventSaleSummary(event);
+export function EventCard({
+  event,
+  now,
+  reason,
+}: {
+  event: PublicEvent;
+  now?: number;
+  reason?: string | null;
+}) {
+  const sale = eventSaleSummary(event, now);
   return (
     <article className={styles.card}>
       <Link href={`/events/${event.slug}`} aria-label={`View ${event.title}`}>
         <EventImage publicView src={event.imageUrl} title={event.title} />
       </Link>
       <div className={styles.body}>
+        {reason && <p>{reason}</p>}
         <small>{event.category}</small>
         <h2>
           <Link href={`/events/${event.slug}`}>{event.title}</Link>

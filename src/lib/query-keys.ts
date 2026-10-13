@@ -6,10 +6,17 @@ export const mutationDomains = {
     "notifications",
     "saved-events",
   ],
-  save: ["saved-events", "saved-membership", "notifications"],
+  save: [
+    "saved-events",
+    "saved-membership",
+    "notifications",
+    "recommendations",
+  ],
+  eventPreference: ["event-preferences", "recommendations"],
   notification: ["notifications", "notification-preferences"],
   profile: ["users", "identity", "checkout", "notification-preferences"],
   event: [
+    "recommendations",
     "organizer-events",
     "organizer-overview",
     "organizer-tiers",
@@ -23,6 +30,7 @@ export const mutationDomains = {
     "admin-audit-logs",
   ],
   tier: [
+    "recommendations",
     "organizer-events",
     "organizer-overview",
     "organizer-tiers",
@@ -31,6 +39,7 @@ export const mutationDomains = {
     "readiness",
   ],
   order: [
+    "recommendations",
     "waitlists",
     "waitlist-membership",
     "organizer-overview",
@@ -43,6 +52,7 @@ export const mutationDomains = {
     "organizer-reports",
   ],
   payment: [
+    "recommendations",
     "waitlists",
     "waitlist-membership",
     "organizer-overview",
@@ -58,6 +68,7 @@ export const mutationDomains = {
     "admin-stats",
   ],
   refund: [
+    "recommendations",
     "organizer-overview",
     "refunds",
     "orders",
@@ -78,6 +89,7 @@ export const mutationDomains = {
     "tickets",
   ],
   adminUser: [
+    "recommendations",
     "admin-events",
     "admin-users",
     "admin-stats",
@@ -87,6 +99,7 @@ export const mutationDomains = {
     "users",
   ],
   admin: [
+    "recommendations",
     "admin-jobs",
     "admin-maintenance",
     "admin-events",

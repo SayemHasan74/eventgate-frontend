@@ -1,0 +1,74 @@
+"use client";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "./auth-provider";
+import { usePageVisible } from "@/lib/use-page-visible";
+import { privateKey } from "@/lib/query-keys";
+import { getRecommendations } from "@/lib/recommendations-api";
+import { EventCard } from "./event-card";
+import { EventPreferencesPanel } from "./event-preferences";
+import { ReadFailure } from "./read-failure";
+import { Skeleton } from "./ui";
+import styles from "./recommendations.module.css";
+export function Recommendations() {
+  const { session, isReady } = useAuth();
+  const visible = usePageVisible();
+  const attendee = isReady && session?.user.role === "ATTENDEE";
+  const query = useQuery({
+    queryKey: privateKey("recommendations", session?.user.id),
+    queryFn: getRecommendations,
+    enabled: !!attendee,
+    staleTime: 0,
+    refetchInterval: visible ? 30000 : false,
+    refetchOnWindowFocus: true,
+  });
+  if (!attendee) return null;
+  return (
+    <div className={`${styles.section} wrap`}>
+      <div className={styles.header}>
+        <div>
+          <p className="eyebrow">Your next outing</p>
+          <h2>{query.data?.heading ?? "Your events"}</h2>
+        </div>
+        <Link className="text-link" href="/events">
+          Browse every event →
+        </Link>
+      </div>
+      <EventPreferencesPanel compact />
+      {query.isError ? (
+        <ReadFailure
+          error={query.error}
+          retry={() => void query.refetch()}
+          fetching={query.isFetching}
+          next="/account"
+        />
+      ) : !query.data ? (
+        <Skeleton />
+      ) : query.data.events.length ? (
+        <div className={styles.grid}>
+          {query.data.events.map((row) => (
+            <EventCard
+              key={row.event.id}
+              event={row.event}
+              reason={row.reason}
+              now={Date.parse(query.data.serverTime)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p>
+          No new upcoming events to suggest. Events you already have a valid
+          booking for are excluded.
+        </p>
+      )}
+      {query.data && (
+        <p className={styles.note}>
+          Availability shown at{" "}
+          {new Date(query.data.serverTime).toLocaleTimeString()}. Stock is
+          checked again when you select tickets. Suggestions never reserve
+          tickets.
+        </p>
+      )}
+    </div>
+  );
+}

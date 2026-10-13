@@ -3,7 +3,7 @@ import { cache } from "react";
 import { upstream } from "./server/upstream";
 import { z } from "zod";
 import { parseEnvelope, paginationSchema } from "./api-error";
-import { moneySchema } from "./api-schemas";
+import { publicEventSchema } from "./public-event-schema";
 
 type ApiListResponse<T> = {
   success: true;
@@ -170,30 +170,3 @@ export async function getUpcomingPublicEvents(): Promise<EventDiscoveryResult> {
       .slice(0, 6),
   };
 }
-
-const publicEventSchema: z.ZodType<PublicEvent> = z.object({
-  id: z.uuid(),
-  title: z.string(),
-  slug: z.string(),
-  description: z.string(),
-  category: z.string(),
-  venue: z.string(),
-  city: z.string(),
-  address: z.string(),
-  startAt: z.iso.datetime({ offset: true }),
-  endAt: z.iso.datetime({ offset: true }),
-  imageUrl: z.string().nullable(),
-  organizer: z.object({ displayName: z.string() }),
-  ticketTiers: z.array(
-    z.object({
-      id: z.uuid(),
-      name: z.string(),
-      pricePaisa: moneySchema,
-      capacity: z.number().int().nonnegative(),
-      availableQuantity: z.number().int().nonnegative(),
-      salesPaused: z.boolean().default(false),
-      salesStartAt: z.iso.datetime({ offset: true }),
-      salesEndAt: z.iso.datetime({ offset: true }),
-    }),
-  ),
-});

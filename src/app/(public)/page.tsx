@@ -1,5 +1,6 @@
 import Form from "next/form";
 import { EventCard } from "@/components/event-card";
+import { Recommendations } from "@/components/recommendations";
 import { EmptyState } from "@/components/empty-state";
 import { OrganizerLink } from "@/components/organizer-link";
 import { PublicRetry } from "@/components/public-retry";
@@ -184,6 +185,7 @@ export default async function Home() {
           </div>
         </section>
 
+        <Recommendations />
         <section
           className={`wrap ${styles.discovery}`}
           aria-labelledby="upcoming-title"

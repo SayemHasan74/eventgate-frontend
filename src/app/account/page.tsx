@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AccountDashboard } from "./account-dashboard";
+import { Recommendations } from "@/components/recommendations";
 import styles from "./account.module.css";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function AccountPage() {
       <section className={`${styles.page} wrap`}>
         <AccountDashboard />
       </section>
+      <Recommendations />
     </>
   );
 }

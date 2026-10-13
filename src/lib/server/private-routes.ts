@@ -1,6 +1,8 @@
 const id =
   "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const routes: Array<[string, string]> = [
+  ["GET", "events/recommended"],
+  ["GET|PATCH", "users/me/event-preferences"],
   ["GET|PUT|DELETE", `events/${id}/ticket-tiers/${id}/waitlist`],
   ["GET", "users/me/waitlists"],
   ["GET", "saved-events"],
