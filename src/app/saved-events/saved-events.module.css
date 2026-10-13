@@ -1,0 +1,73 @@
+.list {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 22px;
+}
+.card {
+  padding: 24px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--card);
+}
+.heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.heading h2 {
+  margin-block: 12px;
+}
+.tiers {
+  display: grid;
+  gap: 12px;
+  margin-block: 20px;
+}
+.tiers > div {
+  display: grid;
+  gap: 6px;
+  border-left: 3px solid var(--cobalt);
+  padding-left: 14px;
+}
+.tiers span,
+.tiers small {
+  color: var(--soft);
+}
+.card fieldset {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 18px;
+  margin-block: 16px;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+}
+.card label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card input {
+  height: 20px;
+  width: 20px;
+  accent-color: var(--cobalt);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+@media (max-width: 640px) {
+  .card {
+    padding: 16px;
+  }
+  .card fieldset {
+    align-items: start;
+    flex-direction: column;
+  }
+}

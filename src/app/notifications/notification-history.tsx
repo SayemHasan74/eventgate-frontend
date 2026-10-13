@@ -90,6 +90,9 @@ export function NotificationHistory() {
                 "REFUND_UPDATE",
                 "ROLE_CHANGED",
                 "EMAIL_VERIFICATION",
+                "SAVED_SALE_REMINDER",
+                "SAVED_EVENT_REMINDER",
+                "BOOKING_REMINDER",
               ].map((type) => (
                 <option key={type} value={type}>
                   {type.replaceAll("_", " ").toLowerCase()}

@@ -1,4 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import {
+  SaveEventButton,
+  SaveIntentNotice,
+} from "@/components/save-event-button";
 import { ArrowLeft, CalendarDays, Clock3, MapPin } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -151,6 +156,15 @@ function EventDetails({ event }: { event: PublicEvent }) {
             {event.venue}, {event.city}
           </p>
           {purchase}
+          <Suspense fallback={null}>
+            <SaveIntentNotice eventId={event.id} />
+          </Suspense>
+          <SaveEventButton
+            eventId={event.id}
+            slug={event.slug}
+            title={event.title}
+            startAt={event.startAt}
+          />
           <p className={styles.note}>
             Select a tier and quantity next. Nothing is charged on this page.
           </p>

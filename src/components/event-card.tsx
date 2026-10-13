@@ -4,6 +4,7 @@ import { eventSaleSummary } from "@/lib/public-sale";
 import { formatMoney, formatEventRange } from "@/lib/format";
 import { EventImage } from "./event-image";
 import styles from "./event-card.module.css";
+import { SaveEventButton } from "./save-event-button";
 export function EventCard({ event }: { event: PublicEvent }) {
   const sale = eventSaleSummary(event);
   return (
@@ -32,6 +33,12 @@ export function EventCard({ event }: { event: PublicEvent }) {
         <Link className="text-link" href={`/events/${event.slug}`}>
           Event details →
         </Link>
+        <SaveEventButton
+          eventId={event.id}
+          slug={event.slug}
+          title={event.title}
+          startAt={event.startAt}
+        />
       </div>
     </article>
   );

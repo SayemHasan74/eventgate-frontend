@@ -81,6 +81,8 @@ export function RecoveryJobs() {
                 "COMPLETE_EVENT",
                 "DELIVER_NOTIFICATION",
                 "NOTIFY_EVENT_CANCELLATION",
+                "SEND_EVENT_REMINDER",
+                "REFRESH_EVENT_REMINDERS",
               ].map((type) => (
                 <option key={type}>{type}</option>
               ))}

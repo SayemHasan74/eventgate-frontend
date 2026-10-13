@@ -17,6 +17,7 @@ const links = {
     ["/orders", "Orders"],
     ["/tickets", "My tickets"],
     ["/refunds", "Refunds"],
+    ["/saved-events", "Saved events"],
   ],
   ORGANIZER: [
     ["/organizer", "Overview"],

@@ -35,7 +35,7 @@ const options: Array<[keyof PreferenceFields, string, string]> = [
   [
     "savedEventReminders",
     "Saved-event reminders",
-    "Applies when saved-event reminders are available.",
+    "Sale-opening and event reminders for events you save.",
   ],
   [
     "waitlistAlerts",

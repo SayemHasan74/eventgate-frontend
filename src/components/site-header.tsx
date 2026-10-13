@@ -21,6 +21,9 @@ function Navigation() {
   return (
     <>
       <Link href="/events">Browse events</Link>
+      {session?.user.role === "ATTENDEE" && (
+        <Link href="/saved-events">Saved events</Link>
+      )}
       <Link href="/#how-it-works">How it works</Link>
       <OrganizerLink />
       <Link href={session ? workspace : "/auth/sign-in"}>

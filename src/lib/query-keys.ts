@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 export const mutationDomains = {
+  save: ["saved-events", "saved-membership", "notifications"],
   notification: ["notifications", "notification-preferences"],
   profile: ["users", "identity", "checkout", "notification-preferences"],
   event: [
