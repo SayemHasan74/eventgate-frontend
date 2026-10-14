@@ -10,7 +10,7 @@ import { formatEventRange } from "@/lib/format";
 import styles from "./ticket-selector.module.css";
 import { TicketSelector } from "./ticket-selector";
 
-export type TicketsPageProps = Readonly<{
+type TicketsPageProps = Readonly<{
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ tierId?: string | string[] }>;
 }>;
@@ -20,13 +20,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export async function TicketsPageContent({
+export default async function TicketsPage({
   params,
   searchParams,
-  isDemo = false,
-}: TicketsPageProps & { isDemo?: boolean }) {
+}: TicketsPageProps) {
   const { slug } = await params;
-  const result = await getPublicEvent(slug, isDemo);
+  const result = await getPublicEvent(slug);
   const requestedTier = (await searchParams).tierId;
   const initialTierId =
     typeof requestedTier === "string" &&
@@ -47,7 +46,7 @@ export async function TicketsPageContent({
         </main>
       ) : (
         <main id="main-content" className={`${styles.page} wrap`}>
-          <Link className={styles.back} href={`${isDemo ? "/demo/events" : "/events"}/${slug}`}>
+          <Link className={styles.back} href={`/events/${slug}`}>
             <ArrowLeft size={16} aria-hidden="true" /> Back to event
           </Link>
           <header className={styles.eventStrip}>
@@ -69,7 +68,6 @@ export async function TicketsPageContent({
             key={`${result.event.id}:${initialTierId ?? "default"}`}
             eventId={result.event.id}
             slug={slug}
-            isDemo={isDemo}
             eventStart={result.event.startAt}
             now={result.retrievedAt}
             tiers={result.event.ticketTiers}
@@ -80,4 +78,3 @@ export async function TicketsPageContent({
     </>
   );
 }
-export default function TicketsPage(props: TicketsPageProps) { return <TicketsPageContent {...props} />; }

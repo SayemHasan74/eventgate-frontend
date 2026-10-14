@@ -21,7 +21,6 @@ function Navigation() {
   return (
     <>
       <Link href="/events">Browse events</Link>
-      {session?.user.isDemo && <Link href="/demo/events">Sample events</Link>}
       {session?.user.role === "ATTENDEE" && (
         <Link href="/saved-events">Saved events</Link>
       )}

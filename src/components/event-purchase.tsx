@@ -5,12 +5,10 @@ export function EventPurchase({
   slug,
   eligible,
   reason,
-  isDemo = false,
 }: {
   slug: string;
   eligible: boolean;
   reason: string;
-  isDemo?: boolean;
 }) {
   const { session } = useAuth();
   const wrongRole = session && session.user.role !== "ATTENDEE";
@@ -28,7 +26,7 @@ export function EventPurchase({
       {eligible && !wrongRole ? (
         <Link
           className="button button-primary"
-          href={`${isDemo ? "/demo/events" : "/events"}/${slug}/tickets`}
+          href={`/events/${slug}/tickets`}
         >
           Select tickets →
         </Link>

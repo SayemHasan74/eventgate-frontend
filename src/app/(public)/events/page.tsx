@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     "Discover published events by city, category, date and current sales windows.",
 };
 
-export type EventsPageProps = Readonly<{
+type EventsPageProps = Readonly<{
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }>;
 
@@ -42,8 +42,7 @@ const filterLabels: Record<string, string> = {
   sort: "Sort",
 };
 
-export async function EventsPageContent({ searchParams, isDemo = false }: EventsPageProps & { isDemo?: boolean }) {
-  const basePath = isDemo ? "/demo/events" : "/events";
+export default async function EventsPage({ searchParams }: EventsPageProps) {
   const rawQuery = await searchParams;
   const draft = nonEmptyParams(rawQuery);
   const parsed = discoveryFilterSchema.safeParse(draft);
@@ -86,8 +85,8 @@ export async function EventsPageContent({ searchParams, isDemo = false }: Events
       : undefined,
   };
   const [result, facets] = await Promise.all([
-    parsed.success ? getPublicEvents(query, isDemo) : Promise.resolve(null),
-    getPublicFacets(isDemo),
+    parsed.success ? getPublicEvents(query) : Promise.resolve(null),
+    getPublicFacets(),
   ]);
   const cities = facets.status === "ready" ? facets.cities : [];
   const categories = facets.status === "ready" ? facets.categories : [];
@@ -102,7 +101,7 @@ export async function EventsPageContent({ searchParams, isDemo = false }: Events
     for (const [key, value] of Object.entries(overrides))
       if (value === undefined) params.delete(key);
       else params.set(key, value);
-    return basePath + "?" + params;
+    return "/events?" + params;
   };
   const weekend = dhakaWeekend();
   const today = utcToDhakaLocal(new Date().toISOString()).slice(0, 10);
@@ -120,18 +119,23 @@ export async function EventsPageContent({ searchParams, isDemo = false }: Events
       >
         <header className={[styles["events-heading"]].join(" ")}>
           <p className="eyebrow">
-            <span /> {isDemo ? "Recruiter sandbox · sample events" : "Published and ready"}
+            <span /> Published and ready
           </p>
-          <h1>{isDemo ? <>Explore the<br /><b>demo programme.</b></> : <>Find your<br /><b>next room.</b></>}</h1>
+          <h1>
+            Find your
+            <br />
+            <b>next room.</b>
+          </h1>
           <p>
-            {isDemo ? "Clearly labelled sample events use a shared attendee account and sandbox-only checkout." : "Browse actual published events. Search the programme, then narrow it by what matters to you."}
+            Browse actual published events. Search the programme, then narrow it
+            by what matters to you.
           </p>
         </header>
 
         <Form
           scroll={false}
           className={[styles["event-filters"]].join(" ")}
-          action={basePath}
+          action="/events"
         >
           <input type="hidden" name="page" value="1" />
           <label className={[styles["filter-search"]].join(" ")}>
@@ -225,7 +229,7 @@ export async function EventsPageContent({ searchParams, isDemo = false }: Events
             Bangladesh weekend: Friday–Saturday
           </Link>{" "}
           <span>Or choose a custom range above.</span>
-          <Link href={basePath}>Clear all</Link>
+          <Link href="/events">Clear all</Link>
         </nav>
         {chips.length > 0 && (
           <nav className={styles.chips} aria-label="Active filters">
@@ -282,7 +286,7 @@ export async function EventsPageContent({ searchParams, isDemo = false }: Events
             title="No events match this search."
             description="Try a broader search, another city, or clear a filter to see every published event."
             action={
-              <Link href={basePath} className="button">
+              <Link href="/events" className="button">
                 Clear all filters
               </Link>
             }
@@ -323,7 +327,4 @@ export async function EventsPageContent({ searchParams, isDemo = false }: Events
       </main>
     </>
   );
-}
-export default function EventsPage(props: EventsPageProps) {
-  return <EventsPageContent {...props} />;
 }

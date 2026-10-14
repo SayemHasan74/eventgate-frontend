@@ -7,7 +7,6 @@
   background: var(--card);
   overflow: hidden;
 }
-.demoLabel { display: inline-block; margin-left: 8px; color: var(--accent); font-weight: 800; letter-spacing: .08em; }
 .card > a {
   display: block;
 }

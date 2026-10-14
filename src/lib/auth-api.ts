@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authUserSchema, type AuthSession } from "./auth-types";
+import { authUserSchema, type AuthSession, type AuthUser } from "./auth-types";
 import { apiClient, jsonBody } from "./api-client";
 import { resetCsrf } from "./session-fetch";
 export { ApiError as AuthApiError } from "./api-error";
@@ -17,7 +17,7 @@ async function requestSession(
 }
 export const signIn = (input: { email: string; password: string }) =>
   requestSession("login", input);
-export const signInDemo = (role: "ATTENDEE" | "ORGANIZER") =>
+export const signInDemo = (role: AuthUser["role"]) =>
   requestSession("demo", { role });
 export const register = (input: {
   email: string;

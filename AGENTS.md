@@ -7,5 +7,3 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
-
-Public Attendee/Organizer demo access is a permanent production requirement. Preserve it during unrelated repairs. Fix defects through server-side isolation, rate limits, sandbox payment enforcement, and outbound-email restrictions. Public Admin demo access is forbidden.

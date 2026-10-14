@@ -166,7 +166,6 @@ test("production Next proxies preserve the transport contract all the way to Exp
           email: "fixture@example.com",
           displayName: "Fixture",
           role: "ATTENDEE",
-          isDemo: false,
         },
         tokens: encryptTokens(
           {

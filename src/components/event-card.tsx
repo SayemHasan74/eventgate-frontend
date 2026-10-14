@@ -15,18 +15,16 @@ export function EventCard({
   reason?: string | null;
 }) {
   const sale = eventSaleSummary(event, now);
-  const eventPath = `${event.isDemo ? "/demo/events" : "/events"}/${event.slug}`;
   return (
     <article className={styles.card}>
-      <Link href={eventPath} aria-label={`View ${event.title}`}>
+      <Link href={`/events/${event.slug}`} aria-label={`View ${event.title}`}>
         <EventImage publicView src={event.imageUrl} title={event.title} />
       </Link>
       <div className={styles.body}>
         {reason && <p>{reason}</p>}
         <small>{event.category}</small>
-        {event.isDemo && <small className={styles.demoLabel}>SAMPLE EVENT · SANDBOX</small>}
         <h2>
-          <Link href={eventPath}>{event.title}</Link>
+          <Link href={`/events/${event.slug}`}>{event.title}</Link>
         </h2>
         <p>{formatEventRange(event.startAt, event.endAt)}</p>
         <p>
@@ -41,13 +39,12 @@ export function EventCard({
             </strong>
           )}
         </div>
-        <Link className="text-link" href={eventPath}>
+        <Link className="text-link" href={`/events/${event.slug}`}>
           Event details →
         </Link>
         <SaveEventButton
           eventId={event.id}
           slug={event.slug}
-          isDemo={event.isDemo}
           title={event.title}
           startAt={event.startAt}
         />

@@ -20,14 +20,12 @@ export function WaitlistControl({
   slug,
   saleState,
   membership,
-  isDemo = false,
 }: {
   eventId: string;
   tierId: string;
   slug: string;
   saleState: string;
   membership?: WaitlistMembership;
-  isDemo?: boolean;
 }) {
   const { session, isReady } = useAuth();
   const visible = usePageVisible();
@@ -83,7 +81,7 @@ export function WaitlistControl({
         </p>
         <Link
           className="text-link"
-          href={`/auth/sign-in?next=${encodeURIComponent(`${isDemo ? "/demo/events" : "/events"}/${slug}#tier-${tierId}`)}`}
+          href={`/auth/sign-in?next=${encodeURIComponent(`/events/${slug}#tier-${tierId}`)}`}
         >
           Sign in to join stock alerts →
         </Link>
@@ -144,13 +142,13 @@ export function WaitlistControl({
         {data.saleState === "OPEN" && (
           <Link
             className="text-link"
-            href={`${isDemo ? "/demo/events" : "/events"}/${slug}/tickets?tierId=${tierId}`}
+            href={`/events/${slug}/tickets?tierId=${tierId}`}
           >
             Check tickets →
           </Link>
         )}
         {data.saleState === "UPCOMING" && (
-          <Link className="text-link" href={`${isDemo ? "/demo/events" : "/events"}/${slug}`}>
+          <Link className="text-link" href={`/events/${slug}`}>
             Save this event for a reminder →
           </Link>
         )}

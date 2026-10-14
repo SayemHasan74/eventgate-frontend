@@ -114,13 +114,13 @@ export function AuthForm({ mode }: AuthFormProps) {
       setIsSubmitting(false);
     }
   };
-  const demoLogin = async (role: "ATTENDEE" | "ORGANIZER") => {
+  const demoLogin = async (role: "ATTENDEE" | "ORGANIZER" | "ADMIN") => {
     setMutationError("");
     setIsSubmitting(true);
     try {
       const session = await signInDemo(role);
       setSession(session);
-      toast.success(`Shared demo account: ${session.user.displayName}.`);
+      toast.success(`Demo access: ${session.user.displayName}.`);
       router.push(safeNextPath(searchParams.get("next"), session.user.role));
       router.refresh();
     } catch (error) {
@@ -226,14 +226,15 @@ export function AuthForm({ mode }: AuthFormProps) {
       {!isRegister && (
         <GoogleSignIn disabled={isSubmitting} onCredential={googleLogin} />
       )}
-      {!isRegister && (
+      {!isRegister && process.env.NEXT_PUBLIC_DEMO_LOGIN_ENABLED === "true" && (
         <div className={featureStyles["auth-demo"]}>
-          <span>Explore a shared recruiter demo</span>
+          <span>Quick demo access</span>
           <div>
             {(
               [
-                ["ATTENDEE", "Try attendee demo"],
-                ["ORGANIZER", "Try organizer demo"],
+                ["ATTENDEE", "Attendee demo"],
+                ["ORGANIZER", "Organizer demo"],
+                ["ADMIN", "Admin demo"],
               ] as const
             ).map(([role, label]) => (
               <button
@@ -246,7 +247,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               </button>
             ))}
           </div>
-          <small>Shared account, isolated sign-in session, sandbox payments only.</small>
+          <small>Enabled only on a dedicated demo environment.</small>
         </div>
       )}
     </form>

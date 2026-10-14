@@ -54,7 +54,7 @@ function WorkspaceNavigation({
         ...links[user.role],
         ["/notifications", "Notifications"],
         ["/account/profile", "My profile"],
-        [user.isDemo ? "/demo/events" : "/events", user.isDemo ? "Browse sample events" : "Browse events"],
+        ["/events", "Browse events"],
       ].map(([href, label]) => (
         <Link
           key={href}
