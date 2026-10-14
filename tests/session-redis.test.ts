@@ -17,7 +17,7 @@ test("browser session lifecycle against real, disposable Redis records", async (
   process.env.API_BASE_URL = "https://session-fixture.invalid/api/v1";
   const originalFetch = globalThis.fetch;
   const records: string[] = [];
-  const user = { id: randomUUID(), email: "session-test@example.com", displayName: "Session test", role: "ATTENDEE" as const };
+  const user = { id: randomUUID(), email: "session-test@example.com", displayName: "Session test", role: "ATTENDEE" as const, isDemo: false };
   const payload = (n: number) => ({ success: true, data: { user, accessToken: `access-${n}`, refreshToken: `refresh-${n}`, accessTokenExpiresIn: 900 } });
   const fresh = async (): Promise<StoredSession> => {
     const id = nonce(), key = sessionKey(id);

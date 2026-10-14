@@ -27,6 +27,7 @@ type TicketSelectorProps = Readonly<{
   tiers: PublicTicketTier[];
   now: number;
   slug: string;
+  isDemo?: boolean;
   eventStart: string;
   eventId: string;
   initialTierId?: string;
@@ -38,6 +39,7 @@ export function TicketSelector({
   tiers: initialTiers,
   now: initialNow,
   slug,
+  isDemo = false,
   eventStart,
   eventId,
   initialTierId,
@@ -271,7 +273,7 @@ export function TicketSelector({
     });
     try {
       setNotice("");
-      const fresh = await getFreshAvailability(slug);
+      const fresh = await getFreshAvailability(slug, isDemo);
       setTiers(fresh.ticketTiers);
       setNow(Date.parse(fresh.serverTime));
       const liveTier = fresh.ticketTiers.find(

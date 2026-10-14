@@ -26,10 +26,10 @@ export const publicAvailabilitySchema = z.object({
     }),
   ),
 });
-export async function getFreshAvailability(slug: string) {
+export async function getFreshAvailability(slug: string, isDemo = false) {
   try {
     const response = await fetch(
-      `/api/events/${encodeURIComponent(slug)}/availability`,
+      `${isDemo ? "/api/demo/events" : "/api/events"}/${encodeURIComponent(slug)}/availability`,
       {
         cache: "no-store",
         credentials: "omit",

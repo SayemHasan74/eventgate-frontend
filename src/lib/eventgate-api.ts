@@ -30,6 +30,7 @@ export type PublicTicketTier = {
 
 export type PublicEvent = {
   id: string;
+  isDemo: boolean;
   title: string;
   slug: string;
   description: string;
@@ -70,6 +71,7 @@ export type PublicEventResult =
 
 export async function getPublicEvents(
   query: EventDiscoveryQuery,
+  isDemo = false,
 ): Promise<EventDiscoveryResult> {
   const parameters = new URLSearchParams({
     page: String(query.page),
@@ -85,7 +87,7 @@ export async function getPublicEvents(
 
   try {
     const response = await upstream(
-      `events?${parameters.toString()}`,
+      `${isDemo ? "demo/events" : "events"}?${parameters.toString()}`,
       {
         cache: "no-store",
       },
@@ -105,10 +107,10 @@ export async function getPublicEvents(
 }
 
 export const getPublicEvent = cache(
-  async (slug: string): Promise<PublicEventResult> => {
+  async (slug: string, isDemo = false): Promise<PublicEventResult> => {
     try {
       const response = await upstream(
-        `events/${encodeURIComponent(slug)}`,
+        `${isDemo ? "demo/events" : "events"}/${encodeURIComponent(slug)}`,
         {
           cache: "no-store",
         },
@@ -130,13 +132,13 @@ export const getPublicEvent = cache(
     }
   },
 );
-export async function getPublicFacets(): Promise<
+export async function getPublicFacets(isDemo = false): Promise<
   | { status: "ready"; categories: string[]; cities: string[] }
   | { status: "unavailable" }
 > {
   try {
     const response = await upstream(
-      "events/facets",
+      `${isDemo ? "demo/events" : "events"}/facets`,
       { cache: "no-store" },
       true,
     );
@@ -153,14 +155,14 @@ export async function getPublicFacets(): Promise<
     return { status: "unavailable" };
   }
 }
-export async function getUpcomingPublicEvents(): Promise<EventDiscoveryResult> {
+export async function getUpcomingPublicEvents(isDemo = false): Promise<EventDiscoveryResult> {
   const minute = Math.floor(Date.now() / 60000) * 60000;
   const result = await getPublicEvents({
     page: 1,
     limit: 6,
     sort: "soonest",
     startAfter: new Date(minute).toISOString(),
-  });
+  }, isDemo);
   if (result.status !== "ready") return result;
   const now = Date.now();
   return {

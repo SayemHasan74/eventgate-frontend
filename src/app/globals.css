@@ -304,3 +304,21 @@ a {
   gap: 14px;
   margin-block: 24px;
 }
+.demo-session-banner {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  min-height: 48px;
+  padding: 8px max(20px, calc((100vw - 1280px) / 2));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+}
+.demo-session-banner button { border-color: var(--paper); color: var(--paper); }
+@media (max-width: 600px) {
+  .demo-session-banner { align-items: flex-start; flex-direction: column; }
+}

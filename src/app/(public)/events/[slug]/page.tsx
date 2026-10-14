@@ -19,7 +19,7 @@ import { eventUrl } from "@/lib/event-url";
 import styles from "./event-details.module.css";
 import { WaitlistControl } from "@/components/waitlist-control";
 
-type EventPageProps = Readonly<{ params: Promise<{ slug: string }> }>;
+export type EventPageProps = Readonly<{ params: Promise<{ slug: string }> }>;
 const labels = {
   OPEN: "On sale",
   UPCOMING: "Coming soon",
@@ -27,19 +27,21 @@ const labels = {
   SOLD_OUT: "Sold out",
   CLOSED: "Sales closed",
 };
-function EventDetails({ event }: { event: PublicEvent }) {
+export function EventDetails({ event }: { event: PublicEvent }) {
   const sale = eventSaleSummary(event);
-  const url = eventUrl(event.slug);
+  const basePath = event.isDemo ? "/demo/events" : "/events";
+  const url = eventUrl(event.slug, event.isDemo);
   const purchase = (
     <EventPurchase
       slug={event.slug}
+      isDemo={event.isDemo}
       eligible={sale.state === "OPEN"}
       reason={sale.label + ". No tier is currently eligible for reservation."}
     />
   );
   return (
     <main id="main-content" className={`${styles.page} wrap`}>
-      <Link className={styles.back} href="/events">
+      <Link className={styles.back} href={basePath}>
         <ArrowLeft size={16} /> All events
       </Link>
       <div className={styles.layout}>
@@ -51,6 +53,7 @@ function EventDetails({ event }: { event: PublicEvent }) {
             <p className="eyebrow">
               <span />
               {event.category}
+              {event.isDemo && <strong className={styles.status}>Sample event · sandbox only</strong>}
             </p>
             <h1>{event.title}</h1>
             <p>
@@ -116,6 +119,7 @@ function EventDetails({ event }: { event: PublicEvent }) {
                           eventId={event.id}
                           tierId={tier.id}
                           slug={event.slug}
+                          isDemo={event.isDemo}
                           saleState={state}
                         />
                         <p>
@@ -175,6 +179,7 @@ function EventDetails({ event }: { event: PublicEvent }) {
             slug={event.slug}
             title={event.title}
             startAt={event.startAt}
+            isDemo={event.isDemo}
           />
           <p className={styles.note}>
             Select a tier and quantity next. Nothing is charged on this page.
@@ -190,11 +195,11 @@ function EventDetails({ event }: { event: PublicEvent }) {
     </main>
   );
 }
-export async function generateMetadata({
+export async function eventMetadata({
   params,
-}: EventPageProps): Promise<Metadata> {
+}: EventPageProps, isDemo = false): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getPublicEvent(slug);
+  const result = await getPublicEvent(slug, isDemo);
   if (result.status !== "ready")
     return { title: "Event details", robots: { index: false } };
   const event = result.event;
@@ -202,7 +207,7 @@ export async function generateMetadata({
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 160);
-  const url = eventUrl(event.slug);
+  const url = eventUrl(event.slug, event.isDemo);
   return {
     title: event.title,
     description,
@@ -219,9 +224,9 @@ export async function generateMetadata({
     },
   };
 }
-export default async function EventPage({ params }: EventPageProps) {
+export async function EventPageContent({ params, isDemo = false }: EventPageProps & { isDemo?: boolean }) {
   const { slug } = await params;
-  const result = await getPublicEvent(slug);
+  const result = await getPublicEvent(slug, isDemo);
   if (result.status === "not-found") notFound();
   return result.status === "unavailable" ? (
     <main id="main-content" className={`${styles.page} wrap`}>
@@ -235,3 +240,5 @@ export default async function EventPage({ params }: EventPageProps) {
     <EventDetails event={result.event} />
   );
 }
+export async function generateMetadata(props: EventPageProps) { return eventMetadata(props); }
+export default function EventPage(props: EventPageProps) { return <EventPageContent {...props} />; }

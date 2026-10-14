@@ -16,11 +16,13 @@ export function SaveEventButton({
   slug,
   title,
   startAt,
+  isDemo = false,
 }: {
   eventId: string;
   slug: string;
   title: string;
   startAt: string;
+  isDemo?: boolean;
 }) {
   const { session, isReady } = useAuth();
   const router = useRouter();
@@ -42,7 +44,7 @@ export function SaveEventButton({
     if (lock.current) return;
     if (!session) {
       router.push(
-        `/auth/sign-in?next=${encodeURIComponent(`/events/${encodeURIComponent(slug)}?save=${eventId}`)}`,
+        `/auth/sign-in?next=${encodeURIComponent(`${isDemo ? "/demo/events" : "/events"}/${encodeURIComponent(slug)}?save=${eventId}`)}`,
       );
       return;
     }
