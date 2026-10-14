@@ -22,6 +22,7 @@ import {
   AuthApiError,
   register,
   signIn,
+  signInDemo,
   signInWithGoogle,
 } from "@/lib/auth-api";
 
@@ -107,6 +108,26 @@ export function AuthForm({ mode }: AuthFormProps) {
         error instanceof AuthApiError
           ? error.message
           : "Google sign-in could not be completed.";
+      setMutationError(message);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  const demoLogin = async (role: "ATTENDEE" | "ORGANIZER" | "ADMIN") => {
+    setMutationError("");
+    setIsSubmitting(true);
+    try {
+      const session = await signInDemo(role);
+      setSession(session);
+      toast.success(`Demo access: ${session.user.displayName}.`);
+      router.push(safeNextPath(searchParams.get("next"), session.user.role));
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof AuthApiError
+          ? error.message
+          : "Demo sign-in is unavailable on this deployment.";
       setMutationError(message);
       toast.error(message);
     } finally {
@@ -204,6 +225,30 @@ export function AuthForm({ mode }: AuthFormProps) {
       </p>
       {!isRegister && (
         <GoogleSignIn disabled={isSubmitting} onCredential={googleLogin} />
+      )}
+      {!isRegister && process.env.NEXT_PUBLIC_DEMO_LOGIN_ENABLED === "true" && (
+        <div className={featureStyles["auth-demo"]}>
+          <span>Quick demo access</span>
+          <div>
+            {(
+              [
+                ["ATTENDEE", "Attendee demo"],
+                ["ORGANIZER", "Organizer demo"],
+                ["ADMIN", "Admin demo"],
+              ] as const
+            ).map(([role, label]) => (
+              <button
+                key={role}
+                disabled={isSubmitting}
+                onClick={() => void demoLogin(role)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <small>Enabled only on a dedicated demo environment.</small>
+        </div>
       )}
     </form>
   );

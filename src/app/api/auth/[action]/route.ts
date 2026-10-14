@@ -57,7 +57,11 @@ export async function POST(
   context: RouteContext<"/api/auth/[action]">,
 ) {
   const { action } = await context.params;
-  if (!["login", "register", "google", "refresh", "logout"].includes(action))
+  if (
+    !["login", "register", "google", "demo", "refresh", "logout"].includes(
+      action,
+    )
+  )
     return privateJson({ success: false, message: "Not found" }, 404);
   try {
     const session = await currentSession();
