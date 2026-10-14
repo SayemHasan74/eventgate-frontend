@@ -1,0 +1,50 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SESSION_REDIS_URL: redis://localhost:6379
+      SESSION_TEST_REDIS_URL: redis://localhost:6379
+      SESSION_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      EVENTGATE_API_TEST_ROOT: ${{ github.workspace }}/eventgate-api
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: SayemHasan74/eventgate-api
+          ref: main
+          path: eventgate-api
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm ci --ignore-scripts --prefix eventgate-api
+      - run: npx next typegen
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run test:contracts
+      - run: npm run test:proxies
+      - run: npm run test:sessions
+      - run: npm run build

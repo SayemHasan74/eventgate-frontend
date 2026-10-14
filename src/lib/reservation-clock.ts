@@ -10,10 +10,7 @@ export function useReservationClock(
   const [remaining, setRemaining] = useState<number | null>(null);
   const announcedExpiry = useRef<string | null>(null);
   useEffect(() => {
-    if (!pending || !serverTime || !expiresAt) {
-      setRemaining(null);
-      return;
-    }
+    if (!pending || !serverTime || !expiresAt) return;
     const initial = Math.max(0, Date.parse(expiresAt) - Date.parse(serverTime));
     const receivedAt = performance.now();
     const tick = () => {
@@ -24,9 +21,12 @@ export function useReservationClock(
         refresh();
       }
     };
-    tick();
+    const frame = window.requestAnimationFrame(tick);
     const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, [serverTime, expiresAt, pending, refresh]);
   useEffect(() => {
     const focus = () => {
@@ -41,5 +41,5 @@ export function useReservationClock(
       document.removeEventListener("visibilitychange", focus);
     };
   }, [refresh]);
-  return remaining;
+  return pending && serverTime && expiresAt ? remaining : null;
 }
