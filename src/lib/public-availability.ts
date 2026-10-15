@@ -32,10 +32,25 @@ export async function getFreshAvailability(slug: string) {
       `/api/events/${encodeURIComponent(slug)}/availability`,
       {
         cache: "no-store",
-        credentials: "omit",
+        // Deployment protection also uses same-origin cookies. Dropping them
+        // can turn this public API read into a Vercel authentication redirect.
+        credentials: "same-origin",
         signal: AbortSignal.timeout(20000),
       },
     );
+    const contentType = response.headers.get("content-type") ?? "";
+    if (
+      !contentType.includes("application/json") &&
+      (response.status === 401 ||
+        response.status === 403 ||
+        response.redirected)
+    ) {
+      throw new ApiError(
+        "This deployment requires hosting access. Open the production website, or sign in to Vercel and retry.",
+        response.status,
+        "DEPLOYMENT_ACCESS_REQUIRED",
+      );
+    }
     return parseEnvelope(
       response,
       await response.json(),

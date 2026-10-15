@@ -263,3 +263,42 @@ test("shared browser transport forwards filters, CSRF, JSON and idempotency with
     resetCsrf();
   }
 });
+
+test("availability keeps hosting-access cookies and identifies deployment-protection responses", async () => {
+  const { getFreshAvailability } =
+    await import("../src/lib/public-availability");
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async (path, init) => {
+      assert.equal(path, "/api/events/protected-event/availability");
+      if (init?.credentials !== "same-origin")
+        return new Response("Hosting sign-in required", {
+          status: 401,
+          headers: { "Content-Type": "text/html" },
+        });
+      return Response.json({
+        success: true,
+        data: {
+          eventId: id,
+          status: "PUBLISHED",
+          serverTime: new Date().toISOString(),
+          ticketTiers: [],
+        },
+      });
+    };
+    assert.equal((await getFreshAvailability("protected-event")).eventId, id);
+    globalThis.fetch = async () =>
+      new Response("Hosting sign-in required", {
+        status: 401,
+        headers: { "Content-Type": "text/html" },
+      });
+    await assert.rejects(
+      getFreshAvailability("protected-event"),
+      (error: unknown) =>
+        error instanceof ApiError &&
+        error.code === "DEPLOYMENT_ACCESS_REQUIRED",
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
