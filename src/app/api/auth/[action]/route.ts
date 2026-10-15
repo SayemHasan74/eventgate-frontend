@@ -117,13 +117,22 @@ export async function POST(
         response.status,
       );
     }
-    return privateJson(
+    const result = privateJson(
       {
         success: true,
         data: await establishSession(backendAuthSchema.parse(payload.data)),
       },
       response.status,
     );
+    if (action === "demo") {
+      // Expose only standard, server-generated quota headers so deployment
+      // checks can distinguish per-visitor limits from the shared fallback.
+      for (const name of ["ratelimit", "ratelimit-policy"]) {
+        const value = response.headers.get(name);
+        if (value) result.headers.set(name, value);
+      }
+    }
+    return result;
   } catch (error) {
     if (
       action === "logout" &&
