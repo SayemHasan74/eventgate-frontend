@@ -142,6 +142,7 @@
 .buying :global(.button) {
   width: 100%;
   justify-content: center;
+  margin-bottom: 18px;
 }
 .note {
   color: var(--soft);
