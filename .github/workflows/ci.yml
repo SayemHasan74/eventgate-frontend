@@ -45,6 +45,6 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run test:contracts
+      - run: npm run build
       - run: npm run test:proxies
       - run: npm run test:sessions
-      - run: npm run build
