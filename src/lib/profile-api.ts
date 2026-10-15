@@ -14,6 +14,7 @@ export type Profile = {
   status: string;
   createdAt: string;
   googleLinked: boolean;
+  passwordLoginEnabled: boolean;
 };
 
 export type CheckoutProfileInput = Pick<
@@ -35,6 +36,7 @@ const profileSchema: z.ZodType<Profile> = z.object({
   status: z.enum(["ACTIVE", "SUSPENDED"]),
   createdAt: z.iso.datetime({ offset: true }),
   googleLinked: z.boolean(),
+  passwordLoginEnabled: z.boolean().default(false),
 });
 export const getProfile = () => apiClient("/api/users/me", profileSchema);
 export const updateCheckoutProfile = (input: CheckoutProfileInput) =>

@@ -1,4 +1,6 @@
 .preview {
+  width: 100%;
+  min-width: 0;
   position: relative;
   min-height: 180px;
   aspect-ratio: 16 / 9;

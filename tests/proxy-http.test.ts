@@ -98,7 +98,11 @@ test("production Next proxies preserve the transport contract all the way to Exp
             : png,
           qrToken: "MUST_NOT_BE_RELAYED",
         };
-      if (url.pathname.endsWith("/checkout") && url.searchParams.has("processing")) response.statusCode = 202;
+      if (
+        url.pathname.endsWith("/checkout") &&
+        url.searchParams.has("processing")
+      )
+        response.statusCode = 202;
       if (url.pathname.endsWith("/checkout"))
         data = url.searchParams.has("processing")
           ? {
@@ -210,6 +214,23 @@ test("production Next proxies preserve the transport contract all the way to Exp
       ["tickets", "tickets", "GET"],
       ["users/me", "users/me", "PATCH"],
       ["admin/users", "admin/users", "GET"],
+      [`admin/events/${id}/cancel`, `admin/events/${id}/cancel`, "POST"],
+      [
+        `admin/payments/${id}/reconcile`,
+        `admin/payments/${id}/reconcile`,
+        "POST",
+      ],
+      [
+        `admin/refunds/${id}/reconcile`,
+        `admin/refunds/${id}/reconcile`,
+        "POST",
+      ],
+      [`admin/refunds/${id}/retry`, `admin/refunds/${id}/retry`, "POST"],
+      [
+        `admin/reports/jobs/${id}/retry`,
+        `admin/reports/jobs/${id}/retry`,
+        "POST",
+      ],
       [`admin/users/${id}`, `admin/users/${id}`, "DELETE"],
       [`organizer/events/${id}`, `organizer/events/${id}`, "PATCH"],
       [

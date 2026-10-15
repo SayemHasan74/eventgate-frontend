@@ -2,6 +2,8 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import {
   authenticatedFetch,
+  invalidate,
+  clearBrowserCookies,
   checkCsrf,
   currentSession,
 } from "./browser-session";
@@ -80,7 +82,8 @@ export async function forwardPrivate(request: Request, path: string) {
         return Object.fromEntries(
           Object.entries(value).map(([key, item]) => [
             key,
-            key === "failureMessage" && typeof item === "string"
+            ["failureMessage", "processingError"].includes(key) &&
+            typeof item === "string"
               ? safeMessage(item)
               : redactFailures(item),
           ]),
@@ -102,6 +105,10 @@ export async function forwardPrivate(request: Request, path: string) {
       if (!parsed.success)
         throw new SessionError("INVALID_CHECKOUT_RESPONSE", 502);
       payload.data = parsed.data;
+    }
+    if (path === "users/me/password") {
+      await invalidate(session);
+      await clearBrowserCookies();
     }
     const result = privateJson(payload, response.status);
     if (

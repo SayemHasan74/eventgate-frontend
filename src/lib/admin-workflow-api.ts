@@ -32,6 +32,7 @@ export const adminPaymentSchema = paymentAttemptSchema.extend({
       eventType: z.string(),
       receivedAt: timestamp,
       processedAt: timestamp.nullable(),
+      processingError: z.string().nullable().default(null),
     }),
   ),
   order: z.object({

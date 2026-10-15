@@ -58,9 +58,16 @@ export async function POST(
 ) {
   const { action } = await context.params;
   if (
-    !["login", "register", "google", "demo", "refresh", "logout"].includes(
-      action,
-    )
+    ![
+      "login",
+      "register",
+      "google",
+      "demo",
+      "refresh",
+      "logout",
+      "request-password-reset",
+      "reset-password",
+    ].includes(action)
   )
     return privateJson({ success: false, message: "Not found" }, 404);
   try {
@@ -95,6 +102,21 @@ export async function POST(
     const payload = await response.json();
     if (!response.ok || !payload.success)
       return upstreamFailure(response, payload);
+    if (["request-password-reset", "reset-password"].includes(action)) {
+      if (action === "reset-password" && session) {
+        await logoutSession(session).catch(() => undefined);
+        await clearBrowserCookies();
+      }
+      return privateJson(
+        {
+          success: true,
+          data: {
+            message: String(payload.data?.message ?? "Request completed."),
+          },
+        },
+        response.status,
+      );
+    }
     return privateJson(
       {
         success: true,

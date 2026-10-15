@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui";
 import { ReadFailure } from "@/components/read-failure";
 import { getProfile } from "@/lib/profile-api";
 import { privateKey, invalidateMutation } from "@/lib/query-keys";
+import { PasswordSettings } from "@/components/password-settings";
 import { ProfileForm } from "@/components/profile-form";
 import { GoogleSignIn } from "@/components/google-sign-in";
 import { linkGoogle } from "@/lib/auth-api";
@@ -71,15 +72,24 @@ export function ProfileEditor() {
       ) : (
         query.data && (
           <>
-            {session?.user.isQuickAccess ? <p role="status">This is a shared access account. Profile and identity changes are disabled. Create your own account for personal details.</p> : <ProfileForm key={query.data.id} profile={query.data} />}
+            {session?.user.isQuickAccess ? (
+              <p role="status">
+                This is a shared access account. Profile and identity changes
+                are disabled. Create your own account for personal details.
+              </p>
+            ) : (
+              <ProfileForm key={query.data.id} profile={query.data} />
+            )}
+            {!session?.user.isQuickAccess &&
+              query.data.passwordLoginEnabled && <PasswordSettings />}
             <section>
               <h2>Google sign-in connection</h2>
               <p>
                 {session?.user.isQuickAccess
                   ? "Google linking is disabled for this shared account."
                   : query.data.googleLinked
-                  ? "A verified Google identity is linked. You can use it to sign in to this same account."
-                  : "No Google identity is linked. Connect a verified Google account while signed in; this does not create or change your EventGate role."}
+                    ? "A verified Google identity is linked. You can use it to sign in to this same account."
+                    : "No Google identity is linked. Connect a verified Google account while signed in; this does not create or change your EventGate role."}
               </p>
               {!query.data.googleLinked && !session?.user.isQuickAccess && (
                 <GoogleSignIn

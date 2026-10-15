@@ -224,6 +224,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         </Link>
       </p>
       {!isRegister && (
+        <Link className="text-link" href="/auth/forgot-password">
+          Forgot password?
+        </Link>
+      )}
+      {!isRegister && (
         <GoogleSignIn disabled={isSubmitting} onCredential={googleLogin} />
       )}
       {!isRegister && (
@@ -246,7 +251,10 @@ export function AuthForm({ mode }: AuthFormProps) {
               </button>
             ))}
           </div>
-          <small>Shared accounts on the live application. Use your own account for personal bookings.</small>
+          <small>
+            Shared accounts on the live application. Use your own account for
+            personal bookings.
+          </small>
         </div>
       )}
     </form>

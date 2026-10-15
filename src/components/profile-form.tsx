@@ -34,10 +34,12 @@ export function ProfileForm({
   profile,
   onSaved,
   checkout = false,
+  onCancel,
 }: {
   profile: Profile;
   onSaved?: () => void;
   checkout?: boolean;
+  onCancel?: () => void;
 }) {
   const client = useQueryClient();
   const { retrySession } = useAuth();
@@ -133,6 +135,17 @@ export function ProfileForm({
       >
         Discard changes
       </Button>
+      {onCancel && (
+        <Button
+          disabled={form.formState.isSubmitting}
+          onClick={() => {
+            form.reset();
+            onCancel();
+          }}
+        >
+          Cancel editing
+        </Button>
+      )}
       <Button
         type="submit"
         variant="primary"

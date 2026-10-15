@@ -177,6 +177,9 @@ export function AdminRecordDetail({ kind }: { kind: Kind }) {
                     {event.processedAt
                       ? `verification processed ${formatEventDate(event.processedAt)}`
                       : "awaiting verification"}
+                    {event.processingError && (
+                      <p role="status">{event.processingError}</p>
+                    )}
                   </li>
                 ))}
                 {payment.completedAt && (

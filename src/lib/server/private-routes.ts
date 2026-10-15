@@ -17,6 +17,7 @@ const routes: Array<[string, string]> = [
   ["GET", `orders/${id}`],
   ["POST", `orders/${id}/cancel`],
   ["GET|PATCH", "users/me"],
+  ["POST", "users/me/password"],
   ["GET", "users/me/overview"],
   ["GET", "tickets"],
   ["GET", "tickets/bookings"],

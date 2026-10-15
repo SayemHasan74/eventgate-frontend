@@ -229,6 +229,8 @@
   font-size: 13px;
 }
 .orderAmount {
+  flex-shrink: 0;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -273,11 +275,13 @@
     flex-direction: column;
   }
   .orderCard {
+    flex-direction: column;
+    gap: 12px;
     align-items: flex-start;
     padding: 19px;
   }
   .orderAmount {
-    align-self: center;
+    align-self: flex-start;
   }
   .orderAmount strong {
     font-size: 30px;

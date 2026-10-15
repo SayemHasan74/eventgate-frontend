@@ -216,12 +216,13 @@ export function CheckoutPanel({
       ) : (
         <div className={styles.ready}>
           <h3>Contact details for payment</h3>
-          {isEditing || !profileValid ? (
+          {!session?.user.isQuickAccess && (isEditing || !profileValid) ? (
             <ProfileForm
               key={profile.id}
               profile={profile}
               checkout
               onSaved={() => setIsEditing(false)}
+              onCancel={() => setIsEditing(false)}
             />
           ) : (
             <>
@@ -229,14 +230,22 @@ export function CheckoutPanel({
                 {profile.phone} · {profile.address}, {profile.city},{" "}
                 {profile.postalCode}, {profile.country}
               </p>
-              <button
-                className={styles.edit}
-                type="button"
-                disabled={isStarting}
-                onClick={() => setIsEditing(true)}
-              >
-                <Pencil size={14} /> Edit profile independently
-              </button>
+              {!session?.user.isQuickAccess && (
+                <button
+                  className={styles.edit}
+                  type="button"
+                  disabled={isStarting}
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Pencil size={14} /> Edit profile independently
+                </button>
+              )}
+              {session?.user.isQuickAccess && (
+                <p>
+                  Shared access uses the saved fictional checkout details.
+                  Contact changes are disabled.
+                </p>
+              )}
             </>
           )}
           <button
@@ -259,9 +268,10 @@ export function CheckoutPanel({
                   : "Pay with SSLCommerz"}
           </button>
           {!profileValid && (
-            <p>
-              Complete and save valid contact details before paying. Failed
-              saves keep your entered values.
+            <p role="status">
+              {session?.user.isQuickAccess
+                ? "Shared checkout details need administrator repair. Use your own attendee account meanwhile."
+                : "Complete and save valid contact details before paying. Failed saves keep your entered values."}
             </p>
           )}
         </div>

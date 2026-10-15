@@ -1,4 +1,5 @@
 import "server-only";
+import { proxyIdentityHeaders } from "./proxy-identity";
 import { appConfig } from "../env";
 import { SessionError } from "./session-store";
 export async function upstream(
@@ -7,8 +8,7 @@ export async function upstream(
   publicRead = false,
 ) {
   const base =
-    process.env.API_BASE_URL ??
-    (publicRead ? appConfig.apiBaseUrl : undefined);
+    process.env.API_BASE_URL ?? (publicRead ? appConfig.apiBaseUrl : undefined);
   if (!base) throw new SessionError("SESSION_CONFIGURATION_ERROR");
   if (
     !/^[a-z][a-z0-9-]*(\/[a-zA-Z0-9_-]+)*(\?[^#]*)?$/.test(path) ||
@@ -16,8 +16,20 @@ export async function upstream(
   )
     throw new SessionError("NOT_FOUND", 404);
   try {
-    return await fetch(base.replace(/\/$/, "") + "/" + path, {
+    const url = base.replace(/\/$/, "") + "/" + path;
+    const headers = new Headers(init.headers);
+    for (const name of [
+      "x-eventgate-client-ip",
+      "x-eventgate-proxy-time",
+      "x-eventgate-proxy-signature",
+    ])
+      headers.delete(name);
+    (await proxyIdentityHeaders(init.method ?? "GET", url)).forEach(
+      (value, key) => headers.set(key, value),
+    );
+    return await fetch(url, {
       ...init,
+      headers,
       ...(publicRead ? {} : { cache: "no-store" as const }),
       redirect: "error",
       signal: AbortSignal.timeout(

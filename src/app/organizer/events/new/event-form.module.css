@@ -43,11 +43,14 @@
   line-height: 1.55;
 }
 .form {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   display: grid;
   gap: 25px;
   margin-top: 52px;
 }
 .section {
+  min-width: 0;
   border: 2px solid var(--ink);
   background: var(--card);
   padding: 28px;
@@ -64,11 +67,14 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 .wide {
   grid-column: 1 / -1;
+}
+.grid > * {
+  min-width: 0;
 }
 .grid label {
   display: grid;
@@ -161,18 +167,22 @@
     padding-block: 38px 65px;
   }
   .form {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
     margin-top: 42px;
   }
   .section {
+  min-width: 0;
     padding: 21px;
   }
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .wide {
     grid-column: auto;
   }
   .actions {
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: 15px;
   }

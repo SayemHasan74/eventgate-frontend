@@ -33,7 +33,7 @@ export function RefundDetail({ refundId }: { refundId: string }) {
       </section>
     );
   return (
-    <main id="main-content" className={`wrap ${styles.page}`}>
+    <section className={`wrap ${styles.page}`}>
       <Link href="/refunds" className="text-link">
         ← Refund history
       </Link>
@@ -64,6 +64,6 @@ export function RefundDetail({ refundId }: { refundId: string }) {
           </button>
         </section>
       )}
-    </main>
+    </section>
   );
 }

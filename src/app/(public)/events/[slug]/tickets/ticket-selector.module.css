@@ -321,3 +321,6 @@
     font-size: 28px;
   }
 }
+
+.option > span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 400px) { .option { gap: 10px; padding: 12px; } .option > b { font-size: 23px; } .option strong { font-size: 22px; } }

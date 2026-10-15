@@ -177,3 +177,8 @@
     padding: 24px 20px;
   }
 }
+
+.content { overflow-wrap: anywhere; }
+.content :global(input), .content :global(select), .content :global(textarea), .content :global(fieldset) { min-width: 0; max-width: 100%; }
+.content :global(form) { min-width: 0; }
+@media (max-width: 480px) { .content { padding: 20px 14px; } .topbar { padding: 12px 14px; } .topbar > div { gap: 8px; } .eventTabs a { padding-inline: 10px; } }

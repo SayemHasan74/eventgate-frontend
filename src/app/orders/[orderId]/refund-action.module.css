@@ -99,3 +99,6 @@
   outline: 2px solid var(--cobalt);
   outline-offset: 3px;
 }
+
+.action > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; width: 100%; min-width: 0; overflow-wrap: anywhere; }
+.action p { font: inherit; text-transform: none; letter-spacing: normal; line-height: 1.6; }
