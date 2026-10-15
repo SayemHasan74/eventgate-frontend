@@ -17,7 +17,7 @@ async function requestSession(
 }
 export const signIn = (input: { email: string; password: string }) =>
   requestSession("login", input);
-export const signInDemo = (role: AuthUser["role"]) =>
+export const signInDemo = (role: Exclude<AuthUser["role"], "ADMIN">) =>
   requestSession("demo", { role });
 export const register = (input: {
   email: string;

@@ -5,6 +5,7 @@ export const authUserSchema = z.object({
   email: z.string().email(),
   displayName: z.string(),
   role: z.enum(["ATTENDEE", "ORGANIZER", "ADMIN"]),
+  isQuickAccess: z.boolean().optional(),
 });
 export type AuthUser = z.infer<typeof authUserSchema>;
 export type AuthSession = { user: AuthUser };

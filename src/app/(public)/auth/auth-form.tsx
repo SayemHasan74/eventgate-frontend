@@ -114,7 +114,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       setIsSubmitting(false);
     }
   };
-  const demoLogin = async (role: "ATTENDEE" | "ORGANIZER" | "ADMIN") => {
+  const demoLogin = async (role: "ATTENDEE" | "ORGANIZER") => {
     setMutationError("");
     setIsSubmitting(true);
     try {
@@ -226,15 +226,14 @@ export function AuthForm({ mode }: AuthFormProps) {
       {!isRegister && (
         <GoogleSignIn disabled={isSubmitting} onCredential={googleLogin} />
       )}
-      {!isRegister && process.env.NEXT_PUBLIC_DEMO_LOGIN_ENABLED === "true" && (
+      {!isRegister && (
         <div className={featureStyles["auth-demo"]}>
-          <span>Quick demo access</span>
+          <span>Quick access</span>
           <div>
             {(
               [
                 ["ATTENDEE", "Attendee demo"],
                 ["ORGANIZER", "Organizer demo"],
-                ["ADMIN", "Admin demo"],
               ] as const
             ).map(([role, label]) => (
               <button
@@ -247,7 +246,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               </button>
             ))}
           </div>
-          <small>Enabled only on a dedicated demo environment.</small>
+          <small>Shared accounts on the live application. Use your own account for personal bookings.</small>
         </div>
       )}
     </form>

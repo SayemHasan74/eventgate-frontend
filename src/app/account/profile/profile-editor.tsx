@@ -71,15 +71,17 @@ export function ProfileEditor() {
       ) : (
         query.data && (
           <>
-            <ProfileForm key={query.data.id} profile={query.data} />
+            {session?.user.isQuickAccess ? <p role="status">This is a shared access account. Profile and identity changes are disabled. Create your own account for personal details.</p> : <ProfileForm key={query.data.id} profile={query.data} />}
             <section>
               <h2>Google sign-in connection</h2>
               <p>
-                {query.data.googleLinked
+                {session?.user.isQuickAccess
+                  ? "Google linking is disabled for this shared account."
+                  : query.data.googleLinked
                   ? "A verified Google identity is linked. You can use it to sign in to this same account."
                   : "No Google identity is linked. Connect a verified Google account while signed in; this does not create or change your EventGate role."}
               </p>
-              {!query.data.googleLinked && (
+              {!query.data.googleLinked && !session?.user.isQuickAccess && (
                 <GoogleSignIn
                   onCredential={link}
                   disabled={linking}

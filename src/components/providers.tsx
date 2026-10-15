@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/components/auth-provider";
+import { QuickAccessBanner } from "@/components/quick-access-banner";
 
 type ProvidersProps = Readonly<{ children: React.ReactNode }>;
 
@@ -17,7 +18,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider><QuickAccessBanner />{children}</AuthProvider>
         <Toaster richColors position="top-right" />
       </QueryClientProvider>
     </ThemeProvider>
