@@ -40,27 +40,30 @@ export async function redis() {
   encryptionKey();
   const url = process.env.SESSION_REDIS_URL;
   if (!url) throw new SessionError("SESSION_CONFIGURATION_ERROR");
-  if (!connection) {
-    const client = makeClient(url);
-    client.on("error", () => {
-      /* Errors are reported without connection URLs or secrets. */
-    });
-    connection = client
-      .connect()
-      .then(() => client)
-      .catch(() => {
-        connection = undefined;
-        throw new SessionError("SESSION_UNAVAILABLE");
+  // A serverless instance can resume after its idle socket has closed.
+  // Recover the connection before issuing any command; never replay a write.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (!connection) {
+      const client = makeClient(url);
+      client.on("error", () => {
+        /* Never log connection URLs or secrets. */
       });
+      const pending: Promise<Client> = client
+        .connect()
+        .then(() => client)
+        .catch(() => {
+          if (connection === pending) connection = undefined;
+          throw new SessionError("SESSION_UNAVAILABLE");
+        });
+      connection = pending;
+    }
+    const connecting = connection;
+    const client = await connecting;
+    if (client.isReady) return client;
+    if (connection === connecting) connection = undefined;
+    if (client.isOpen) client.destroy();
   }
-  const connecting = connection;
-  if (!connecting) throw new SessionError("SESSION_UNAVAILABLE");
-  const client = await connecting;
-  if (!client.isReady) {
-    connection = undefined;
-    throw new SessionError("SESSION_UNAVAILABLE");
-  }
-  return client;
+  throw new SessionError("SESSION_UNAVAILABLE");
 }
 export async function command<T>(operation: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;

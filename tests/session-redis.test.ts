@@ -27,6 +27,15 @@ test("browser session lifecycle against real, disposable Redis records", async (
     return { id, key, record };
   };
   try {
+    await t.test("a disconnected cached Redis client reconnects once for concurrent session reads", async () => {
+      const session = await fresh();
+      const disconnected = await redis();
+      disconnected.destroy();
+      const clients = await Promise.all(Array.from({length: 8}, () => redis()));
+      assert.ok(clients.every(client => client.isReady && client === clients[0]));
+      assert.notEqual(clients[0], disconnected);
+      assert.equal((await loadSession(session.id))?.record.version, 1);
+    });
     await t.test("eight concurrent refreshes rotate once and preserve absolute expiry", async () => {
       const session = await fresh();
       let calls = 0;
