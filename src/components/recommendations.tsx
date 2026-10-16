@@ -4,19 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-provider";
 import { privateKey } from "@/lib/query-keys";
+import { getAccountOverview } from "@/lib/account-api";
 import { getRecommendations } from "@/lib/recommendations-api";
 import { EventCard } from "./event-card";
 import { EventPreferencesPanel } from "./event-preferences";
 import { ReadFailure } from "./read-failure";
 import { Skeleton } from "./ui";
 import styles from "./recommendations.module.css";
-export function Recommendations() {
+export function Recommendations({
+  deferUntilOverview = false,
+}: {
+  deferUntilOverview?: boolean;
+}) {
   const { session, isReady } = useAuth();
   const attendee = isReady && session?.user.role === "ATTENDEE";
+  const overview = useQuery({
+    queryKey: privateKey("overview", session?.user.id, "me", {}),
+    queryFn: getAccountOverview,
+    enabled: deferUntilOverview && !!attendee,
+    retry: false,
+  });
+  const active = attendee && (!deferUntilOverview || overview.isSuccess);
   const section = useRef<HTMLDivElement>(null);
   const [nearViewport, setNearViewport] = useState(false);
   useEffect(() => {
-    if (!section.current) return;
+    if (!active || !section.current) return;
     if (typeof IntersectionObserver === "undefined") {
       const frame = requestAnimationFrame(() => setNearViewport(true));
       return () => cancelAnimationFrame(frame);
@@ -32,11 +44,11 @@ export function Recommendations() {
     );
     observer.observe(section.current);
     return () => observer.disconnect();
-  }, [attendee]);
+  }, [active]);
   const query = useQuery({
     queryKey: privateKey("recommendations", session?.user.id),
     queryFn: getRecommendations,
-    enabled: !!attendee && nearViewport,
+    enabled: !!active && nearViewport,
     staleTime: 60000,
     refetchOnWindowFocus: true,
   });

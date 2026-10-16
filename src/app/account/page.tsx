@@ -15,7 +15,7 @@ export default function AccountPage() {
       <section className={`${styles.page} wrap`}>
         <AccountDashboard />
       </section>
-      <Recommendations />
+      <Recommendations deferUntilOverview />
     </>
   );
 }
