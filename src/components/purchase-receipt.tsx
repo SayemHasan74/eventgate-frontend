@@ -17,30 +17,30 @@ export function PurchaseReceipt({ order }: { order: OrderDetail }) {
     (attempt) => attempt.id === order.fulfilledPaymentAttemptId,
   );
   return (
-    <section id="purchase-receipt">
-      <button className="button" type="button" onClick={() => window.print()}>
-        Print purchase receipt
-      </button>
+    <section id="purchase-receipt" className={styles.wrapper}>
       <article className={styles.receipt} aria-label="Purchase receipt">
-        <h2>EventGate purchase receipt</h2>
-        <p>This is a purchase record, not a tax invoice.</p>
+        <header>
+          <b>EventGate</b>
+          <h2>Purchase receipt</h2>
+          <span>{formatEventDate(order.paidAt ?? order.createdAt, false)}</span>
+        </header>
+        <div className={styles.item}>
+          <h3>{order.eventNameSnapshot}</h3>
+          <p>
+            {order.ticketTierNameSnapshot} × {order.quantity}
+          </p>
+          <p>{formatMoney(order.unitPricePaisaSnapshot)} each</p>
+        </div>
+        <div className={styles.total}>
+          <span>Total charged</span>
+          <b>{formatMoney(order.totalAmountPaisaSnapshot)}</b>
+        </div>
+        <div className={styles.state} data-status={order.status}>
+          <span>{order.status}</span>
+        </div>
         <dl>
-          <dt>Order</dt>
-          <dd>{order.id}</dd>
-          <dt>Booking date</dt>
-          <dd>{formatEventDate(order.createdAt)} (Bangladesh time)</dd>
-          <dt>Event (at purchase)</dt>
-          <dd>{order.eventNameSnapshot}</dd>
-          <dt>Ticket tier (at purchase)</dt>
-          <dd>{order.ticketTierNameSnapshot}</dd>
-          <dt>Quantity</dt>
-          <dd>{order.quantity}</dd>
-          <dt>Unit price</dt>
-          <dd>{formatMoney(order.unitPricePaisaSnapshot)}</dd>
-          <dt>Total charged</dt>
-          <dd>
-            {formatMoney(order.totalAmountPaisaSnapshot)} {order.currency}
-          </dd>
+          <dt>Booking</dt>
+          <dd>#{order.id.slice(0, 8).toUpperCase()}</dd>
           <dt>Payment provider</dt>
           <dd>SSLCommerz</dd>
           {payment && (
@@ -49,26 +49,39 @@ export function PurchaseReceipt({ order }: { order: OrderDetail }) {
               <dd>{payment.merchantTransactionId}</dd>
             </>
           )}
-          <dt>Order status</dt>
-          <dd>{order.status}</dd>
           {order.paidAt && (
             <>
-              <dt>Payment confirmed</dt>
-              <dd>{formatEventDate(order.paidAt)} (Bangladesh time)</dd>
+              <dt>Paid</dt>
+              <dd>{formatEventDate(order.paidAt)}</dd>
             </>
           )}
           {order.refundedAt && (
             <>
-              <dt>Refund confirmed</dt>
-              <dd>{formatEventDate(order.refundedAt)} (Bangladesh time)</dd>
+              <dt>Refunded</dt>
+              <dd>{formatEventDate(order.refundedAt)}</dd>
             </>
           )}
         </dl>
-        <p>
-          This receipt covers this booking only. Additional ticket purchases
-          have their own receipt and payment.
-        </p>
+        <footer>
+          This receipt covers this booking only.
+          <br />
+          Purchase record · not a tax invoice
+        </footer>
       </article>
+      <button
+        className="button"
+        type="button"
+        onClick={() => {
+          document.documentElement.dataset.printReceipt = order.id;
+          try {
+            window.print();
+          } finally {
+            delete document.documentElement.dataset.printReceipt;
+          }
+        }}
+      >
+        Print purchase receipt
+      </button>
     </section>
   );
 }

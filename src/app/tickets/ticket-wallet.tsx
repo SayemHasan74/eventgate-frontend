@@ -6,7 +6,7 @@ import { useUrlFilters } from "@/components/url-filters";
 import { ticketWalletFilterSchema } from "@/lib/filter-schemas";
 import { privateKey } from "@/lib/query-keys";
 import { getTicketBookings } from "@/lib/ticket-api";
-import { formatEventRange } from "@/lib/format";
+import { formatBookingRange } from "@/lib/format";
 import { admissionLabels } from "@/lib/ticket-status";
 import { EventImage } from "@/components/event-image";
 import { ReadFailure } from "@/components/read-failure";
@@ -139,31 +139,38 @@ export function TicketWallet() {
         </section>
       ) : (
         <>
-          <p>{query.data.meta.total} purchased bookings</p>
+          <p>
+            {query.data.meta.total} purchased{" "}
+            {query.data.meta.total === 1 ? "booking" : "bookings"}
+          </p>
           {events.map((eventId) => {
             const event = groups.find(
               (group) => group.eventId === eventId,
             )!.event;
             return (
               <section className={styles.bookingEvent} key={eventId}>
-                <div className={styles.cover}>
-                  <EventImage
-                    publicView
-                    src={event.imageUrl}
-                    title={event.title}
-                  />
+                <div className={styles.eventHeading}>
+                  <div className={styles.cover}>
+                    <EventImage
+                      publicView
+                      src={event.imageUrl}
+                      title={event.title}
+                    />
+                  </div>
+                  <div>
+                    <h2>{event.title}</h2>
+                    <p>{formatBookingRange(event.startAt, event.endAt)}</p>
+                    <p>
+                      {event.venue}, {event.city}
+                    </p>
+                  </div>
                 </div>
-                <h2>{event.title}</h2>
-                <p>
-                  {formatEventRange(event.startAt, event.endAt)} · {event.venue}
-                  , {event.city}
-                </p>
                 {groups
                   .filter((group) => group.eventId === eventId)
                   .map((group) => (
                     <article className={styles.booking} key={group.orderId}>
                       <h3>
-                        {group.tierName} · {group.passCount} issued passes
+                        {group.tierName} × {group.passCount}
                       </h3>
                       <p>
                         Booking #{group.orderId.slice(0, 8).toUpperCase()} ·{" "}
@@ -174,43 +181,22 @@ export function TicketWallet() {
                           )
                           .join(" · ")}
                       </p>
-                      <nav
-                        className={styles.passLinks}
-                        aria-label="Booking passes"
-                      >
-                        {group.tickets.map((ticket) => (
-                          <Link
-                            className="button"
-                            key={ticket.id}
-                            href={`/tickets/${ticket.id}`}
-                          >
-                            Pass {ticket.sequence} ·{" "}
-                            {admissionLabels[ticket.effectiveAdmissionState]}
-                          </Link>
-                        ))}
-                      </nav>
                       <div className={styles.passLinks}>
                         <Link
-                          className="button"
-                          href={`/orders/${group.orderId}#purchase-receipt`}
+                          className="button button-primary"
+                          href={`/orders/${group.orderId}`}
                         >
-                          View payment receipt
+                          View tickets & receipt →
                         </Link>
                         {group.canBuyMore && group.ticketTierId && (
                           <Link
-                            className="button button-primary"
+                            className="button"
                             href={`/events/${group.event.slug}/tickets?tierId=${group.ticketTierId}`}
                           >
                             Buy more tickets
                           </Link>
                         )}
                       </div>
-                      {group.canBuyMore && (
-                        <p>
-                          Additional tickets use a new booking. You pay only for
-                          the new quantity.
-                        </p>
-                      )}
                     </article>
                   ))}
               </section>

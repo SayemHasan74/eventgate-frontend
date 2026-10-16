@@ -29,6 +29,7 @@ export type PublicTicketTier = {
 };
 
 export type PublicEvent = {
+  status?: "PUBLISHED" | "COMPLETED" | "CANCELLED";
   id: string;
   title: string;
   slug: string;

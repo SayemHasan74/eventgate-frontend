@@ -1,16 +1,84 @@
+.wrapper {
+  min-width: 0;
+  scroll-margin-top: 20px;
+}
 .receipt {
-  margin-top: 22px;
-  padding: 24px;
+  padding: 22px;
   border: 2px solid var(--ink);
   background: var(--card);
+  box-shadow: 5px 5px 0 var(--pink);
+  font:
+    400 11px/1.6 var(--font-mono),
+    monospace;
 }
-.receipt h2 {
-  margin-top: 0;
+.receipt header {
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 2px dashed var(--ink);
+}
+.receipt header > b {
+  display: block;
+  font:
+    400 26px/1.2 var(--font-display),
+    Impact,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+:global(#main-content) .receipt h2 {
+  margin: 6px 0 2px;
+  font:
+    500 11px/1.6 var(--font-mono),
+    monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.item {
+  padding: 16px 0;
+  border-bottom: 1px dashed var(--soft);
+}
+:global(#main-content) .item h3 {
+  margin: 0 0 6px;
+  font:
+    600 14px/1.5 var(--font-body),
+    sans-serif;
+}
+.item p {
+  margin: 4px 0;
+  color: var(--soft);
+}
+.total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+.total b {
+  font:
+    400 28px/1.2 var(--font-display),
+    Impact,
+    sans-serif;
+}
+.state {
+  display: flex;
+  justify-content: flex-end;
+}
+.state span {
+  color: var(--cobalt);
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-weight: 500;
+  transform: rotate(-3deg);
+  letter-spacing: 0.1em;
 }
 .receipt dl {
   display: grid;
-  grid-template-columns: minmax(100px, 0.6fr) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 10px;
+  margin: 20px 0;
 }
 .receipt dt {
   color: var(--soft);
@@ -19,28 +87,50 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.receipt footer {
+  border-top: 2px dashed var(--ink);
+  padding-top: 12px;
+  color: var(--soft);
+  font-size: 10px;
+}
+.wrapper > button {
+  margin-top: 18px;
+}
+
+.state[data-status="REFUNDED"] span {
+  color: var(--pink);
+}
+
 @media print {
-  :global(body *) {
-    visibility: hidden;
+  :global(html[data-print-receipt] body) {
+    background: white;
+    min-height: 0;
+    height: auto;
   }
-  .receipt,
-  .receipt * {
-    visibility: visible;
+  :global(html[data-print-receipt])
+    :global(body *):not(:has(.receipt)):not(.receipt):not(.receipt *) {
+    display: none !important;
   }
-  .receipt {
-    position: absolute;
-    inset: 0;
+  :global(html[data-print-receipt]) :global(body *):has(.receipt) {
+    display: block !important;
+    position: static;
+    min-height: 0;
+    height: auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  :global(html[data-print-receipt]) .receipt {
+    position: static;
+    width: 100%;
     margin: 0;
     color: #111;
-    background: #fff;
+    background: white;
     border: 0;
     box-shadow: none;
-    font-size: 12pt;
   }
-  .receipt dt {
-    color: #333;
-  }
-  :global(body) {
-    background: #fff !important;
+  :global(html[data-print-receipt]) .receipt :global(.button) {
+    display: none !important;
   }
 }

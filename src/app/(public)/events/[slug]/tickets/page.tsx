@@ -64,15 +64,26 @@ export default async function TicketsPage({
               </span>
             </div>
           </header>
-          <TicketSelector
-            key={`${result.event.id}:${initialTierId ?? "default"}`}
-            eventId={result.event.id}
-            slug={slug}
-            eventStart={result.event.startAt}
-            now={result.retrievedAt}
-            tiers={result.event.ticketTiers}
-            initialTierId={initialTierId}
-          />
+          {result.event.status && result.event.status !== "PUBLISHED" ? (
+            <EmptyState
+              title={
+                result.event.status === "COMPLETED"
+                  ? "This event has ended."
+                  : "This event was cancelled."
+              }
+              description="Ticket sales are closed. Your existing booking and receipt remain available in My tickets."
+            />
+          ) : (
+            <TicketSelector
+              key={`${result.event.id}:${initialTierId ?? "default"}`}
+              eventId={result.event.id}
+              slug={slug}
+              eventStart={result.event.startAt}
+              now={result.retrievedAt}
+              tiers={result.event.ticketTiers}
+              initialTierId={initialTierId}
+            />
+          )}
         </main>
       )}
     </>

@@ -102,7 +102,7 @@ function EventDetails({ event }: { event: PublicEvent }) {
             {event.ticketTiers.length ? (
               <ul className={styles.list}>
                 {event.ticketTiers.map((tier) => {
-                  const state = tierSaleState(tier, event.startAt);
+                  const state = event.status && event.status !== "PUBLISHED" ? "CLOSED" : tierSaleState(tier, event.startAt);
                   return (
                     <li
                       className={styles.tier}

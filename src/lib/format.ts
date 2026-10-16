@@ -75,3 +75,17 @@ export const formatEventDate = (value: string, time = true) => {
     }).format(date) + (time ? " · Asia/Dhaka" : "")
   );
 };
+
+export function formatBookingRange(start: string, end: string) {
+  const day = (value: string) => formatEventDate(value, false);
+  const time = new Intl.DateTimeFormat("en-BD", {
+    timeZone: "Asia/Dhaka",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const first = new Date(start),
+    last = new Date(end);
+  if (!Number.isFinite(+first) || !Number.isFinite(+last))
+    return "Date unavailable";
+  return `${day(start)} · ${time.format(first)}–${day(start) === day(end) ? "" : day(end) + " · "}${time.format(last)} (Dhaka)`;
+}

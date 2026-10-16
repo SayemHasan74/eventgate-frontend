@@ -13,9 +13,17 @@ export function tierSaleState(
   return tier.availableQuantity > 0 ? "OPEN" : "SOLD_OUT";
 }
 export function eventSaleSummary(
-  event: { startAt: string; ticketTiers: PublicTicketTier[] },
+  event: { status?: string; startAt: string; ticketTiers: PublicTicketTier[] },
   now = Date.now(),
 ) {
+  if (event.status && event.status !== "PUBLISHED")
+    return {
+      state: "CLOSED",
+      label:
+        event.status === "CANCELLED" ? "Event cancelled" : "Event completed",
+      pricePaisa: null,
+      futurePrice: false,
+    } as const;
   const tiers = event.ticketTiers.map((tier) => ({
     tier,
     state: tierSaleState(tier, event.startAt, now),

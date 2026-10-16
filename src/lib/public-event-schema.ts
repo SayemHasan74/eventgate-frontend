@@ -2,6 +2,7 @@ import { z } from "zod";
 import { moneySchema } from "./api-schemas";
 import type { PublicEvent } from "./eventgate-api";
 export const publicEventSchema: z.ZodType<PublicEvent> = z.object({
+  status: z.enum(["PUBLISHED", "COMPLETED", "CANCELLED"]).default("PUBLISHED"),
   id: z.uuid(),
   title: z.string(),
   slug: z.string(),

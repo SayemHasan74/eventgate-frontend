@@ -184,6 +184,10 @@ export const orderDetailSchema = orderSchema.and(
     refunds: z.array(refundSchema),
     ticketIds: z.array(z.uuid()),
     event: z.object({
+      venue: z.string().optional(),
+      city: z.string().optional(),
+      endAt: timestamp.optional(),
+      deletedAt: timestamp.nullable().optional(),
       slug: z.string(),
       startAt: timestamp,
       status: z.string(),

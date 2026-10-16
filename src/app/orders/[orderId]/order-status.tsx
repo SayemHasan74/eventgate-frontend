@@ -6,8 +6,9 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { getOrder, cancelOrder } from "@/lib/order-api";
 import { ReadFailure } from "@/components/read-failure";
+import { BookingPasses } from "@/components/booking-passes";
 import { PurchaseReceipt } from "@/components/purchase-receipt";
-import { formatMoney, formatEventDate } from "@/lib/format";
+import { formatMoney, formatEventDate, formatBookingRange } from "@/lib/format";
 import { privateKey, invalidateMutation } from "@/lib/query-keys";
 import { useReservationClock } from "@/lib/reservation-clock";
 import { CheckoutPanel } from "./checkout-panel";
@@ -125,12 +126,35 @@ export function OrderStatus({ orderId }: { orderId: string }) {
         ? "Reserved while payment is pending"
         : "Awaiting order and payment verification"
       : (labels[order.status] ?? "Order status");
+  const canBuyMore =
+    order.event.status === "PUBLISHED" &&
+    !order.event.deletedAt &&
+    Date.parse(order.event.startAt) > Date.parse(order.serverTime);
+  const purchaseAction = canBuyMore ? (
+    <Link
+      className="button button-primary"
+      href={`/events/${order.event.slug}/tickets?tierId=${order.ticketTierId}`}
+    >
+      Buy more tickets
+    </Link>
+  ) : (
+    <button
+      className="button"
+      type="button"
+      disabled
+      aria-describedby="sales-closed"
+    >
+      Buy more tickets
+    </button>
+  );
   return (
-    <>
-      <div className={styles.receipt}>
+    <div className={styles.booking}>
+      <section className={styles.overview} aria-label="Booking summary">
         <header className={styles.receiptHeader}>
-          <span>Order receipt</span>
-          <b>{order.status.replaceAll("_", " ")}</b>
+          <span className={styles.brand}>EventGate</span>
+          <span className={styles.stamp} data-status={order.status}>
+            {order.status.replaceAll("_", " ")}
+          </span>
         </header>
         <div className={styles.content}>
           <p className="eyebrow">
@@ -138,48 +162,47 @@ export function OrderStatus({ orderId }: { orderId: string }) {
             {heading}
           </p>
           <h1>{order.eventNameSnapshot}</h1>
-          <p>
-            Current event status:{" "}
-            <strong>{order.event.status.replaceAll("_", " ")}</strong> ·{" "}
-            <Link href={`/events/${order.event.slug}`}>Event details</Link>
-          </p>
-          {order.paidAt && (
-            <p>Paid at {formatEventDate(order.paidAt)} (Bangladesh time).</p>
-          )}
-          {order.refundedAt && (
-            <p>
-              Refunded at {formatEventDate(order.refundedAt)} (Bangladesh time).
-            </p>
-          )}
-          <div className={styles.lineItem}>
+          <div className={styles.facts}>
             <div>
-              <strong>{order.ticketTierNameSnapshot}</strong>
-              <span>
-                {order.quantity} {order.quantity === 1 ? "ticket" : "tickets"} ×{" "}
-                {formatMoney(order.unitPricePaisaSnapshot)}
-              </span>
+              <span>When</span>
+              <p>
+                {order.event.endAt
+                  ? formatBookingRange(order.event.startAt, order.event.endAt)
+                  : formatEventDate(order.event.startAt)}
+              </p>
             </div>
-            <b>{formatMoney(order.totalAmountPaisaSnapshot)}</b>
+            {order.event.venue && (
+              <div>
+                <span>Where</span>
+                <p>
+                  {order.event.venue}, {order.event.city}
+                </p>
+              </div>
+            )}
+            <div>
+              <span>Your booking</span>
+              <p>
+                {order.quantity} × {order.ticketTierNameSnapshot}
+              </p>
+            </div>
+            <div>
+              <span>{order.paidAt ? "Amount paid" : "Total to pay"}</span>
+              <p className={styles.amount}>
+                {formatMoney(order.totalAmountPaisaSnapshot)}
+              </p>
+            </div>
           </div>
           {pending && (
             <div className={styles.expiry}>
-              <Clock3 size={16} />
+              <Clock3 size={18} />
               <div>
                 <strong>{timer}</strong>
                 <p>
-                  Reservation deadline:{" "}
-                  {order.reservationExpiresAt
-                    ? formatEventDate(order.reservationExpiresAt)
-                    : "Unavailable"}{" "}
-                  (Bangladesh time).
-                </p>
-                <p>
-                  The clock is guidance; the server authorizes payment.{" "}
                   {expired
-                    ? "New checkout is disabled. Refresh to confirm the latest order and payment outcome."
-                    : !order.payable
-                      ? "This order is not currently eligible for a new checkout."
-                      : "Complete payment before the hold expires."}
+                    ? "The reservation time has elapsed. Refresh to confirm the outcome before rebooking."
+                    : order.payable
+                      ? "Complete checkout before your reservation expires."
+                      : "Payment is being verified. Do not pay again while its outcome is uncertain."}
                 </p>
               </div>
             </div>
@@ -191,6 +214,14 @@ export function OrderStatus({ orderId }: { orderId: string }) {
             </p>
           )}
           {error && <p role="alert">{error}</p>}
+          <RefundAction order={order} purchaseAction={purchaseAction} />
+          {["PAID", "REFUNDED"].includes(order.status) && (
+            <p className={styles.hint} id="sales-closed">
+              {canBuyMore
+                ? "Additional tickets create a separate booking. You pay only for the new quantity."
+                : "Ticket sales are closed for this event. Your booking and receipt remain available here."}
+            </p>
+          )}
           <div className={styles.actions}>
             <button
               type="button"
@@ -198,7 +229,7 @@ export function OrderStatus({ orderId }: { orderId: string }) {
               disabled={query.isFetching}
               onClick={refresh}
             >
-              {query.isFetching ? "Refreshing…" : "Refresh order"}
+              {query.isFetching ? "Refreshing…" : "Refresh booking"}
             </button>
             {order.cancellable && (
               <button
@@ -210,88 +241,51 @@ export function OrderStatus({ orderId }: { orderId: string }) {
                 {cancelling ? "Cancelling…" : "Cancel reservation"}
               </button>
             )}
-            {(expired || ["EXPIRED", "CANCELLED"].includes(order.status)) && (
-              <Link
-                className="button"
-                href={`/events/${order.event.slug}/tickets`}
-              >
-                Review tickets and rebook <ArrowRight size={16} />
+            {(expired || ["EXPIRED", "CANCELLED"].includes(order.status)) &&
+              canBuyMore && (
+                <Link
+                  className="button"
+                  href={`/events/${order.event.slug}/tickets?tierId=${order.ticketTierId}`}
+                >
+                  Choose new tickets <ArrowRight size={16} />
+                </Link>
+              )}
+            {!order.event.deletedAt && (
+              <Link className="text-link" href={`/events/${order.event.slug}`}>
+                Event details →
               </Link>
             )}
           </div>
-          {order.status === "PAID" && (
-            <section>
-              <h2>Your purchased passes</h2>
-              {order.event.status === "PUBLISHED" &&
-                Date.parse(order.event.startAt) >
-                  Date.parse(order.serverTime) && (
-                  <p>
-                    <Link
-                      className="button"
-                      href={`/events/${order.event.slug}/tickets?tierId=${order.ticketTierId}`}
-                    >
-                      Buy more tickets
-                    </Link>{" "}
-                    — a separate booking; pay only for the new tickets.
-                  </p>
-                )}
-              {order.ticketIds.length ? (
-                <div className={styles.actions}>
-                  {order.ticketIds.map((id, index) => (
-                    <Link
-                      className="button button-primary"
-                      key={id}
-                      href={`/tickets/${id}`}
-                    >
-                      Open pass {index + 1} →
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p>
-                  Tickets are still being issued. Refresh this order; do not
-                  make another payment.
-                </p>
-              )}
-            </section>
-          )}
         </div>
         <footer className={styles.receiptFooter}>
-          <span>Order #{order.id.slice(0, 8).toUpperCase()}</span>
-          <Link href="/orders">All orders</Link>
+          <span>Booking #{order.id.slice(0, 8).toUpperCase()}</span>
+          <Link href="/orders">All orders →</Link>
         </footer>
-      </div>
+      </section>
       {pending && (
         <CheckoutPanel key={order.id} order={order} payable={payable} />
       )}
-      <section className={styles.receipt}>
-        <div className={styles.content}>
-          <PurchaseReceipt order={order} />
-          <details>
-            <summary>Payment activity</summary>
-            {order.paymentAttempts.length ? (
-              <ul>
-                {order.paymentAttempts.map((attempt) => (
-                  <li key={attempt.id}>
-                    Attempt #{attempt.id.slice(0, 8)} · {attempt.status} ·{" "}
-                    {formatMoney(attempt.amountPaisa)} · Started{" "}
-                    {formatEventDate(attempt.initiatedAt)}
-                    {attempt.completedAt
-                      ? ` · Completed ${formatEventDate(attempt.completedAt)}`
-                      : ""}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No payment attempt has been started.</p>
-            )}
-            <Link className="text-link" href={`/payment/status`}>
-              Payment recovery guidance →
-            </Link>
-          </details>
-        </div>
-      </section>
-      <RefundAction order={order} />
-    </>
+      <div className={styles.detailsGrid}>
+        {order.ticketIds.length > 0 && <BookingPasses orderId={order.id} />}
+        <PurchaseReceipt order={order} />
+      </div>
+      {order.paymentAttempts.length > 0 && (
+        <details className={styles.activity}>
+          <summary>Payment activity</summary>
+          <ul>
+            {order.paymentAttempts.map((attempt) => (
+              <li key={attempt.id}>
+                {attempt.status.replaceAll("_", " ")} ·{" "}
+                {formatMoney(attempt.amountPaisa)} ·{" "}
+                {formatEventDate(attempt.initiatedAt)}
+              </li>
+            ))}
+          </ul>
+          <Link className="text-link" href="/payment/status">
+            Payment help →
+          </Link>
+        </details>
+      )}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,13 +25,19 @@ const explanations: Record<string, string> = {
   REFUND_WINDOW_CLOSED: "The refund deadline has passed.",
   TICKETS_NOT_UNUSED: "Every pass must be unused and active.",
   EVENT_NOT_PUBLISHED:
-    "The event is no longer published. Track any automatic refund below.",
+    "This event has ended or was cancelled; self-service refunds are closed.",
   PAYMENT_REQUIRES_INVESTIGATION: "Payment requires investigation.",
   CAPTURE_NOT_REFUNDABLE: "This capture cannot currently be refunded.",
   REFUND_REQUEST_LIMIT: "The request limit has been reached.",
   ORDER_NOT_PAID: "This order is not a paid booking.",
 };
-export function RefundAction({ order }: { order: OrderDetail }) {
+export function RefundAction({
+  order,
+  purchaseAction,
+}: {
+  order: OrderDetail;
+  purchaseAction?: ReactNode;
+}) {
   const { session } = useAuth();
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -67,51 +73,52 @@ export function RefundAction({ order }: { order: OrderDetail }) {
   if (order.status !== "PAID" && !order.refunds.length && !unseen) return null;
   return (
     <section className={styles.action}>
-      <div>
-        <h2>Booking refund</h2>
-        <p>
-          Refunds apply to the whole booking, not individual passes. Provider
-          completion is tracked on the persisted refund record.
-        </p>
-        {order.refunds.map((refund) => (
-          <section key={refund.id}>
-            <RefundTimeline refund={refund} />
-            <Link className="text-link" href={`/refunds/${refund.id}`}>
-              Open refund details →
-            </Link>
-          </section>
-        ))}
-        {unseen && (
-          <>
-            <RefundTimeline refund={unseen} />
-            <Link href={`/refunds/${unseen.id}`}>Open submitted request →</Link>
-          </>
-        )}
-        {eligible ? (
-          <button
-            className="button"
-            type="button"
-            onClick={() => setOpen(true)}
-          >
-            Request whole-booking refund
-          </button>
-        ) : (
-          <p role="status">
-            {unseen
-              ? "Your request is recorded. Waiting for the order read to update; duplicate submission is disabled."
-              : order.refundEligibility.reasons
-                  .map(
-                    (reason) =>
-                      explanations[reason] ??
-                      "This booking does not meet the current refund rules.",
-                  )
-                  .join(" ")}
-          </p>
-        )}
+      <div className={styles.buttons}>
+        {purchaseAction}
+        <button
+          className="button"
+          type="button"
+          onClick={() => setOpen(true)}
+          disabled={!eligible}
+          aria-describedby={`refund-eligibility-${order.id}`}
+        >
+          Refund
+        </button>
         <Link className="text-link" href="/refunds">
-          All refund records →
+          My refunds →
         </Link>
       </div>
+      <p id={`refund-eligibility-${order.id}`} role="status">
+        {eligible
+          ? `Refund requests cover all ${order.quantity} ${order.quantity === 1 ? "ticket" : "tickets"} in this booking and require approval.`
+          : unseen
+            ? "Your refund request is recorded. Track it in My refunds."
+            : order.refundEligibility.reasons
+                .map(
+                  (reason) =>
+                    explanations[reason] ??
+                    "This booking is not currently eligible for a refund.",
+                )
+                .join(" ")}
+      </p>
+      {(order.refunds.length > 0 || unseen) && (
+        <details>
+          <summary>Refund history</summary>
+          {order.refunds.map((refund) => (
+            <section key={refund.id}>
+              <RefundTimeline refund={refund} />
+              <Link className="text-link" href={`/refunds/${refund.id}`}>
+                Open refund details →
+              </Link>
+            </section>
+          ))}
+          {unseen && (
+            <Link className="text-link" href={`/refunds/${unseen.id}`}>
+              Open submitted request →
+            </Link>
+          )}
+        </details>
+      )}
       <Modal
         open={open}
         title="Confirm whole-booking refund request"
