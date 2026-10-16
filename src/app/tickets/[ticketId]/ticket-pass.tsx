@@ -127,8 +127,8 @@ export function TicketPass() {
               <Link className="button" href={`/events/${ticket.event.slug}`}>
                 Event details
               </Link>
-              <Link className="button" href={`/orders/${ticket.orderId}`}>
-                Order / refund
+              <Link className="button" href={`/orders/${ticket.orderId}#purchase-receipt`}>
+                Payment receipt
               </Link>
               <button
                 type="button"

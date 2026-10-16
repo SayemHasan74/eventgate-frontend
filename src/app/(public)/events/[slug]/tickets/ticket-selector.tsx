@@ -46,7 +46,7 @@ export function TicketSelector({
   const [now, setNow] = useState(initialNow);
   const [notice, setNotice] = useState(
     initialTierId
-      ? "Your alerted tier is selected. This is not a reservation; review fresh availability before booking."
+      ? "Your selected tier is ready. Choose the new tickets you want to buy; previous purchases are unchanged."
       : "",
   );
   const isOnSale = (tier: PublicTicketTier, now: number) =>

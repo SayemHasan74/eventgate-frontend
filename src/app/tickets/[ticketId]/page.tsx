@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 
 import { TicketPass } from "./ticket-pass";
 import styles from "./ticket-pass.module.css";
@@ -14,9 +13,7 @@ export default function TicketPassPage() {
   return (
     <>
       <section className={`${styles.page} wrap`}>
-        <Link className={styles.back} href="/tickets">
-          <ArrowLeft size={16} aria-hidden="true" /> My tickets
-        </Link>
+        <BackButton className={styles.back} fallback="/tickets" />
         <TicketPass />
       </section>
     </>

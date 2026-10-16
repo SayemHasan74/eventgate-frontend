@@ -26,6 +26,8 @@ export const ticketBookingSchema = z
   .object({
     orderId: z.uuid(),
     eventId: z.uuid(),
+    ticketTierId: z.uuid().optional(),
+    canBuyMore: z.boolean().optional(),
     eventNameSnapshot: z.string(),
     tierName: z.string(),
     quantity: z.number().int().positive().max(10),

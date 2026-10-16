@@ -55,14 +55,14 @@ export function TicketWallet() {
       <header>
         <p className="eyebrow">
           <span />
-          Grouped ticket wallet
+          Purchased tickets
         </p>
         <h1>
           Your <b>passes.</b>
         </h1>
         <p>
-          Each booking stays together on one page. Pass details and private QR
-          codes load only when opened.
+          Your purchased passes and payment receipts. Refunded bookings are in
+          Refunds.
         </p>
       </header>
       <FilterBar>
@@ -87,15 +87,15 @@ export function TicketWallet() {
           </Select>
         </label>
         <label>
-          Stored pass status
+          Pass status
           <Select
             value={status}
             onChange={(event) => filters.update("status", event.target.value)}
           >
             <option value="">All statuses</option>
-            {["ACTIVE", "CHECKED_IN", "VOIDED", "REFUNDED"].map((value) => (
+            {["ACTIVE", "CHECKED_IN"].map((value) => (
               <option key={value} value={value}>
-                {value.replaceAll("_", " ")}
+                {value === "ACTIVE" ? "Unused" : "Already used"}
               </option>
             ))}
           </Select>
@@ -127,19 +127,19 @@ export function TicketWallet() {
         <section className={styles.empty}>
           <h2>No matching passes.</h2>
           <p>
-            Try another filter or open your order history. Unpaid holds are
-            orders, not issued passes.
+            Try another filter or browse events to buy tickets. Unpaid
+            reservations are in Orders; refunded bookings are in Refunds.
           </p>
           <Link className="button" href="/orders">
             Order history
           </Link>
+          <Link className="button button-primary" href="/events">
+            Browse events
+          </Link>
         </section>
       ) : (
         <>
-          <p>
-            {query.data.meta.total} matching bookings · showing complete
-            bookings, including all their pass statuses.
-          </p>
+          <p>{query.data.meta.total} purchased bookings</p>
           {events.map((eventId) => {
             const event = groups.find(
               (group) => group.eventId === eventId,
@@ -189,12 +189,28 @@ export function TicketWallet() {
                           </Link>
                         ))}
                       </nav>
-                      <Link
-                        className="text-link"
-                        href={`/orders/${group.orderId}`}
-                      >
-                        Manage this booking / refund →
-                      </Link>
+                      <div className={styles.passLinks}>
+                        <Link
+                          className="button"
+                          href={`/orders/${group.orderId}#purchase-receipt`}
+                        >
+                          View payment receipt
+                        </Link>
+                        {group.canBuyMore && group.ticketTierId && (
+                          <Link
+                            className="button button-primary"
+                            href={`/events/${group.event.slug}/tickets?tierId=${group.ticketTierId}`}
+                          >
+                            Buy more tickets
+                          </Link>
+                        )}
+                      </div>
+                      {group.canBuyMore && (
+                        <p>
+                          Additional tickets use a new booking. You pay only for
+                          the new quantity.
+                        </p>
+                      )}
                     </article>
                   ))}
               </section>

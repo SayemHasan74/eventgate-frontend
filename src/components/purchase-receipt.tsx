@@ -1,15 +1,23 @@
 "use client";
+import { useEffect } from "react";
 import type { OrderDetail } from "@/lib/order-api";
 import { formatMoney, formatEventDate } from "@/lib/format";
 import styles from "./purchase-receipt.module.css";
 export function PurchaseReceipt({ order }: { order: OrderDetail }) {
+  useEffect(() => {
+    if (window.location.hash === "#purchase-receipt")
+      document.getElementById("purchase-receipt")?.scrollIntoView();
+  }, [order.id]);
   if (
     !["PAID", "REFUNDED"].includes(order.status) ||
     !order.fulfilledPaymentAttemptId
   )
     return null;
+  const payment = order.paymentAttempts.find(
+    (attempt) => attempt.id === order.fulfilledPaymentAttemptId,
+  );
   return (
-    <section>
+    <section id="purchase-receipt">
       <button className="button" type="button" onClick={() => window.print()}>
         Print purchase receipt
       </button>
@@ -33,6 +41,14 @@ export function PurchaseReceipt({ order }: { order: OrderDetail }) {
           <dd>
             {formatMoney(order.totalAmountPaisaSnapshot)} {order.currency}
           </dd>
+          <dt>Payment provider</dt>
+          <dd>SSLCommerz</dd>
+          {payment && (
+            <>
+              <dt>Payment reference</dt>
+              <dd>{payment.merchantTransactionId}</dd>
+            </>
+          )}
           <dt>Order status</dt>
           <dd>{order.status}</dd>
           {order.paidAt && (
@@ -49,8 +65,8 @@ export function PurchaseReceipt({ order }: { order: OrderDetail }) {
           )}
         </dl>
         <p>
-          Prices and event/tier names come from persisted purchase snapshots.
-          Refund status remains available on the order.
+          This receipt covers this booking only. Additional ticket purchases
+          have their own receipt and payment.
         </p>
       </article>
     </section>

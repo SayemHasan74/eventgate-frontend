@@ -3,6 +3,10 @@
   padding-block: 67px 95px;
 }
 .back {
+  border: 0;
+  padding: 8px 0;
+  background: transparent;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 7px;

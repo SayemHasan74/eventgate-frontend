@@ -221,7 +221,20 @@ export function OrderStatus({ orderId }: { orderId: string }) {
           </div>
           {order.status === "PAID" && (
             <section>
-              <h2>Your issued tickets</h2>
+              <h2>Your purchased passes</h2>
+              {order.event.status === "PUBLISHED" &&
+                Date.parse(order.event.startAt) >
+                  Date.parse(order.serverTime) && (
+                  <p>
+                    <Link
+                      className="button"
+                      href={`/events/${order.event.slug}/tickets?tierId=${order.ticketTierId}`}
+                    >
+                      Buy more tickets
+                    </Link>{" "}
+                    — a separate booking; pay only for the new tickets.
+                  </p>
+                )}
               {order.ticketIds.length ? (
                 <div className={styles.actions}>
                   {order.ticketIds.map((id, index) => (
@@ -248,30 +261,34 @@ export function OrderStatus({ orderId }: { orderId: string }) {
           <Link href="/orders">All orders</Link>
         </footer>
       </div>
-      <CheckoutPanel key={order.id} order={order} payable={payable} />
+      {pending && (
+        <CheckoutPanel key={order.id} order={order} payable={payable} />
+      )}
       <section className={styles.receipt}>
         <div className={styles.content}>
-          <h2>Payment attempt history</h2>
-          {order.paymentAttempts.length ? (
-            <ul>
-              {order.paymentAttempts.map((attempt) => (
-                <li key={attempt.id}>
-                  Attempt #{attempt.id.slice(0, 8)} · {attempt.status} ·{" "}
-                  {formatMoney(attempt.amountPaisa)} · Started{" "}
-                  {formatEventDate(attempt.initiatedAt)}
-                  {attempt.completedAt
-                    ? ` · Completed ${formatEventDate(attempt.completedAt)}`
-                    : ""}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No payment attempt has been started.</p>
-          )}
-          <Link className="text-link" href={`/payment/status`}>
-            Payment recovery guidance →
-          </Link>
           <PurchaseReceipt order={order} />
+          <details>
+            <summary>Payment activity</summary>
+            {order.paymentAttempts.length ? (
+              <ul>
+                {order.paymentAttempts.map((attempt) => (
+                  <li key={attempt.id}>
+                    Attempt #{attempt.id.slice(0, 8)} · {attempt.status} ·{" "}
+                    {formatMoney(attempt.amountPaisa)} · Started{" "}
+                    {formatEventDate(attempt.initiatedAt)}
+                    {attempt.completedAt
+                      ? ` · Completed ${formatEventDate(attempt.completedAt)}`
+                      : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No payment attempt has been started.</p>
+            )}
+            <Link className="text-link" href={`/payment/status`}>
+              Payment recovery guidance →
+            </Link>
+          </details>
         </div>
       </section>
       <RefundAction order={order} />

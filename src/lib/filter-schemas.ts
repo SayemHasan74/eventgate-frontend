@@ -31,8 +31,8 @@ export const checkInHistoryFilterSchema = listFilterSchema.omit({
   status: true,
 });
 export const ticketWalletFilterSchema = listFilterSchema.extend({
-  period: z.enum(["upcoming", "past", "all"]).default("upcoming"),
-  status: z.enum(["ACTIVE", "CHECKED_IN", "VOIDED", "REFUNDED"]).optional(),
+  period: z.enum(["upcoming", "past", "all"]).default("all"),
+  status: z.enum(["ACTIVE", "CHECKED_IN"]).optional(),
 });
 export const refundListFilterSchema = listFilterSchema.extend({
   status: z
