@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:contracts": "tsx --test tests/api-contracts.test.ts tests/browser-storage.test.ts tests/ticket-bookings.test.ts tests/event-reports.test.ts tests/account-contracts.test.ts tests/check-in.test.ts tests/admin-workflows.test.ts tests/payment-return.test.ts && node --conditions=react-server --import tsx --test tests/upstream.test.ts",
+    "test:contracts": "tsx --test tests/navigation.test.ts tests/api-contracts.test.ts tests/browser-storage.test.ts tests/ticket-bookings.test.ts tests/event-reports.test.ts tests/account-contracts.test.ts tests/check-in.test.ts tests/admin-workflows.test.ts tests/payment-return.test.ts && node --conditions=react-server --import tsx --test tests/upstream.test.ts",
     "test:sessions": "node --conditions=react-server --import tsx --test tests/session-redis.test.ts",
     "test:proxies": "node --conditions=react-server --import tsx --test tests/proxy-http.test.ts"
   },

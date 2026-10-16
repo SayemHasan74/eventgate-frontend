@@ -74,7 +74,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           ? "Account created. You are signed in."
           : `Welcome back, ${session.user.displayName}.`,
       );
-      router.push(safeNextPath(searchParams.get("next"), session.user.role));
+      router.replace(safeNextPath(searchParams.get("next"), session.user.role));
     } catch (error) {
       const message =
         error instanceof AuthApiError
@@ -100,7 +100,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       const session = await signInWithGoogle(idToken);
       setSession(session);
       toast.success(`Welcome, ${session.user.displayName}.`);
-      router.push(safeNextPath(searchParams.get("next"), session.user.role));
+      router.replace(safeNextPath(searchParams.get("next"), session.user.role));
     } catch (error) {
       const message =
         error instanceof AuthApiError
@@ -119,7 +119,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       const session = await signInDemo(role);
       setSession(session);
       toast.success(`Demo access: ${session.user.displayName}.`);
-      router.push(safeNextPath(searchParams.get("next"), session.user.role));
+      router.replace(safeNextPath(searchParams.get("next"), session.user.role));
     } catch (error) {
       const message =
         error instanceof AuthApiError

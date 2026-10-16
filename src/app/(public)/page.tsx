@@ -1,3 +1,9 @@
+import { HomeEntry } from "@/components/home-entry";
+import { currentSession, sessionIdentity } from "@/lib/server/browser-session";
+import { SessionError } from "@/lib/server/session-store";
+import { SessionUnavailable } from "@/components/session-unavailable";
+import { workspacePath } from "@/lib/navigation";
+import { redirect } from "next/navigation";
 import Form from "next/form";
 import { EventCard } from "@/components/event-card";
 import { Recommendations } from "@/components/recommendations";
@@ -35,6 +41,16 @@ const promises = [
 ];
 
 export default async function Home() {
+  let destination: string | null = null;
+  try {
+    const session = await currentSession();
+    if (session)
+      destination = workspacePath((await sessionIdentity(session)).role);
+  } catch (error) {
+    if (!(error instanceof SessionError && error.status === 401))
+      return <SessionUnavailable />;
+  }
+  if (destination) redirect(destination);
   const [events, facets] = await Promise.all([
     getUpcomingPublicEvents(),
     getPublicFacets(),
@@ -42,7 +58,7 @@ export default async function Home() {
   const upcoming = events.status === "ready" ? events.events : [];
   const cities = facets.status === "ready" ? facets.cities : [];
   return (
-    <>
+    <HomeEntry>
       <div className={[styles["ticker"]].join(" ")} aria-hidden="true">
         <div>
           ADMIT ONE <em>✺</em> PAYMENTS VERIFIED <em>✺</em> EVERY QR WORKS ONCE{" "}
@@ -314,6 +330,6 @@ export default async function Home() {
           </Link>
         </section>
       </main>
-    </>
+    </HomeEntry>
   );
 }
