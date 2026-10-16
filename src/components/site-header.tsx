@@ -11,7 +11,8 @@ import { Modal } from "./ui/interactive";
 import { OrganizerLink } from "./organizer-link";
 import styles from "./site-header.module.css";
 function Navigation() {
-  const { session } = useAuth();
+  const { session, status, retrySession } = useAuth();
+  const signedIn = status === "authenticated" && !!session;
   const workspace =
     session?.user.role === "ADMIN"
       ? "/admin"
@@ -21,15 +22,38 @@ function Navigation() {
   return (
     <>
       <Link href="/events">Browse events</Link>
-      {session?.user.role === "ATTENDEE" && (
+      {signedIn && session.user.role === "ATTENDEE" && (
         <Link href="/saved-events">Saved events</Link>
       )}
       <Link href="/#how-it-works">How it works</Link>
       <OrganizerLink />
-      <Link href={session ? workspace : "/auth/sign-in"}>
-        {session ? "My workspace" : "Sign in"}
-      </Link>
-      {session && <LogoutButton />}
+      {signedIn ? (
+        <>
+          <Link
+            className={styles.accountLink}
+            href={workspace}
+            title={`Signed in as ${session.user.displayName} (${session.user.role.toLowerCase()})`}
+          >
+            <span>My workspace</span>
+            <small>Signed in as {session.user.displayName}</small>
+          </Link>
+          <LogoutButton />
+        </>
+      ) : status === "loading" ? (
+        <span className={styles.sessionStatus} role="status">
+          Checking sign-in…
+        </span>
+      ) : status === "unavailable" ? (
+        <button
+          className={styles.sessionRetry}
+          type="button"
+          onClick={() => void retrySession()}
+        >
+          Retry sign-in status
+        </button>
+      ) : (
+        <Link href="/auth/sign-in">Sign in</Link>
+      )}
     </>
   );
 }

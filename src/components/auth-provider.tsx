@@ -187,6 +187,10 @@ export function AuthProvider({
       )
         void retrySession();
     };
+    const restored = (event: PageTransitionEvent) => {
+      if (event.persisted) void retrySession();
+    };
+    window.addEventListener("pageshow", restored);
     window.addEventListener("storage", storage);
     window.addEventListener("eventgate-session-ended", ended);
     window.addEventListener("focus", focus);
@@ -196,6 +200,7 @@ export function AuthProvider({
       clearInterval(timer);
       channel.current?.close();
       channel.current = null;
+      window.removeEventListener("pageshow", restored);
       window.removeEventListener("storage", storage);
       window.removeEventListener("eventgate-session-ended", ended);
       window.removeEventListener("focus", focus);
@@ -216,7 +221,7 @@ export function AuthProvider({
     ].includes(pathname.split("/")[1]);
     // Protected layouts stream their freshly validated identity. Starting another
     // restore here would race that server work and delay every private query.
-    if (!workspace && !bootstrapped.current && lastVerified.current === 0)
+    if (!workspace && Date.now() - lastVerified.current > 15000)
       void retrySession();
   }, [pathname, retrySession]);
   const value = useMemo(

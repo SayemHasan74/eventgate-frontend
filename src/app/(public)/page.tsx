@@ -53,13 +53,12 @@ export default async function Home() {
 
       <main id="main-content">
         <section className={[styles["hero"], "wrap"].join(" ")}>
-          <div className="hero-copy">
+          <div className={styles.heroCopy}>
             <p className="eyebrow">
               <span /> Ticketing without the guesswork
             </p>
             <h1>
-              Make plans.
-              <br />
+              <span>Make plans.</span>
               <b>Make it in.</b>
             </h1>
             <p className={[styles["hero-lede"]].join(" ")}>
@@ -126,9 +125,8 @@ export default async function Home() {
                   Your next plan is waiting
                 </p>
                 <h2>
-                  SHOW
-                  <br />
-                  UP.
+                  <span>SHOW</span>
+                  <span>UP.</span>
                 </h2>
                 <div className={[styles["ticket-meta"]].join(" ")}>
                   <div>

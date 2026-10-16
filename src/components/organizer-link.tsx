@@ -11,9 +11,10 @@ export function OrganizerLink({
   className?: string;
   workspaceOnly?: boolean;
 }) {
-  const { session } = useAuth();
+  const { session, status } = useAuth();
   const permitted =
-    session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN";
+    status === "authenticated" &&
+    (session?.user.role === "ORGANIZER" || session?.user.role === "ADMIN");
   if (workspaceOnly && !permitted) return null;
   return (
     <Link

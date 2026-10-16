@@ -27,7 +27,7 @@
 
 .hero {
   display: grid;
-  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   align-items: center;
   gap: clamp(36px, 8vw, 110px);
   min-height: 650px;
@@ -44,6 +44,20 @@
   letter-spacing: 0.005em;
   line-height: 0.87;
   text-transform: uppercase;
+}
+.heroCopy {
+  min-width: 0;
+  container-type: inline-size;
+}
+.hero h1 {
+  font-size: clamp(40px, 18cqi, 116px);
+  line-height: 1.05;
+}
+.hero h1 > span,
+.hero h1 > b,
+.hero-ticket h2 > span {
+  display: block;
+  white-space: nowrap;
 }
 .hero h1 b,
 .section-intro h2 b,
@@ -101,12 +115,14 @@
 }
 .hero-ticket {
   display: grid;
-  grid-template-columns: 1fr 142px;
+  grid-template-columns: minmax(0, 1fr) clamp(72px, 11vw, 142px);
   border: 2px solid var(--ink);
   background: var(--card);
   box-shadow: 8px 8px 0 var(--cobalt);
 }
 .ticket-main {
+  min-width: 0;
+  container-type: inline-size;
   min-height: 405px;
   padding: 27px;
 }
@@ -138,10 +154,10 @@
   margin: 5px 0 22px;
   color: var(--cobalt);
   font-family: var(--font-display), Impact, sans-serif;
-  font-size: clamp(67px, 7vw, 99px);
+  font-size: clamp(38px, 38cqi, 99px);
   font-weight: 400;
   letter-spacing: 0.01em;
-  line-height: 0.82;
+  line-height: 1.08;
   text-shadow: 4px 4px 0 var(--pink);
 }
 .ticket-meta {
@@ -377,16 +393,13 @@
     min-height: auto;
     padding-block: 47px 72px;
   }
-  .hero h1 {
-    font-size: clamp(62px, 20vw, 96px);
-  }
   .hero-actions {
     align-items: flex-start;
     flex-direction: column;
     gap: 18px;
   }
   .hero-ticket {
-    grid-template-columns: 1fr 104px;
+    grid-template-columns: minmax(0, 1fr) 72px;
   }
   .ticket-main {
     min-height: 365px;
@@ -394,9 +407,6 @@
   }
   .ticket-stub {
     padding-inline: 10px;
-  }
-  .hero-ticket h2 {
-    font-size: 69px;
   }
   .ticket-meta strong {
     font-size: 11px;
