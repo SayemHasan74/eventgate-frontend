@@ -172,3 +172,22 @@
     transform: rotate(360deg);
   }
 }
+.auth-demo button {
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  padding: 10px 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+  font:
+    600 13px var(--font-body),
+    sans-serif;
+}
+.auth-demo button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-spinner {
+    animation: none;
+  }
+}

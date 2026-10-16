@@ -1,4 +1,5 @@
 "use client";
+import { InventoryDots } from "@/components/event-ticket";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -77,77 +78,86 @@ function TierCard({
           : "Sales will follow the saved window again. The backend will confirm that its end is still in the future.";
   return (
     <article className={styles.tier}>
-      <StatusBadge status={tier.salesPaused ? "PAUSED" : tier.saleState} />
-      <h2>{tier.name}</h2>
-      <strong>{formatMoney(tier.pricePaisa)}</strong>
-      <dl className={styles.stock}>
-        {[
-          ["Capacity", tier.capacity],
-          ["Reserved", tier.reservedQuantity],
-          ["Sold", tier.soldQuantity],
-          ["Available", tier.availableQuantity],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p>Sales: {formatEventRange(tier.salesStartAt, tier.salesEndAt)}</p>
-      {tier.restrictionCodes.includes("TIER_HISTORY_LOCKED") && (
-        <p>
-          Order history locks name, price, and sales start. Capacity cannot be
-          reduced.
-        </p>
-      )}
-      {tier.restrictionCodes.includes("PUBLISHED_TIER_FIELDS_LOCKED") && (
-        <p>
-          Published tier: name, price, and sales start are fixed. Only capacity
-          increases and sales controls are permitted.
-        </p>
-      )}
-      {!tier.canEdit && <p>Historical inventory is read-only.</p>}
-      <div className={styles.actions}>
-        {tier.canEdit && (
-          <Button disabled={mutation.isPending} onClick={onEdit}>
-            Edit tier
-          </Button>
-        )}
-        {tier.canCloseSales && (
-          <Button
-            disabled={mutation.isPending}
-            onClick={() => setAction("close")}
-          >
-            Close sales now
-          </Button>
-        )}
-        {tier.canPauseSales && (
-          <Button
-            disabled={mutation.isPending}
-            onClick={() => setAction("pause")}
-          >
-            Pause sales
-          </Button>
-        )}
-        {tier.canResumeSales && (
-          <Button
-            disabled={mutation.isPending}
-            onClick={() => setAction("resume")}
-          >
-            Resume sales
-          </Button>
-        )}
-        {tier.canDelete && (
-          <Button
-            variant="danger"
-            disabled={mutation.isPending}
-            onClick={() => setAction("delete")}
-          >
-            Delete tier
-          </Button>
-        )}
+      <div className={styles.tierLabel}>
+        <StatusBadge status={tier.salesPaused ? "PAUSED" : tier.saleState} />
+        <h2>{tier.name}</h2>
+        <strong>{formatMoney(tier.pricePaisa)}</strong>
       </div>
-      {mutation.isError && <FieldError>{mutation.error.message}</FieldError>}
+      <div className={styles.tierBody}>
+        <InventoryDots
+          capacity={tier.capacity}
+          sold={tier.soldQuantity}
+          reserved={tier.reservedQuantity}
+        />
+        <dl className={styles.stock}>
+          {[
+            ["Capacity", tier.capacity],
+            ["Reserved", tier.reservedQuantity],
+            ["Sold", tier.soldQuantity],
+            ["Available", tier.availableQuantity],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <p>Sales: {formatEventRange(tier.salesStartAt, tier.salesEndAt)}</p>
+        {tier.restrictionCodes.includes("TIER_HISTORY_LOCKED") && (
+          <p>
+            Order history locks name, price, and sales start. Capacity cannot be
+            reduced.
+          </p>
+        )}
+        {tier.restrictionCodes.includes("PUBLISHED_TIER_FIELDS_LOCKED") && (
+          <p>
+            Published tier: name, price, and sales start are fixed. Only
+            capacity increases and sales controls are permitted.
+          </p>
+        )}
+        {!tier.canEdit && <p>Historical inventory is read-only.</p>}
+        <div className={styles.actions}>
+          {tier.canEdit && (
+            <Button disabled={mutation.isPending} onClick={onEdit}>
+              Edit tier
+            </Button>
+          )}
+          {tier.canCloseSales && (
+            <Button
+              disabled={mutation.isPending}
+              onClick={() => setAction("close")}
+            >
+              Close sales now
+            </Button>
+          )}
+          {tier.canPauseSales && (
+            <Button
+              disabled={mutation.isPending}
+              onClick={() => setAction("pause")}
+            >
+              Pause sales
+            </Button>
+          )}
+          {tier.canResumeSales && (
+            <Button
+              disabled={mutation.isPending}
+              onClick={() => setAction("resume")}
+            >
+              Resume sales
+            </Button>
+          )}
+          {tier.canDelete && (
+            <Button
+              variant="danger"
+              disabled={mutation.isPending}
+              onClick={() => setAction("delete")}
+            >
+              Delete tier
+            </Button>
+          )}
+        </div>
+        {mutation.isError && <FieldError>{mutation.error.message}</FieldError>}
+      </div>
       <ConfirmationDialog
         open={!!action}
         title={`${action === "delete" ? "Delete" : action === "close" ? "Close sales for" : action === "pause" ? "Pause" : "Resume"} ${tier.name}?`}

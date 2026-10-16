@@ -6,6 +6,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { ScanLine } from "lucide-react";
+import { EventTicket } from "@/components/event-ticket";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -274,45 +276,90 @@ function AuthorizedDesk({
   const count = history.isError ? undefined : history.data?.checkedInCount;
   return (
     <div className={styles.desk}>
-      <header>
-        <p className="eyebrow">
-          <span />
-          Authoritative door desk
-        </p>
-        <h1>{event.title}</h1>
-        <p>
-          Window:{" "}
-          {formatEventRange(
-            event.checkInWindow.opensAt,
-            event.checkInWindow.closesAt,
-          )}{" "}
-          (Bangladesh time). The server makes every admission decision.
-        </p>
-      </header>
-      <div className={styles.controls}>
-        <button
-          className="button button-primary"
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            if (active) {
-              stopCamera();
-              setActive(false);
-            } else setActive(true);
-          }}
-        >
-          {active ? "Stop desk" : "Open desk"}
-        </button>
-        <p role="status">
-          {active
-            ? isVisible
-              ? "Desk active: history and counts refresh every five seconds."
-              : "Backgrounded: polling and camera paused."
-            : "Desk stopped: no scanning or automatic history polling."}
-        </p>
-      </div>
-      <div className={styles.grid}>
+      <EventTicket
+        event={event}
+        actions={
+          <>
+            <div className={styles.controls}>
+              <button
+                className="button button-primary"
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (active) {
+                    stopCamera();
+                    setActive(false);
+                  } else setActive(true);
+                }}
+              >
+                {active ? "Stop desk" : "Open desk"}
+              </button>
+              <p role="status">
+                {active
+                  ? isVisible
+                    ? "Desk active: history and counts refresh every five seconds."
+                    : "Backgrounded: polling and camera paused."
+                  : "Desk stopped: no scanning or automatic history polling."}
+              </p>
+            </div>
+            {(pending || result) && (
+              <section
+                className={styles.result}
+                data-code={result?.resultCode}
+                role="status"
+                aria-live="polite"
+              >
+                <h2>
+                  {pending
+                    ? "Validating with the server…"
+                    : result
+                      ? resultText[result.resultCode][0]
+                      : ""}
+                </h2>
+                {!pending && result && (
+                  <>
+                    <p>{resultText[result.resultCode][1]}</p>
+                    {"ticket" in result && (
+                      <div>
+                        <strong>{result.ticket.attendee.displayName}</strong>
+                        <p>
+                          {result.ticket.ticketTier.name} · Pass #
+                          {result.ticket.sequence}
+                        </p>
+                        {result.ticket.checkedInAt && (
+                          <p>
+                            Admitted at{" "}
+                            {formatEventDate(result.ticket.checkedInAt)}{" "}
+                            (Bangladesh time).
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      className="button"
+                      type="button"
+                      onClick={continueScanning}
+                    >
+                      Dismiss / continue with next guest
+                    </button>
+                  </>
+                )}
+              </section>
+            )}
+          </>
+        }
+      >
         <section className={styles.scan}>
+          <p className={styles.gateStatus}>
+            {windowOpen ? "● Gate open" : "○ Gate closed"}
+          </p>
+          <p>
+            Admission:{" "}
+            {formatEventRange(
+              event.checkInWindow.opensAt,
+              event.checkInWindow.closesAt,
+            )}
+          </p>
           <h2>
             Camera or manual <b>scan.</b>
           </h2>
@@ -322,14 +369,25 @@ function AuthorizedDesk({
               is no override.
             </p>
           )}
-          <video
-            className={styles.video}
-            ref={video}
-            autoPlay
-            muted
-            playsInline
-            aria-label="Private camera QR preview"
-          />
+          <div
+            className={styles.cameraPreview}
+            data-running={cameraState === "running"}
+          >
+            <video
+              className={styles.video}
+              ref={video}
+              autoPlay
+              muted
+              playsInline
+              aria-label="Private camera QR preview"
+            />
+            {cameraState !== "running" && (
+              <div className={styles.cameraIdle}>
+                <ScanLine size={90} aria-hidden="true" />
+                <span>Camera off · scan or paste a ticket token</span>
+              </div>
+            )}
+          </div>
           <div className={styles.controls}>
             <button
               className="button"
@@ -349,21 +407,24 @@ function AuthorizedDesk({
             <button className="button" type="button" onClick={stopCamera}>
               Stop camera
             </button>
-            <label>
-              Camera
-              <select
-                value={deviceId}
-                disabled={cameraState !== "stopped" || pending}
-                onChange={(event) => setDeviceId(event.target.value)}
-              >
-                <option value="">Prefer rear camera</option>
-                {devices.map((device, index) => (
-                  <option value={device.deviceId} key={device.deviceId}>
-                    {device.label || `Camera ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <details className={styles.cameraOptions}>
+              <summary>Camera options</summary>
+              <label>
+                Camera
+                <select
+                  value={deviceId}
+                  disabled={cameraState !== "stopped" || pending}
+                  onChange={(event) => setDeviceId(event.target.value)}
+                >
+                  <option value="">Prefer rear camera</option>
+                  {devices.map((device, index) => (
+                    <option value={device.deviceId} key={device.deviceId}>
+                      {device.label || `Camera ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </details>
           </div>
           <p role="status">
             {!windowOpen
@@ -408,60 +469,17 @@ function AuthorizedDesk({
             Never paste a website address. Tokens are not logged or stored.
             Camera failures do not disable manual input.
           </p>
-        </section>
-        <aside className={styles.total}>
-          <span>Confirmed check-ins</span>
-          <strong>{count === undefined ? "Unavailable" : count}</strong>
-          <small>
-            {history.isFetching
-              ? "Refreshing server count…"
-              : "No estimated or offline admissions"}
-          </small>
-        </aside>
-      </div>
-      {(pending || result) && (
-        <section
-          className={styles.result}
-          data-code={result?.resultCode}
-          role="status"
-          aria-live="polite"
-        >
-          <h2>
-            {pending
-              ? "Validating with the server…"
-              : result
-                ? resultText[result.resultCode][0]
-                : ""}
-          </h2>
-          {!pending && result && (
-            <>
-              <p>{resultText[result.resultCode][1]}</p>
-              {"ticket" in result && (
-                <div>
-                  <strong>{result.ticket.attendee.displayName}</strong>
-                  <p>
-                    {result.ticket.ticketTier.name} · Pass #
-                    {result.ticket.sequence}
-                  </p>
-                  {result.ticket.checkedInAt && (
-                    <p>
-                      Admitted at {formatEventDate(result.ticket.checkedInAt)}{" "}
-                      (Bangladesh time).
-                    </p>
-                  )}
-                </div>
-              )}
-              <button
-                className="button"
-                type="button"
-                onClick={continueScanning}
-              >
-                Dismiss / continue with next guest
-              </button>
-            </>
-          )}
-        </section>
-      )}
+        </section>{" "}
+      </EventTicket>
+      <aside className={styles.total}>
+        <span>Confirmed check-ins</span>
+        <strong>{count === undefined ? "Unavailable" : count}</strong>
+        <small>
+          {history.isFetching
+            ? "Refreshing server count…"
+            : "Server-confirmed admissions only"}
+        </small>
+      </aside>
       <section className={styles.history}>
         <h2>
           Door <b>history.</b>

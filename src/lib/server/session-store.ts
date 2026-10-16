@@ -10,11 +10,17 @@ export class SessionError extends Error {
     public status = 503,
   ) {
     super(
-      status === 401
-        ? "Please sign in again."
-        : status === 403
-          ? "This request is not permitted."
-          : "The session service is unavailable. Please try again.",
+      code === "API_TIMEOUT"
+        ? "The EventGate server took too long to respond. It may be waking up; please try again."
+        : code === "API_UNAVAILABLE"
+          ? "The EventGate server is currently unreachable. Please try again shortly."
+          : code === "SESSION_CONFIGURATION_ERROR"
+            ? "Sign-in is not configured on this deployment. Please use the main EventGate website."
+            : status === 401
+              ? "Please sign in again."
+              : status === 403
+                ? "This request is not permitted."
+                : "The session service is unavailable. Please try again.",
     );
   }
 }

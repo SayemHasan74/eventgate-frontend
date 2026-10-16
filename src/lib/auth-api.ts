@@ -10,7 +10,7 @@ async function requestSession(
   const result = await apiClient(
     "/api/auth/" + action,
     z.object({ user: authUserSchema }),
-    { method: "POST", ...jsonBody(body) },
+    { method: "POST", ...jsonBody(body), signal: AbortSignal.timeout(85000) },
   );
   resetCsrf();
   return result;

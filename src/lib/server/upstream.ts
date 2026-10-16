@@ -33,9 +33,11 @@ export async function upstream(
       ...(publicRead ? {} : { cache: "no-store" as const }),
       redirect: "error",
       signal: AbortSignal.timeout(
-        /^payments\/orders\/[^/]+\/checkout$/.test(path.split("?")[0])
-          ? 25000
-          : 15000,
+        /^auth\/(login|register|google|demo)$/.test(path.split("?")[0])
+          ? 75000
+          : /^payments\/orders\/[^/]+\/checkout$/.test(path.split("?")[0])
+            ? 25000
+            : 15000,
       ),
     });
   } catch (error) {

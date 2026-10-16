@@ -4,7 +4,7 @@ import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import featureStyles from "@/components/auth-styles.module.css";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
@@ -47,6 +47,12 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [slowRequest, setSlowRequest] = useState(false);
+  useEffect(() => {
+    if (!isSubmitting) return;
+    const timer = setTimeout(() => setSlowRequest(true), 12000);
+    return () => clearTimeout(timer);
+  }, [isSubmitting]);
   const [mutationError, setMutationError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<AuthValues>({
@@ -63,6 +69,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     if (isRegister && !displayName) return;
 
     setMutationError("");
+    setSlowRequest(false);
     setIsSubmitting(true);
     try {
       const session = isRegister
@@ -95,6 +102,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     : alternatePath;
   const googleLogin = async (idToken: string) => {
     setMutationError("");
+    setSlowRequest(false);
     setIsSubmitting(true);
     try {
       const session = await signInWithGoogle(idToken);
@@ -114,6 +122,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   };
   const demoLogin = async (role: "ATTENDEE" | "ORGANIZER") => {
     setMutationError("");
+    setSlowRequest(false);
     setIsSubmitting(true);
     try {
       const session = await signInDemo(role);
@@ -139,6 +148,13 @@ export function AuthForm({ mode }: AuthFormProps) {
       noValidate
     >
       {mutationError && <p role="alert">{mutationError}</p>}
+      {isSubmitting && (
+        <p role="status" aria-live="polite">
+          {slowRequest
+            ? "The server is taking longer to respond. Keep this tab open while sign-in completes."
+            : "Connecting to EventGate…"}
+        </p>
+      )}
       {isRegister && (
         <label>
           <span>Your name</span>

@@ -1,0 +1,121 @@
+.shadow {
+  max-width: 860px;
+  margin: 25px auto 35px;
+  filter: drop-shadow(2px 0 0 var(--ink)) drop-shadow(-2px 0 0 var(--ink))
+    drop-shadow(0 -2px 0 var(--ink)) drop-shadow(0 2px 0 var(--ink))
+    drop-shadow(7px 7px 0 var(--pink));
+}
+.receipt {
+  background: var(--card);
+  padding: 26px clamp(16px, 3vw, 34px) 40px;
+  font:
+    400 13px/1.5 var(--font-mono),
+    monospace;
+  mask: conic-gradient(
+      from -45deg at bottom,
+      #0000,
+      #000 1deg 89deg,
+      #0000 90deg
+    )
+    50%/16px 100%;
+}
+.head {
+  text-align: center;
+  border-bottom: 2px dashed var(--ink);
+  padding-bottom: 20px;
+}
+:global(#main-content) .head b {
+  display: block;
+  font:
+    400 28px var(--font-display),
+    Impact,
+    sans-serif;
+  letter-spacing: 0.1em;
+}
+.head span,
+.head small {
+  display: block;
+  margin-top: 5px;
+}
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  padding: 20px 0;
+  border-bottom: 1.5px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+  align-items: center;
+}
+.line:last-child {
+  border-bottom: 0;
+}
+:global(#main-content) .line h3 {
+  margin: 0;
+  font:
+    600 16px var(--font-body),
+    sans-serif;
+  text-transform: none;
+}
+.line p {
+  margin: 5px 0;
+  color: var(--soft);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.amount {
+  font:
+    400 28px var(--font-display),
+    Impact,
+    sans-serif;
+  text-align: right;
+}
+.bottom {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--soft);
+  font-size: 11px;
+}
+.stamp {
+  display: inline-block;
+  flex-shrink: 0;
+  border: 2px solid currentColor;
+  color: var(--cobalt);
+  border-radius: 4px;
+  padding: 3px 8px;
+  transform: rotate(-3deg);
+  font:
+    500 10px/1.5 var(--font-mono),
+    monospace;
+  letter-spacing: 0.09em;
+}
+.stamp[data-status="PENDING_PAYMENT"] {
+  color: var(--ink);
+  border-style: dashed;
+}
+.stamp[data-status="REFUNDED"],
+.stamp[data-status="CANCELLED"] {
+  color: var(--pink);
+}
+.stamp[data-status="EXPIRED"] {
+  color: var(--soft);
+  text-decoration: line-through;
+}
+@media (max-width: 550px) {
+  .line {
+    grid-template-columns: 1fr;
+  }
+  .amount {
+    text-align: left;
+  }
+  .bottom {
+    flex-wrap: wrap;
+  }
+}
+:global(#main-content) .receipt .line h3 {
+  font:
+    600 16px var(--font-body),
+    sans-serif;
+  text-transform: none;
+}

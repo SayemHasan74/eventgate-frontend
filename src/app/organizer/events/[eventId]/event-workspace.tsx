@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
+import { EventTicket } from "@/components/event-ticket";
 import { EventImage } from "@/components/event-image";
 import {
   Button,
@@ -235,31 +236,47 @@ export function EventWorkspace({
   ];
   return (
     <section className={styles.page}>
-      <header className={styles.header}>
-        <div>
-          <StatusBadge status={event.status} />
-          <h1>{event.title}</h1>
-          <p>
-            {event.venue}, {event.city}
-            <br />
-            {formatEventRange(event.startAt, event.endAt)}
-          </p>
-        </div>
-        <div className={styles.actions}>
-          <LinkButton href={base + "/preview"}>Private preview</LinkButton>
-          {event.status === "PUBLISHED" && (
-            <LinkButton href={`/events/${event.slug}`}>Public event</LinkButton>
+      <EventTicket
+        event={event}
+        actions={
+          <>
+            {event.capabilities.editable && (
+              <LinkButton href={base + "/details"}>Edit event</LinkButton>
+            )}
+            <LinkButton href={base + "/tickets"}>
+              {event.status === "DRAFT" ? "Add tier" : "Manage tiers"}
+            </LinkButton>
+            <EventLifecycleActions event={event} />
+          </>
+        }
+      >
+        <p className={styles.gateStatus}>
+          {event.checkInWindow.isOpen ? "● Gate open" : "○ Gate closed"}
+        </p>
+        <p>
+          {formatEventRange(
+            event.checkInWindow.opensAt,
+            event.checkInWindow.closesAt,
           )}
-          <Button
-            disabled={query.isFetching}
-            onClick={() =>
-              void Promise.all([query.refetch(), report.refetch()])
-            }
-          >
-            Refresh status
-          </Button>
-        </div>
-      </header>
+        </p>
+        <LinkButton variant="primary" href={base + "/check-in"}>
+          Open check-in desk →
+        </LinkButton>
+        <p>
+          Scan an attendee’s purchased QR at the desk. One successful admission
+          per pass.
+        </p>
+        <LinkButton href={base + "/preview"}>Private preview</LinkButton>
+        {event.status !== "DRAFT" && (
+          <LinkButton href={`/events/${event.slug}`}>Public event</LinkButton>
+        )}
+        <Button
+          disabled={query.isFetching}
+          onClick={() => void Promise.all([query.refetch(), report.refetch()])}
+        >
+          Refresh status
+        </Button>
+      </EventTicket>
       {(event.status === "CANCELLED" || event.status === "COMPLETED") && (
         <div className={styles.notice}>
           This event is historical and cannot be edited. Orders and reports are
@@ -276,7 +293,7 @@ export function EventWorkspace({
             retry={() => void report.refetch()}
           />
         ) : (
-          <div className={shell.metrics}>
+          <div className={`${shell.metrics} ${styles.metrics}`}>
             <MetricCard
               label="Net ticket sales"
               value={formatMoney(report.data.netTicketSalesPaisa)}
@@ -371,7 +388,7 @@ export function EventWorkspace({
             <LinkButton href={base + "/orders"}>Review orders</LinkButton>
             <LinkButton href={base + "/reports"}>Open reports</LinkButton>
           </div>
-          <EventLifecycleActions event={event} />
+
           {event.status === "DRAFT" && !event.capabilities.canDelete && (
             <p>This draft has order history and cannot be deleted.</p>
           )}

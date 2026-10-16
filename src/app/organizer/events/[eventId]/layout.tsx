@@ -1,3 +1,4 @@
+import styles from "@/components/event-theme.module.css";
 import { EventTabs } from "@/components/event-tabs";
 export default async function EventLayout({
   children,
@@ -8,9 +9,9 @@ export default async function EventLayout({
 }) {
   const { eventId } = await params;
   return (
-    <>
+    <div className={styles.theme}>
       <EventTabs eventId={eventId} />
       {children}
-    </>
+    </div>
   );
 }

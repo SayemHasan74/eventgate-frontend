@@ -34,7 +34,11 @@ test("server transport preserves queries/bodies, uses bounded timeouts, and reje
       body: "{}",
     });
     assert.equal(seen?.init.body, "{}");
-    assert.deepEqual(timeouts, [15000, 25000]);
+    await upstream("auth/demo", {
+      method: "POST",
+      body: '{"role":"ATTENDEE"}',
+    });
+    assert.deepEqual(timeouts, [15000, 25000, 75000]);
     await assert.rejects(
       upstream("https://evil.test"),
       (error: unknown) => error instanceof SessionError && error.status === 404,

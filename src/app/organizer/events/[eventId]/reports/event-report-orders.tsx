@@ -1,6 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { DataTable, Skeleton, StatusBadge } from "@/components/ui";
+import styles from "./order-ledger.module.css";
+import { Skeleton } from "@/components/ui";
 import { ErrorState, Pagination } from "@/components/ui/interactive";
 import { getEventOrders } from "@/lib/organizer-api";
 import { eventOrdersExportUrl } from "@/lib/event-report-api";
@@ -64,46 +65,40 @@ export function EventReportOrders({
           {!query.data.data.length ? (
             <p>No orders match these filters.</p>
           ) : (
-            <DataTable
-              caption="Filtered event orders"
-              rows={query.data.data}
-              rowKey={(order) => order.id}
-              columns={[
-                { key: "id", label: "Order", cell: (order) => order.id },
-                {
-                  key: "guest",
-                  label: "Attendee",
-                  cell: (order) => (
-                    <>
-                      {order.attendee.displayName}
-                      <br />
-                      {order.attendee.email}
-                    </>
-                  ),
-                },
-                {
-                  key: "tier",
-                  label: "Tier / quantity",
-                  cell: (order) =>
-                    `${order.quantity} × ${order.ticketTier.name}`,
-                },
-                {
-                  key: "status",
-                  label: "Status",
-                  cell: (order) => <StatusBadge status={order.status} />,
-                },
-                {
-                  key: "amount",
-                  label: "Order total (BDT)",
-                  cell: (order) => formatMoney(order.totalAmountPaisaSnapshot),
-                },
-                {
-                  key: "date",
-                  label: "Reserved (Dhaka)",
-                  cell: (order) => formatEventDate(order.createdAt),
-                },
-              ]}
-            />
+            <div className={styles.shadow}>
+              <div className={styles.receipt}>
+                <header className={styles.head}>
+                  <b>EVENTGATE</b>
+                  <span>ORDER LEDGER</span>
+                  <small>
+                    {query.data.meta.total} matching orders · page {page}
+                  </small>
+                </header>
+                {query.data.data.map((order) => (
+                  <article key={order.id} className={styles.line}>
+                    <div>
+                      <h3>{order.attendee.displayName}</h3>
+                      <p>
+                        {order.attendee.email} · {order.ticketTier.name} ×{" "}
+                        {order.quantity}
+                      </p>
+                    </div>
+                    <div className={styles.amount}>
+                      {formatMoney(order.totalAmountPaisaSnapshot)}
+                    </div>
+                    <div className={styles.bottom}>
+                      <span title={order.id}>
+                        #{order.id.slice(0, 8)} ·{" "}
+                        {formatEventDate(order.createdAt)}
+                      </span>
+                      <span className={styles.stamp} data-status={order.status}>
+                        {order.status.replaceAll("_", " ")}
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
           )}
           <Pagination
             page={page}

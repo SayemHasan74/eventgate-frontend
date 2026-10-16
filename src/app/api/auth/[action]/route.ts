@@ -19,6 +19,7 @@ import {
 import { SessionError } from "@/lib/server/session-store";
 
 export const runtime = "nodejs";
+export const maxDuration = 90;
 export async function GET(
   _request: Request,
   context: RouteContext<"/api/auth/[action]">,

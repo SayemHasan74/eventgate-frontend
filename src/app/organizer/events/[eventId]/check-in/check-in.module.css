@@ -339,3 +339,152 @@
   overflow-wrap: anywhere;
   font-size: clamp(24px, 4vw, 60px);
 }
+.desk {
+  max-width: none;
+  margin-top: 20px;
+}
+.scan {
+  padding: 0;
+  min-width: 0;
+}
+:global(#main-content) .scan h2 {
+  font:
+    400 27px/1.05 var(--font-display),
+    Impact,
+    sans-serif;
+}
+.scan form {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.scan p {
+  font:
+    400 11px/1.6 var(--font-mono),
+    monospace;
+  color: var(--soft);
+}
+.scan .controls {
+  gap: 10px;
+  margin: 12px 0;
+}
+.scan .controls button {
+  padding: 8px 12px;
+  min-height: 38px;
+  font-size: 12px;
+}
+.scan .controls label {
+  width: 100%;
+}
+.scan select {
+  width: 100%;
+}
+.scan form button {
+  background: var(--ink);
+  color: var(--card);
+  box-shadow: 3px 3px 0 var(--pink);
+}
+.video {
+  aspect-ratio: 1;
+  max-width: 180px;
+  max-height: 180px;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  margin: 16px auto;
+}
+.total {
+  border: 2px solid var(--ink);
+  padding: 20px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 18px;
+  background: var(--card);
+}
+:global(#main-content) .total strong {
+  font:
+    400 54px/1 var(--font-display),
+    Impact,
+    sans-serif;
+  color: var(--cobalt);
+}
+:global(#main-content) .result h2 {
+  display: inline-block;
+  font:
+    400 30px/1 var(--font-display),
+    Impact,
+    sans-serif;
+  color: var(--pink);
+  border: 3px solid currentColor;
+  padding: 10px 14px;
+  border-radius: 6px;
+  transform: rotate(-3deg);
+}
+:global(#main-content) .result[data-code="ACCEPTED"] h2 {
+  color: var(--cobalt);
+}
+.result[data-code="ACCEPTED"] {
+  border-color: var(--cobalt);
+}
+.cameraPreview {
+  display: block !important;
+  position: relative;
+  width: 180px;
+  max-width: 100%;
+  height: 180px;
+  margin: 16px auto;
+  border: 2px solid var(--ink);
+  background: white;
+}
+.cameraPreview .video {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.cameraPreview[data-running="false"] .video {
+  opacity: 0;
+}
+.cameraIdle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 10px;
+  color: var(--ink);
+}
+.cameraIdle span {
+  font:
+    400 10px/1.4 var(--font-mono),
+    monospace;
+}
+.scan .gateStatus {
+  color: var(--cobalt);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+:global(#main-content) .desk .scan h2 {
+  font:
+    400 24px/1.05 var(--font-display),
+    Impact,
+    sans-serif;
+}
+.cameraOptions {
+  width: 100%;
+  font:
+    500 11px var(--font-mono),
+    monospace;
+}
+.cameraOptions summary {
+  cursor: pointer;
+  margin: 4px 0 10px;
+}
+.scan .controls {
+  flex-wrap: wrap;
+}
+.controls .result {
+  width: 100%;
+}
