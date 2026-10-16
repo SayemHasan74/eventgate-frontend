@@ -1,11 +1,13 @@
 "use client";
 import { clearOperationKeys } from "@/lib/operation-keys";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -29,17 +31,21 @@ type AuthContextValue = {
   setSession: (session: AuthSession) => void;
   clearSession: () => void;
   retrySession: () => Promise<void>;
+  acceptServerSession: (session: AuthSession) => void;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const pathname = usePathname();
   const [session, updateSession] = useState<AuthSession | null>(null);
   const [status, setStatus] = useState<State>("loading");
   const [accessDenied, setAccessDenied] = useState(false);
   const client = useQueryClient();
   const channel = useRef<BroadcastChannel | null>(null);
   const generation = useRef(0);
+  const bootstrapped = useRef(false);
+  const lastVerified = useRef(0);
   const currentIdentity = useRef<string | undefined>(undefined);
   const pending = useRef<Promise<void> | null>(null);
   const apply = useCallback(
@@ -70,6 +76,7 @@ export function AuthProvider({
         );
         if (version !== generation.current) return;
         apply(data.session);
+        lastVerified.current = Date.now();
       } catch (error) {
         if (version === generation.current) {
           if (error instanceof ApiError && error.status === 401) {
@@ -87,6 +94,19 @@ export function AuthProvider({
     pending.current = request;
     return request;
   }, [apply]);
+  const acceptServerSession = useCallback(
+    (next: AuthSession) => {
+      // Only hydrate the initial server-validated identity. Never revive a session
+      // after logout, another tab's auth change, or an explicit sign-in.
+      if (bootstrapped.current || generation.current !== 0) return;
+      bootstrapped.current = true;
+      generation.current += 1;
+      pending.current = null;
+      lastVerified.current = Date.now();
+      apply({ user: authUserSchema.parse(next.user) });
+    },
+    [apply],
+  );
   const broadcast = useCallback((type: "logout" | "changed") => {
     try {
       if (channel.current) channel.current.postMessage(type);
@@ -111,6 +131,7 @@ export function AuthProvider({
       pending.current = null;
       client.clear();
       resetCsrf();
+      lastVerified.current = Date.now();
       apply({ user: authUserSchema.parse(next.user) });
       broadcast("changed");
     },
@@ -160,14 +181,17 @@ export function AuthProvider({
       broadcast("logout");
     };
     const focus = () => {
-      if (document.visibilityState === "visible") void retrySession();
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastVerified.current > 15000
+      )
+        void retrySession();
     };
     window.addEventListener("storage", storage);
     window.addEventListener("eventgate-session-ended", ended);
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", focus);
     const timer = setInterval(focus, 60000);
-    void retrySession();
     return () => {
       clearInterval(timer);
       channel.current?.close();
@@ -178,6 +202,23 @@ export function AuthProvider({
       document.removeEventListener("visibilitychange", focus);
     };
   }, [apply, broadcast, client, retrySession]);
+  useEffect(() => {
+    const workspace = [
+      "account",
+      "orders",
+      "tickets",
+      "refunds",
+      "saved-events",
+      "waitlists",
+      "notifications",
+      "organizer",
+      "admin",
+    ].includes(pathname.split("/")[1]);
+    // Protected layouts stream their freshly validated identity. Starting another
+    // restore here would race that server work and delay every private query.
+    if (!workspace && !bootstrapped.current && lastVerified.current === 0)
+      void retrySession();
+  }, [pathname, retrySession]);
   const value = useMemo(
     () => ({
       isReady: status === "authenticated" || status === "anonymous",
@@ -186,8 +227,16 @@ export function AuthProvider({
       setSession,
       clearSession,
       retrySession,
+      acceptServerSession,
     }),
-    [status, session, setSession, clearSession, retrySession],
+    [
+      status,
+      session,
+      setSession,
+      clearSession,
+      retrySession,
+      acceptServerSession,
+    ],
   );
   return (
     <AuthContext.Provider value={value}>
@@ -221,4 +270,18 @@ export function useAuth() {
   const value = useContext(AuthContext);
   if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
+}
+
+export function ServerSessionBootstrap({
+  user,
+  children,
+}: {
+  user: AuthSession["user"];
+  children: React.ReactNode;
+}) {
+  const { acceptServerSession } = useAuth();
+  useLayoutEffect(() => {
+    acceptServerSession({ user });
+  }, [acceptServerSession, user]);
+  return children;
 }

@@ -1,3 +1,4 @@
+import { ServerSessionBootstrap } from "./auth-provider";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { currentSession, sessionIdentity } from "@/lib/server/browser-session";
@@ -54,5 +55,9 @@ export async function ProtectedLayout({
         <a href="/account">My account</a>
       </section>
     );
-  return <WorkspaceShell initialUser={user}>{children}</WorkspaceShell>;
+  return (
+    <ServerSessionBootstrap user={user}>
+      <WorkspaceShell initialUser={user}>{children}</WorkspaceShell>
+    </ServerSessionBootstrap>
+  );
 }

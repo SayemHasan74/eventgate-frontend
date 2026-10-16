@@ -199,7 +199,10 @@ export async function authenticatedFetch(
 export async function sessionIdentity(
   session: StoredSession,
 ): Promise<AuthUser> {
-  const response = await authenticatedFetch(session, "users/me");
+  let response = await authenticatedFetch(session, "users/me/identity");
+  // Permit frontend/backend rolling deployments in either order.
+  if (response.status === 404)
+    response = await authenticatedFetch(session, "users/me");
   if (!response.ok)
     throw new SessionError(
       response.status === 403 ? "FORBIDDEN" : "API_UNAVAILABLE",

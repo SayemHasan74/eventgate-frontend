@@ -75,7 +75,6 @@ export function AuthForm({ mode }: AuthFormProps) {
           : `Welcome back, ${session.user.displayName}.`,
       );
       router.push(safeNextPath(searchParams.get("next"), session.user.role));
-      router.refresh();
     } catch (error) {
       const message =
         error instanceof AuthApiError
@@ -102,7 +101,6 @@ export function AuthForm({ mode }: AuthFormProps) {
       setSession(session);
       toast.success(`Welcome, ${session.user.displayName}.`);
       router.push(safeNextPath(searchParams.get("next"), session.user.role));
-      router.refresh();
     } catch (error) {
       const message =
         error instanceof AuthApiError
@@ -122,7 +120,6 @@ export function AuthForm({ mode }: AuthFormProps) {
       setSession(session);
       toast.success(`Demo access: ${session.user.displayName}.`);
       router.push(safeNextPath(searchParams.get("next"), session.user.role));
-      router.refresh();
     } catch (error) {
       const message =
         error instanceof AuthApiError

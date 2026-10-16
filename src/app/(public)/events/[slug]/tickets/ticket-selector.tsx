@@ -95,7 +95,7 @@ export function TicketSelector({
       );
       clearBookingIntent();
       setCanRecover(false);
-      await invalidateMutation(queryClient, session.user.id, "order");
+      void invalidateMutation(queryClient, session.user.id, "order");
       router.push(`/orders/${order.id}`);
     } catch (error) {
       setNotice(
@@ -303,7 +303,7 @@ export function TicketSelector({
         session.user.id,
       );
       clearBookingIntent();
-      await invalidateMutation(queryClient, session.user.id, "order");
+      void invalidateMutation(queryClient, session.user.id, "order");
       toast.success("Tickets reserved for 15 minutes.");
       router.push(`/orders/${order.id}`);
     } catch (error) {

@@ -55,9 +55,15 @@ export function SaveEventButton({
     setPending(true);
     setMessage("");
     try {
-      if (saved) await removeSavedEvent(eventId);
-      else await saveEvent(eventId);
-      await invalidateMutation(client, session.user.id, "save");
+      const key = privateKey("saved-membership", session.user.id, eventId);
+      if (saved) {
+        await removeSavedEvent(eventId);
+        client.setQueryData(key, { ...query.data, saved: null });
+      } else {
+        const confirmed = await saveEvent(eventId);
+        client.setQueryData(key, confirmed);
+      }
+      void invalidateMutation(client, session.user.id, "save");
       setMessage(
         saved
           ? "Removed from saved events."
