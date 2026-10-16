@@ -130,6 +130,7 @@ export function EventPreferencesPanel({
 }: {
   compact?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(!compact);
   const { session, isReady } = useAuth();
   const userId = session?.user.id;
   const attendee = isReady && session?.user.role === "ATTENDEE";
@@ -137,7 +138,8 @@ export function EventPreferencesPanel({
   const query = useQuery({
     queryKey: privateKey("event-preferences", userId),
     queryFn: getEventPreferences,
-    enabled: !!attendee,
+    enabled: !!attendee && expanded,
+    refetchOnWindowFocus: false,
   });
   if (!attendee) return null;
   const content = query.isError ? (
@@ -159,7 +161,7 @@ export function EventPreferencesPanel({
   return (
     <div className={styles.preferences}>
       {compact ? (
-        <details>
+        <details onToggle={(event) => setExpanded(event.currentTarget.open)}>
           <summary>Tune your events</summary>
           {content}
         </details>

@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { ReadFailure } from "@/components/read-failure";
 import { AuthApiError, signOut } from "@/lib/auth-api";
-import { getProfile } from "@/lib/profile-api";
 import { getAccountOverview } from "@/lib/account-api";
 import { privateKey } from "@/lib/query-keys";
 import { formatMoney, formatEventDate } from "@/lib/format";
@@ -19,12 +18,6 @@ export function AccountDashboard() {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const attendee = session?.user.role === "ATTENDEE";
-  const profileQuery = useQuery({
-    queryKey: privateKey("users", session?.user.id, "me", {}),
-    queryFn: getProfile,
-    enabled: isReady && !!session,
-    retry: false,
-  });
   const overview = useQuery({
     queryKey: privateKey("overview", session?.user.id, "me", {}),
     queryFn: getAccountOverview,
@@ -75,8 +68,7 @@ export function AccountDashboard() {
             {session.user.role.toLowerCase()} account
           </p>
           <h1>
-            Hi,{" "}
-            <b>{profileQuery.data?.displayName ?? session.user.displayName}.</b>
+            Hi, <b>{session.user.displayName}.</b>
           </h1>
           <p>{session.user.email}</p>
         </div>
@@ -122,14 +114,6 @@ export function AccountDashboard() {
           </Link>
         )}
       </nav>
-      {profileQuery.isError && (
-        <ReadFailure
-          error={profileQuery.error}
-          retry={() => void profileQuery.refetch()}
-          fetching={profileQuery.isFetching}
-          next="/account"
-        />
-      )}
       {!attendee ? (
         <section className={styles.overviewPanel}>
           <h2>Your role workspace</h2>

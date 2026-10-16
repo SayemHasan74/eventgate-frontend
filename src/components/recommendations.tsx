@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-provider";
-import { usePageVisible } from "@/lib/use-page-visible";
 import { privateKey } from "@/lib/query-keys";
 import { getRecommendations } from "@/lib/recommendations-api";
 import { EventCard } from "./event-card";
@@ -12,19 +12,37 @@ import { Skeleton } from "./ui";
 import styles from "./recommendations.module.css";
 export function Recommendations() {
   const { session, isReady } = useAuth();
-  const visible = usePageVisible();
   const attendee = isReady && session?.user.role === "ATTENDEE";
+  const section = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(false);
+  useEffect(() => {
+    if (!section.current) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const frame = requestAnimationFrame(() => setNearViewport(true));
+      return () => cancelAnimationFrame(frame);
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(section.current);
+    return () => observer.disconnect();
+  }, [attendee]);
   const query = useQuery({
     queryKey: privateKey("recommendations", session?.user.id),
     queryFn: getRecommendations,
-    enabled: !!attendee,
-    staleTime: 0,
-    refetchInterval: visible ? 30000 : false,
+    enabled: !!attendee && nearViewport,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
   });
   if (!attendee) return null;
   return (
-    <div className={`${styles.section} wrap`}>
+    <div ref={section} className={`${styles.section} wrap`}>
       <div className={styles.header}>
         <div>
           <p className="eyebrow">Your next outing</p>
@@ -34,7 +52,7 @@ export function Recommendations() {
           Browse every event →
         </Link>
       </div>
-      <EventPreferencesPanel compact />
+      {nearViewport && <EventPreferencesPanel compact />}
       {query.isError ? (
         <ReadFailure
           error={query.error}
