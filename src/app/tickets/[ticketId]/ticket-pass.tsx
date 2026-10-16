@@ -158,7 +158,9 @@ export function TicketPass() {
                   {ticketQuery.isFetching
                     ? "Revalidating…"
                     : !ticket.canShowQr
-                      ? "QR blocked"
+                      ? ticket.effectiveAdmissionState === "ACTIVE"
+                        ? "QR opens before check-in"
+                        : admissionLabels[ticket.effectiveAdmissionState]
                       : qrQuery.isFetching
                         ? "Loading QR…"
                         : "QR stays private"}
@@ -166,8 +168,10 @@ export function TicketPass() {
                 <p>
                   {!ticket.canShowQr &&
                   ticket.effectiveAdmissionState === "ACTIVE"
-                    ? "Open the QR during the published check-in window."
-                    : "Only an eligible pass can expose its QR."}
+                    ? `Your booking is valid. Open your QR from ${formatEventDate(ticket.checkInWindow.opensAt)}. Entry starts at that time.`
+                    : !ticket.canShowQr
+                      ? admissionExplanations[ticket.effectiveAdmissionState]
+                      : "Select Show private QR to display your entry code. Keep it private."}
                 </p>
               </>
             )}
@@ -207,14 +211,19 @@ export function TicketPass() {
           <span>Ticket #{ticket.id.slice(0, 8)}</span>
         </footer>
       </div>
-      <button
-        className="button"
-        type="button"
-        disabled={!qr}
-        onClick={() => window.print()}
-      >
-        Print this ticket
-      </button>
+      {qr && (
+        <button className="button" type="button" onClick={() => window.print()}>
+          Print this ticket
+        </button>
+      )}
+      {ticket.effectiveAdmissionState === "REFUNDED" && (
+        <p>
+          This is a historical record of a refunded booking.{" "}
+          <Link className="text-link" href="/events">
+            Browse events for a new booking →
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

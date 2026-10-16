@@ -42,16 +42,6 @@ const options: Array<[keyof PreferenceFields, string, string]> = [
     "Waitlist availability alerts",
     "Sold-out tier stock alerts; alerts never reserve tickets.",
   ],
-  [
-    "marketingEmail",
-    "Marketing email consent",
-    "Off by default. This does not subscribe you to a campaign.",
-  ],
-  [
-    "personalizedEmail",
-    "Personalized email consent",
-    "Off by default. No personalized email campaign is currently running.",
-  ],
 ];
 function SettingsForm({
   preferences,
@@ -60,6 +50,9 @@ function SettingsForm({
   preferences: Preferences;
   onSaved: () => Promise<unknown>;
 }) {
+  const { session } = useAuth();
+  const emailUsable =
+    preferences.emailAvailable && !session?.user.isQuickAccess;
   const form = useForm<PreferenceFields>({
     resolver: zodResolver(preferenceFields),
     defaultValues: preferenceFields.parse(preferences),
@@ -114,7 +107,13 @@ function SettingsForm({
       {!preferences.emailAvailable && (
         <p role="status">{preferences.emailConfigurationMessage}</p>
       )}
-      {!preferences.emailVerifiedAt && (
+      {session?.user.isQuickAccess && (
+        <p>
+          Email delivery and verification are disabled for this shared account.
+          In-app updates still work.
+        </p>
+      )}
+      {!preferences.emailVerifiedAt && !session?.user.isQuickAccess && (
         <Button
           disabled={
             !preferences.emailAvailable ||
@@ -135,16 +134,18 @@ function SettingsForm({
         <fieldset disabled={verifying || form.formState.isSubmitting}>
           <legend>Channels and update categories</legend>
           <div className={styles.options}>
-            {options.map(([name, label, hint]) => (
-              <label key={name}>
-                <input type="checkbox" {...form.register(name)} />
-                <span>
-                  <strong>{label}</strong>
-                  <br />
-                  <small>{hint}</small>
-                </span>
-              </label>
-            ))}
+            {options
+              .filter(([name]) => name !== "emailEnabled" || emailUsable)
+              .map(([name, label, hint]) => (
+                <label key={name}>
+                  <input type="checkbox" {...form.register(name)} />
+                  <span>
+                    <strong>{label}</strong>
+                    <br />
+                    <small>{hint}</small>
+                  </span>
+                </label>
+              ))}
           </div>
           <Button
             type="submit"

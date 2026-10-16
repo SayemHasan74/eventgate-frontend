@@ -42,6 +42,7 @@ export function EventActions({
     try {
       if (navigator.share) {
         await navigator.share({ title: event.title, text: event.title, url });
+        setMessage("Event shared.");
         return;
       }
       await navigator.clipboard.writeText(url);

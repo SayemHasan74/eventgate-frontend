@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -108,20 +109,23 @@ function PreferenceForm({
           )}
         </fieldset>
         <p>
-          Ranking uses only these choices and categories of your saved upcoming
-          events: category +4, city +3, saved category +2, starts within 14 days
-          +1. Ties use event date, then ID. No payment or contact history is
-          used.
+          These choices personalize event suggestions on your Overview and the
+          homepage. They do not filter Browse events or reserve tickets. If
+          nothing matches, we show upcoming events and explain why.
         </p>
         <p>
-          Switch personalization off for chronological upcoming events. These
-          settings do not subscribe you to email.
+          Matching categories and cities appear first, alongside events similar
+          to your saved events. Turn personalization off to sort by event date.
+          These settings do not subscribe you to email.
         </p>
         <Button type="submit" variant="primary">
           {form.formState.isSubmitting ? "Saving…" : "Save event preferences"}
         </Button>
       </fieldset>
       {message && <p role="status">{message}</p>}
+      <Link className="text-link" href="/account#recommended-events">
+        View your event suggestions →
+      </Link>
     </form>
   );
 }

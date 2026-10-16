@@ -32,6 +32,7 @@ export const getRecommendations = () =>
     z.object({
       heading: z.enum(["Chosen for you", "Upcoming events"]),
       personalized: z.boolean(),
+      explanation: z.string().optional(),
       serverTime: z.iso.datetime({ offset: true }),
       events: z
         .array(

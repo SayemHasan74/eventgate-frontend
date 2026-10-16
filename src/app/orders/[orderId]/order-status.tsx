@@ -24,7 +24,8 @@ export function OrderStatus({ orderId }: { orderId: string }) {
     queryFn: () => getOrder(orderId),
     enabled: isReady && session?.user.role === "ATTENDEE",
     retry: false,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const refetch = query.refetch;
   const refresh = useCallback(() => {

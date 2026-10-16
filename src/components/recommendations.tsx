@@ -29,6 +29,13 @@ export function Recommendations({
   const [nearViewport, setNearViewport] = useState(false);
   useEffect(() => {
     if (!active || !section.current) return;
+    if (window.location.hash === "#recommended-events") {
+      const frame = requestAnimationFrame(() => {
+        section.current?.scrollIntoView({ block: "start" });
+        setNearViewport(true);
+      });
+      return () => cancelAnimationFrame(frame);
+    }
     if (typeof IntersectionObserver === "undefined") {
       const frame = requestAnimationFrame(() => setNearViewport(true));
       return () => cancelAnimationFrame(frame);
@@ -54,7 +61,11 @@ export function Recommendations({
   });
   if (!attendee) return null;
   return (
-    <div ref={section} className={`${styles.section} wrap`}>
+    <div
+      id="recommended-events"
+      ref={section}
+      className={`${styles.section} wrap`}
+    >
       <div className={styles.header}>
         <div>
           <p className="eyebrow">Your next outing</p>
@@ -64,6 +75,7 @@ export function Recommendations({
           Browse every event →
         </Link>
       </div>
+      {query.data?.explanation && <p role="status">{query.data.explanation}</p>}
       {nearViewport && <EventPreferencesPanel compact />}
       {query.isError ? (
         <ReadFailure

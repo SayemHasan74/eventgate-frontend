@@ -48,7 +48,7 @@ export function CheckoutPanel({
   const profileQuery = useQuery({
     queryKey: privateKey("users", session?.user.id, "me", {}),
     queryFn: getProfile,
-    enabled: isReady && !!session,
+    enabled: isReady && !!session && payable,
     retry: false,
   });
   const status =
@@ -140,7 +140,11 @@ export function CheckoutPanel({
         <div>
           <p>Payment and checkout profile</p>
           <h2>
-            {order.status === "PAID" ? "Payment confirmed" : "Secure payment"}
+            {order.status === "PAID"
+              ? "Payment confirmed"
+              : payable
+                ? "Secure payment"
+                : "Payment status"}
           </h2>
         </div>
       </div>
@@ -196,86 +200,87 @@ export function CheckoutPanel({
           automatic payment retry.
         </p>
       )}
-      {profileQuery.isLoading ? (
-        <p>
-          <LoaderCircle className={styles.spinner} size={20} /> Loading your
-          checkout profile…
-        </p>
-      ) : profileQuery.isError || !profile ? (
-        <div>
-          <p role="alert">Your checkout profile could not load.</p>
-          <button
-            className="button"
-            type="button"
-            disabled={profileQuery.isFetching}
-            onClick={() => void profileQuery.refetch()}
-          >
-            Retry profile
-          </button>
-        </div>
-      ) : (
-        <div className={styles.ready}>
-          <h3>Contact details for payment</h3>
-          {!session?.user.isQuickAccess && (isEditing || !profileValid) ? (
-            <ProfileForm
-              key={profile.id}
-              profile={profile}
-              checkout
-              onSaved={() => setIsEditing(false)}
-              onCancel={() => setIsEditing(false)}
-            />
-          ) : (
-            <>
-              <p>
-                {profile.phone} · {profile.address}, {profile.city},{" "}
-                {profile.postalCode}, {profile.country}
-              </p>
-              {!session?.user.isQuickAccess && (
-                <button
-                  className={styles.edit}
-                  type="button"
-                  disabled={isStarting}
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Pencil size={14} /> Edit profile independently
-                </button>
-              )}
-              {session?.user.isQuickAccess && (
-                <p>
-                  Shared access uses the saved fictional checkout details.
-                  Contact changes are disabled.
-                </p>
-              )}
-            </>
-          )}
-          <button
-            className="button button-primary"
-            type="button"
-            disabled={!canStart || isStarting}
-            onClick={() => void beginCheckout()}
-          >
-            {isStarting ? (
-              <LoaderCircle className={styles.spinner} size={16} />
+      {payable &&
+        (profileQuery.isLoading ? (
+          <p>
+            <LoaderCircle className={styles.spinner} size={20} /> Loading your
+            checkout profile…
+          </p>
+        ) : profileQuery.isError || !profile ? (
+          <div>
+            <p role="alert">Your checkout profile could not load.</p>
+            <button
+              className="button"
+              type="button"
+              disabled={profileQuery.isFetching}
+              onClick={() => void profileQuery.refetch()}
+            >
+              Retry profile
+            </button>
+          </div>
+        ) : (
+          <div className={styles.ready}>
+            <h3>Contact details for payment</h3>
+            {!session?.user.isQuickAccess && (isEditing || !profileValid) ? (
+              <ProfileForm
+                key={profile.id}
+                profile={profile}
+                checkout
+                onSaved={() => setIsEditing(false)}
+                onCancel={() => setIsEditing(false)}
+              />
             ) : (
-              <CreditCard size={16} />
+              <>
+                <p>
+                  {profile.phone} · {profile.address}, {profile.city},{" "}
+                  {profile.postalCode}, {profile.country}
+                </p>
+                {!session?.user.isQuickAccess && (
+                  <button
+                    className={styles.edit}
+                    type="button"
+                    disabled={isStarting}
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil size={14} /> Edit profile independently
+                  </button>
+                )}
+                {session?.user.isQuickAccess && (
+                  <p>
+                    Shared access uses the saved fictional checkout details.
+                    Contact changes are disabled.
+                  </p>
+                )}
+              </>
             )}
-            {isStarting
-              ? "Checking existing checkout…"
-              : status === "PENDING"
-                ? "Resume existing checkout"
-                : terminalFailure
-                  ? "Start a new payment attempt"
-                  : "Pay with SSLCommerz"}
-          </button>
-          {!profileValid && (
-            <p role="status">
-              {session?.user.isQuickAccess
-                ? "Shared checkout details need administrator repair. Use your own attendee account meanwhile."
-                : "Complete and save valid contact details before paying. Failed saves keep your entered values."}
-            </p>
-          )}
-        </div>
-      )}
+            <button
+              className="button button-primary"
+              type="button"
+              disabled={!canStart || isStarting}
+              onClick={() => void beginCheckout()}
+            >
+              {isStarting ? (
+                <LoaderCircle className={styles.spinner} size={16} />
+              ) : (
+                <CreditCard size={16} />
+              )}
+              {isStarting
+                ? "Checking existing checkout…"
+                : status === "PENDING"
+                  ? "Resume existing checkout"
+                  : terminalFailure
+                    ? "Start a new payment attempt"
+                    : "Pay with SSLCommerz"}
+            </button>
+            {!profileValid && (
+              <p role="status">
+                {session?.user.isQuickAccess
+                  ? "Shared checkout details need administrator repair. Use your own attendee account meanwhile."
+                  : "Complete and save valid contact details before paying. Failed saves keep your entered values."}
+              </p>
+            )}
+          </div>
+        ))}
     </section>
   );
 }
