@@ -6,6 +6,8 @@ import { Suspense, useState } from "react";
 import { NavigationHistory } from "./navigation-history";
 import { Toaster } from "sonner";
 
+import { EventAi } from "./event-ai";
+
 import { AuthProvider } from "@/components/auth-provider";
 
 type ProvidersProps = Readonly<{ children: React.ReactNode }>;
@@ -26,6 +28,7 @@ export function Providers({ children }: ProvidersProps) {
             <NavigationHistory />
           </Suspense>
           {children}
+          <EventAi />
         </AuthProvider>
         <Toaster richColors position="top-right" />
       </QueryClientProvider>

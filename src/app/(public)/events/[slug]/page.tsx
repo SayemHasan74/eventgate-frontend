@@ -1,4 +1,3 @@
-import { EventAi } from "@/components/event-ai";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
@@ -87,7 +86,6 @@ function EventDetails({ event }: { event: PublicEvent }) {
               </a>
             </div>
           </section>
-          <EventAi slug={event.slug} />
           <section className={styles.panel} aria-labelledby="about-heading">
             <h2 id="about-heading">About this event</h2>
             <p className={styles.description}>{event.description}</p>

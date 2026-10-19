@@ -1,4 +1,3 @@
-import { EventAi } from "@/components/event-ai";
 import Form from "next/form";
 import Link from "next/link";
 import { discoveryFilterSchema, nonEmptyParams } from "@/lib/filter-schemas";
@@ -150,7 +149,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </p>
         </header>
 
-        <EventAi />
         <Form
           scroll={false}
           className={[styles["event-filters"]].join(" ")}
