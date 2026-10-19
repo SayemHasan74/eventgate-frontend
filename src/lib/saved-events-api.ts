@@ -100,7 +100,12 @@ export function getSavedMembership(eventId: string, userId: string) {
           })
           .catch((error) => {
             // Support frontend/backend rolling deployments without hiding real server failures.
-            if (error instanceof ApiError && error.status === 404) {
+            if (
+              error instanceof ApiError &&
+              (error.status === 404 ||
+                (error.status === 400 &&
+                  error.errors.some((issue) => issue.field === "eventId")))
+            ) {
               for (const request of group)
                 void apiClient(
                   `/api/saved-events/${request.eventId}`,
