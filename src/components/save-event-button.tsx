@@ -31,7 +31,7 @@ export function SaveEventButton({
   const [initialNow] = useState(() => Date.now());
   const query = useQuery({
     queryKey: privateKey("saved-membership", session?.user.id, eventId),
-    queryFn: () => getSavedMembership(eventId),
+    queryFn: () => getSavedMembership(eventId, session!.user.id),
     enabled: isReady && session?.user.role === "ATTENDEE",
     staleTime: 30000,
     retry: false,

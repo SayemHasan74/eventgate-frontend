@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import featureStyles from "@/components/auth-styles.module.css";
 import { z } from "zod";
 import { apiClient } from "@/lib/api-client";
@@ -36,6 +37,20 @@ export function GoogleSignIn({
   onUnavailable?: () => void;
 }>) {
   const button = useRef<HTMLDivElement>(null);
+  const callbacks = useRef({ onCredential, onUnavailable });
+  useLayoutEffect(() => {
+    callbacks.current = { onCredential, onUnavailable };
+  }, [onCredential, onUnavailable]);
+  const config = useQuery({
+    queryKey: ["google-sign-in-config"],
+    queryFn: () =>
+      apiClient(
+        "/api/auth/google/config",
+        z.object({ enabled: z.boolean(), clientId: z.string().optional() }),
+      ),
+    staleTime: 300000,
+    retry: false,
+  });
   const busy = useRef(disabled);
   useEffect(() => {
     busy.current = disabled;
@@ -43,18 +58,18 @@ export function GoogleSignIn({
   const [isAvailable, setIsAvailable] = useState(true);
 
   useEffect(() => {
+    if (!config.data && !config.isError) return;
     let active = true;
+    let detach: (() => void) | undefined;
     const load = async () => {
       try {
-        const config = await apiClient(
-          "/api/auth/google/config",
-          z.object({ enabled: z.boolean(), clientId: z.string().optional() }),
-        );
-        const clientId = config.enabled ? config.clientId : undefined;
+        const clientId = config.data?.enabled
+          ? config.data.clientId
+          : undefined;
         if (!clientId || !button.current || !active) {
           if (active) {
             setIsAvailable(false);
-            onUnavailable?.();
+            callbacks.current.onUnavailable?.();
           }
           return;
         }
@@ -65,7 +80,7 @@ export function GoogleSignIn({
             callback: (credential) =>
               !busy.current &&
               credential.credential &&
-              onCredential(credential.credential),
+              callbacks.current.onCredential(credential.credential),
           });
           button.current.replaceChildren();
           window.google.accounts.id.renderButton(button.current, {
@@ -80,33 +95,40 @@ export function GoogleSignIn({
           'script[src="https://accounts.google.com/gsi/client"]',
         );
         if (window.google) render();
-        else if (existing)
+        else if (existing) {
           existing.addEventListener("load", render, { once: true });
-        else {
+          detach = () => existing.removeEventListener("load", render);
+        } else {
           const script = document.createElement("script");
           script.src = "https://accounts.google.com/gsi/client";
           script.async = true;
-          script.onload = render;
-          script.onerror = () => {
+          const failed = () => {
             if (active) {
               setIsAvailable(false);
-              onUnavailable?.();
+              callbacks.current.onUnavailable?.();
             }
+          };
+          script.addEventListener("load", render, { once: true });
+          script.addEventListener("error", failed, { once: true });
+          detach = () => {
+            script.removeEventListener("load", render);
+            script.removeEventListener("error", failed);
           };
           document.head.append(script);
         }
       } catch {
         if (active) {
           setIsAvailable(false);
-          onUnavailable?.();
+          callbacks.current.onUnavailable?.();
         }
       }
     };
     void load();
     return () => {
       active = false;
+      detach?.();
     };
-  }, [onCredential, onUnavailable]);
+  }, [config.data, config.isError]);
 
   if (!isAvailable) return null;
   return (

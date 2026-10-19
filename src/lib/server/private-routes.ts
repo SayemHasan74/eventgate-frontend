@@ -6,6 +6,7 @@ const routes: Array<[string, string]> = [
   ["GET|PUT|DELETE", `events/${id}/ticket-tiers/${id}/waitlist`],
   ["GET", "users/me/waitlists"],
   ["GET", "saved-events"],
+  ["GET", "saved-events/memberships"],
   ["GET|PUT|DELETE", `saved-events/${id}`],
   ["GET", "notifications"],
   ["PATCH", `notifications/${id}/read`],
