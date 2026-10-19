@@ -51,6 +51,7 @@ export type EventDiscoveryQuery = {
   search?: string;
   category?: string;
   city?: string;
+  maxPricePaisa?: number;
   startAfter?: string;
   startBefore?: string;
   sort: "soonest" | "latest" | "newest" | "title";
@@ -78,6 +79,8 @@ export async function getPublicEvents(
     sort: query.sort,
   });
 
+  if (query.maxPricePaisa !== undefined)
+    parameters.set("maxPricePaisa", String(query.maxPricePaisa));
   if (query.search) parameters.set("search", query.search);
   if (query.category) parameters.set("category", query.category);
   if (query.city) parameters.set("city", query.city);

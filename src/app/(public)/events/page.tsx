@@ -1,7 +1,13 @@
+import { EventAi } from "@/components/event-ai";
 import Form from "next/form";
 import Link from "next/link";
 import { discoveryFilterSchema, nonEmptyParams } from "@/lib/filter-schemas";
-import { dhakaDayBounds, dhakaWeekend, utcToDhakaLocal } from "@/lib/format";
+import {
+  formatMoney,
+  dhakaDayBounds,
+  dhakaWeekend,
+  utcToDhakaLocal,
+} from "@/lib/format";
 import { DebouncedSearchInput } from "@/components/url-filters";
 import styles from "./events.module.css";
 import type { Metadata } from "next";
@@ -35,6 +41,7 @@ const sortOptions = [
 
 const filterLabels: Record<string, string> = {
   search: "Search",
+  maxPricePaisa: "Maximum tier price",
   city: "City",
   category: "Category",
   startDate: "From",
@@ -45,6 +52,16 @@ const filterLabels: Record<string, string> = {
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const rawQuery = await searchParams;
   const draft = nonEmptyParams(rawQuery);
+  if ("budgetBdt" in rawQuery) {
+    const budget = rawQuery.budgetBdt;
+    delete draft.budgetBdt;
+    delete draft.maxPricePaisa;
+    if (typeof budget === "string" && budget.trim()) {
+      draft.maxPricePaisa = /^\d+(\.\d{1,2})?$/.test(budget.trim())
+        ? String(Math.round(Number(budget) * 100))
+        : "invalid";
+    }
+  }
   const parsed = discoveryFilterSchema.safeParse(draft);
   const field = (name: string) => {
     const errors = parsed.success
@@ -74,6 +91,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     page: filters.page,
     limit: 12,
     search: filters.search,
+    maxPricePaisa: filters.maxPricePaisa,
     city: filters.city,
     category: filters.category,
     sort: filters.sort,
@@ -132,6 +150,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </p>
         </header>
 
+        <EventAi />
         <Form
           scroll={false}
           className={[styles["event-filters"]].join(" ")}
@@ -180,6 +199,23 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               ))}
             </datalist>
             {fieldError("category")}
+          </label>
+          <label>
+            <span>Maximum tier price (BDT)</span>
+            <input
+              key={String(draft.maxPricePaisa ?? "")}
+              type="number"
+              min="0"
+              max="1000000"
+              step="0.01"
+              name="budgetBdt"
+              defaultValue={
+                filters.maxPricePaisa !== undefined
+                  ? filters.maxPricePaisa / 100
+                  : ""
+              }
+            />
+            {fieldError("maxPricePaisa")}
           </label>
           <label>
             <span>Sort</span>
@@ -243,7 +279,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 {key === "sort"
                   ? (sortOptions.find((option) => option.value === value)
                       ?.label ?? String(value))
-                  : String(value)}{" "}
+                  : key === "maxPricePaisa"
+                    ? formatMoney(Number(value))
+                    : String(value)}{" "}
                 ×
               </Link>
             ))}

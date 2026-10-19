@@ -94,6 +94,7 @@ export const adminRecordFilterSchema = listFilterSchema
 export const discoveryFilterSchema = listFilterSchema
   .omit({ status: true })
   .extend({
+    maxPricePaisa: z.coerce.number().int().min(0).max(100_000_000).optional(),
     city: optionalText(100),
     category: optionalText(80),
     sort: z.enum(["soonest", "latest", "newest", "title"]).default("soonest"),

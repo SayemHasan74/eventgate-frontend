@@ -1,3 +1,4 @@
+import { EventAi } from "@/components/event-ai";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
@@ -86,6 +87,7 @@ function EventDetails({ event }: { event: PublicEvent }) {
               </a>
             </div>
           </section>
+          <EventAi slug={event.slug} />
           <section className={styles.panel} aria-labelledby="about-heading">
             <h2 id="about-heading">About this event</h2>
             <p className={styles.description}>{event.description}</p>
@@ -102,7 +104,10 @@ function EventDetails({ event }: { event: PublicEvent }) {
             {event.ticketTiers.length ? (
               <ul className={styles.list}>
                 {event.ticketTiers.map((tier) => {
-                  const state = event.status && event.status !== "PUBLISHED" ? "CLOSED" : tierSaleState(tier, event.startAt);
+                  const state =
+                    event.status && event.status !== "PUBLISHED"
+                      ? "CLOSED"
+                      : tierSaleState(tier, event.startAt);
                   return (
                     <li
                       className={styles.tier}
