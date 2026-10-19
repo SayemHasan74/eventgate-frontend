@@ -172,3 +172,7 @@
     animation: none;
   }
 }
+/* Pink actions retain dark ink in both themes for readable text contrast. */
+.panel :global(.button-primary) {
+  color: #15163a;
+}
