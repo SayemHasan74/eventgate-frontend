@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { useUrlFilters } from "@/components/url-filters";
+import { useUrlFilters, QueryFilterForm } from "@/components/url-filters";
 import { adminRecordFilterSchema } from "@/lib/filter-schemas";
 import { adminDateParams, adminAuditSchema } from "@/lib/admin-workflow-api";
 import { apiList } from "@/lib/api-client";
@@ -52,12 +52,15 @@ const eventSchema = z.object({
 async function records(
   kind: Kind,
   params: URLSearchParams,
+  signal?: AbortSignal,
 ): Promise<{
   rows: Array<{ id: string; cells: ReactNode[] }>;
   meta: { page: number; limit: number; total: number; totalPages: number };
 }> {
   if (kind === "events") {
-    const result = await apiList(`/api/admin/events?${params}`, eventSchema);
+    const result = await apiList(`/api/admin/events?${params}`, eventSchema, {
+      signal,
+    });
     return {
       meta: result.meta,
       rows: result.data.map((row) => ({
@@ -80,6 +83,7 @@ async function records(
     const result = await apiList(
       `/api/admin/payments?${params}`,
       paymentAttemptSchema,
+      { signal },
     );
     return {
       meta: result.meta,
@@ -102,6 +106,7 @@ async function records(
   const result = await apiList(
     `/api/admin/reports/audit-logs?${params}`,
     adminAuditSchema,
+    { signal },
   );
   return {
     meta: result.meta,
@@ -146,7 +151,7 @@ export function AdminRecordList({ kind }: { kind: Kind }) {
     queryKey: privateKey(`admin-${kind}`, session?.user.id, "list", {
       query: params.toString(),
     }),
-    queryFn: () => records(kind, params),
+    queryFn: ({ signal }) => records(kind, params, signal),
     enabled: session?.user.role === "ADMIN" && filters.valid,
     retry: false,
   });
@@ -172,7 +177,7 @@ export function AdminRecordList({ kind }: { kind: Kind }) {
             ? "Inspect provider verification and captured-money identity. Unknown is not confirmed paid."
             : "Exact action/actor/entity filters; detail records omit credentials and raw callback payloads."}
       </p>
-      <form method="GET" key={JSON.stringify(values)}>
+      <QueryFilterForm key={JSON.stringify(values)}>
         <input type="hidden" name="page" value="1" />
         <FilterBar>
           <Field label={kind === "audit-logs" ? "Exact action" : "Search"}>
@@ -218,7 +223,7 @@ export function AdminRecordList({ kind }: { kind: Kind }) {
           </Field>
           <Button type="submit">Apply</Button>
         </FilterBar>
-      </form>
+      </QueryFilterForm>
       <Link href={`/admin/${kind}`}>Clear filters</Link>
       {!filters.valid ? (
         <p role="alert">{filters.error}</p>

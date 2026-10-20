@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Form from "next/form";
 import Link from "next/link";
 import { discoveryFilterSchema, nonEmptyParams } from "@/lib/filter-schemas";
@@ -19,6 +20,7 @@ import {
   getPublicEvents,
   getPublicFacets,
   type EventDiscoveryQuery,
+  type EventDiscoveryResult,
 } from "@/lib/eventgate-api";
 
 export const metadata: Metadata = {
@@ -101,12 +103,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       ? dhakaDayBounds(filters.endDate).end
       : undefined,
   };
-  const [result, facets] = await Promise.all([
-    parsed.success ? getPublicEvents(query) : Promise.resolve(null),
-    getPublicFacets(),
-  ]);
-  const cities = facets.status === "ready" ? facets.cities : [];
-  const categories = facets.status === "ready" ? facets.categories : [];
+  const result = parsed.success
+    ? getPublicEvents(query)
+    : Promise.resolve(null);
   const href = (
     page: number,
     overrides: Record<string, string | undefined> = {},
@@ -176,9 +175,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               placeholder="Any city"
             />
             <datalist id="discovery-cities">
-              {cities.map((city) => (
-                <option key={city} value={city} />
-              ))}
+              <Suspense fallback={null}>
+                <FacetOptions kind="cities" />
+              </Suspense>
             </datalist>
             {fieldError("city")}
           </label>
@@ -192,9 +191,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               placeholder="Any category"
             />
             <datalist id="discovery-categories">
-              {categories.map((category) => (
-                <option key={category} value={category} />
-              ))}
+              <Suspense fallback={null}>
+                <FacetOptions kind="categories" />
+              </Suspense>
             </datalist>
             {fieldError("category")}
           </label>
@@ -289,78 +288,108 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           Availability updated recently. Listings may be cached for up to 60
           seconds; reservation checks use fresh stock.
         </p>
-        {facets.status === "unavailable" && (
-          <p role="status">
-            City/category suggestions are unavailable. You can still enter
-            filters directly.
-          </p>
-        )}
+        <Suspense fallback={null}>
+          <FacetStatus />
+        </Suspense>
         {!parsed.success ? (
           <p role="alert">
             {parsed.error.issues
               .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
               .join(" ")}
           </p>
-        ) : !result || result.status === "unavailable" ? (
-          <EmptyState
-            title="The listings are taking a breath."
-            description="The events service could not be reached. Your filters and navigation still work."
-            action={<PublicRetry />}
-          />
-        ) : result.meta.page > Math.max(1, result.meta.totalPages) ? (
-          <EmptyState
-            title="That result page is no longer available."
-            description="The matching programme has changed. Return to page one with your current filters."
-            action={
-              <Link className="button" href={href(1)}>
-                Reset to page one
-              </Link>
-            }
-          />
-        ) : result.events.length === 0 ? (
-          <EmptyState
-            title="No events match this search."
-            description="Try a broader search, another city, or clear a filter to see every published event."
-            action={
-              <Link href="/events" className="button">
-                Clear all filters
-              </Link>
-            }
-          />
         ) : (
-          <>
-            <div className={[styles["event-results-bar"]].join(" ")}>
-              <p>
-                <b>{result.meta.total}</b> published{" "}
-                {result.meta.total === 1 ? "event" : "events"}
-              </p>
-              <span>
-                Page {result.meta.page} of {result.meta.totalPages}
-              </span>
-            </div>
-            <section
-              className={[styles["event-list"]].join(" ")}
-              aria-label="Published events"
-            >
-              {result.events.map((event) => (
-                <EventCard event={event} key={event.id} />
-              ))}
-            </section>
-            <nav aria-label="Event pages">
-              {result.meta.page > 1 && (
-                <Link className="button" href={href(result.meta.page - 1)}>
-                  Previous
-                </Link>
-              )}
-              {result.meta.page < result.meta.totalPages && (
-                <Link className="button" href={href(result.meta.page + 1)}>
-                  Next
-                </Link>
-              )}
-            </nav>
-          </>
+          <Suspense fallback={<p role="status">Loading matching events…</p>}>
+            <EventResults result={result} href={href} />
+          </Suspense>
         )}
       </main>
+    </>
+  );
+}
+
+async function FacetOptions({ kind }: { kind: "cities" | "categories" }) {
+  const facets = await getPublicFacets();
+  return facets.status === "ready"
+    ? facets[kind].map((value) => <option key={value} value={value} />)
+    : null;
+}
+async function FacetStatus() {
+  const facets = await getPublicFacets();
+  return facets.status === "unavailable" ? (
+    <p role="status">
+      City/category suggestions are unavailable. You can still enter filters
+      directly.
+    </p>
+  ) : null;
+}
+async function EventResults({
+  result: pending,
+  href,
+}: {
+  result: Promise<EventDiscoveryResult | null>;
+  href: (
+    page: number,
+    overrides?: Record<string, string | undefined>,
+  ) => string;
+}) {
+  const result = await pending;
+  return !result || result.status === "unavailable" ? (
+    <EmptyState
+      title="The listings are taking a breath."
+      description="The events service could not be reached. Your filters and navigation still work."
+      action={<PublicRetry />}
+    />
+  ) : result.meta.page > Math.max(1, result.meta.totalPages) ? (
+    <EmptyState
+      title="That result page is no longer available."
+      description="The matching programme has changed. Return to page one with your current filters."
+      action={
+        <Link className="button" href={href(1)}>
+          Reset to page one
+        </Link>
+      }
+    />
+  ) : result.events.length === 0 ? (
+    <EmptyState
+      title="No events match this search."
+      description="Try a broader search, another city, or clear a filter to see every published event."
+      action={
+        <Link href="/events" className="button">
+          Clear all filters
+        </Link>
+      }
+    />
+  ) : (
+    <>
+      <div className={[styles["event-results-bar"]].join(" ")}>
+        <p>
+          <b>{result.meta.total}</b> published{" "}
+          {result.meta.total === 1 ? "event" : "events"}
+        </p>
+        <span>
+          Page {result.meta.page} of {result.meta.totalPages}
+        </span>
+      </div>
+      <section
+        className={[styles["event-list"]].join(" ")}
+        aria-label="Published events"
+      >
+        {result.events.map((event, index) => (
+          <EventCard event={event} key={event.id} priority={index < 3} />
+        ))}
+      </section>
+      <nav aria-label="Event pages">
+        {result.meta.page > 1 && (
+          <Link className="button" href={href(result.meta.page - 1)}>
+            Previous
+          </Link>
+        )}
+        {result.meta.page < result.meta.totalPages && (
+          <Link className="button" href={href(result.meta.page + 1)}>
+            Next
+          </Link>
+        )}
+      </nav>
     </>
   );
 }

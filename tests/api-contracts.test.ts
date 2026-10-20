@@ -19,8 +19,79 @@ import {
 import { isPrivateRouteAllowed } from "../src/lib/server/private-routes";
 import { apiClient, apiList, jsonBody } from "../src/lib/api-client";
 import { resetCsrf } from "../src/lib/session-fetch";
+import { eventImageSources } from "../src/lib/event-image";
+import { getSavedEvents } from "../src/lib/saved-events-api";
 
 const id = "123e4567-e89b-42d3-a456-426614174000";
+test("responsive covers preserve CDN tracking and leave arbitrary or signed URLs unchanged", () => {
+  const sources = eventImageSources(
+    "https://images.unsplash.com/photo-fixture?w=1200&ixid=tracking&dpr=2&fit=crop",
+  );
+  assert.ok(sources.srcSet);
+  const candidates = sources.srcSet.split(", ");
+  assert.equal(candidates.length, 6);
+  for (const candidate of candidates) {
+    const [src, descriptor] = candidate.split(" ");
+    const url = new URL(src);
+    assert.equal(url.searchParams.get("ixid"), "tracking");
+    assert.equal(url.searchParams.get("fit"), "crop");
+    assert.equal(url.searchParams.has("dpr"), false);
+    assert.equal(descriptor, url.searchParams.get("w") + "w");
+  }
+  for (const src of [
+    "https://organizer.test/cover.jpg?signature=abc",
+    "https://images.unsplash.com/photo-fixture?s=signed",
+    "https://images.unsplash.com/photo-fixture?h=500",
+    "https://images.unsplash.com.evil.test/cover.jpg",
+    "invalid",
+  ])
+    assert.deepEqual(eventImageSources(src), {});
+});
+
+test("abandoned filtered requests abort the transport while retaining a bounded deadline", async () => {
+  const previous = globalThis.fetch;
+  const controller = new AbortController();
+  let observed: AbortSignal | undefined;
+  globalThis.fetch = async (_input, init) => {
+    observed = init?.signal ?? undefined;
+    return new Promise((_resolve, reject) => {
+      observed!.addEventListener("abort", () => reject(observed!.reason), {
+        once: true,
+      });
+    });
+  };
+  try {
+    const pending = getSavedEvents(
+      new URLSearchParams({ page: "2" }),
+      controller.signal,
+    );
+    assert.ok(observed);
+    assert.notEqual(observed, controller.signal);
+    controller.abort();
+    await assert.rejects(
+      pending,
+      (error: unknown) =>
+        error instanceof ApiError && error.code === "API_TIMEOUT",
+    );
+    assert.equal(observed.aborted, true);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("saving one card keeps other card memberships fresh and isolates attendees", async () => {
+  const client = new QueryClient();
+  const one = privateKey("saved-membership", "attendee", "one");
+  const two = privateKey("saved-membership", "attendee", "two");
+  const other = privateKey("saved-membership", "another-attendee", "one");
+  for (const key of [one, two, other])
+    client.setQueryData(key, { saved: null });
+  await invalidatePrivate(client, "attendee", ["saved-membership"], "one");
+  assert.equal(client.getQueryState(one)?.isInvalidated, true);
+  assert.equal(client.getQueryState(two)?.isInvalidated, false);
+  assert.equal(client.getQueryState(other)?.isInvalidated, false);
+  client.clear();
+});
 test("checkout accepts a processing outcome without a navigation URL and binds its lookup identity", () => {
   const processing = {
     status: "PROCESSING",

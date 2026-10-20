@@ -21,7 +21,7 @@ export function RefundHistory() {
       status,
       search,
     }),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getRefunds(
         new URLSearchParams({
           page: String(page),
@@ -29,6 +29,7 @@ export function RefundHistory() {
           ...(status ? { status } : {}),
           ...(search ? { search } : {}),
         }),
+        signal,
       ),
     enabled: isReady && session?.user.role === "ATTENDEE" && filters.valid,
     retry: false,

@@ -1,14 +1,39 @@
 "use client";
-import { useRef, useEffect, type InputHTMLAttributes } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  useRef,
+  useEffect,
+  type InputHTMLAttributes,
+  type ComponentProps,
+} from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { z } from "zod";
 import { nonEmptyParams } from "@/lib/filter-schemas";
 import { Input } from "./ui";
+
+// Filter submissions are client-owned reads, like pagination below. Keep a
+// native GET fallback while retaining the current workspace and query cache.
+export function QueryFilterForm(
+  props: Omit<ComponentProps<"form">, "method" | "action" | "onSubmit">,
+) {
+  const pathname = usePathname();
+  return (
+    <form
+      {...props}
+      method="GET"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const params = new URLSearchParams();
+        for (const [key, value] of new FormData(event.currentTarget))
+          if (typeof value === "string") params.append(key, value);
+        window.history.pushState(null, "", `${pathname}?${params}`);
+      }}
+    />
+  );
+}
 export function useUrlFilters<T extends { page: number }>(
   schema: z.ZodType<T>,
 ) {
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const result = schema.safeParse(
     nonEmptyParams(new URLSearchParams(params.toString())),
@@ -20,7 +45,7 @@ export function useUrlFilters<T extends { page: number }>(
     if (value === "") next.delete(key);
     else next.set(key, String(value));
     if (key !== "page") next.set("page", "1");
-    router.push(`${pathname}?${next}`);
+    window.history.pushState(null, "", `${pathname}?${next}`);
   };
   return {
     values,

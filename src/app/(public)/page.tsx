@@ -98,8 +98,8 @@ async function HomeProgramme() {
         />
       ) : upcoming.length ? (
         <div className={styles.homeEvents}>
-          {upcoming.map((event) => (
-            <EventCard key={event.id} event={event} />
+          {upcoming.map((event, index) => (
+            <EventCard key={event.id} event={event} priority={index < 3} />
           ))}
         </div>
       ) : (

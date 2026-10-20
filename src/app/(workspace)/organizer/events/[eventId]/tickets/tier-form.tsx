@@ -186,10 +186,11 @@ export function TierForm() {
     queryKey: privateKey("organizer-tiers", session?.user.id, eventId, {
       page,
     }),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getManagedTiers(
         eventId,
         new URLSearchParams({ page: String(page), limit: "20" }),
+        signal,
       ),
     enabled: !!session && filters.valid,
   });

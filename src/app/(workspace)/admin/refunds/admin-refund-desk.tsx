@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { useUrlFilters } from "@/components/url-filters";
+import { useUrlFilters, QueryFilterForm } from "@/components/url-filters";
 import { refundListFilterSchema } from "@/lib/filter-schemas";
 import {
   getAdminRefunds,
@@ -39,7 +39,7 @@ export function AdminRefundDesk() {
     queryKey: privateKey("admin-refunds", session?.user.id, "list", {
       filters: params.toString(),
     }),
-    queryFn: () => getAdminRefunds(params),
+    queryFn: ({ signal }) => getAdminRefunds(params, signal),
     enabled: session?.user.role === "ADMIN" && filters.valid,
     retry: false,
   });
@@ -51,7 +51,7 @@ export function AdminRefundDesk() {
         retried. Unknown outcomes need verification or merchant-portal
         investigation, never a second speculative refund.
       </p>
-      <form method="GET" key={JSON.stringify(values)}>
+      <QueryFilterForm key={JSON.stringify(values)}>
         <input type="hidden" name="page" value="1" />
         <FilterBar>
           <Field label="Event search">
@@ -75,7 +75,7 @@ export function AdminRefundDesk() {
           </Field>
           <Button type="submit">Apply</Button>
         </FilterBar>
-      </form>
+      </QueryFilterForm>
       <Link href="/admin/refunds">Clear filters</Link>
       {!filters.valid ? (
         <p role="alert">{filters.error}</p>

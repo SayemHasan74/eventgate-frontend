@@ -24,7 +24,7 @@ export function TicketWallet() {
       status,
       search,
     }),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getTicketBookings(
         new URLSearchParams({
           page: String(page),
@@ -33,6 +33,7 @@ export function TicketWallet() {
           ...(status ? { status } : {}),
           ...(search ? { search } : {}),
         }),
+        signal,
       ),
     enabled: isReady && session?.user.role === "ATTENDEE" && filters.valid,
     retry: false,

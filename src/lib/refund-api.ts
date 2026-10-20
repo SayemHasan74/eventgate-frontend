@@ -30,10 +30,14 @@ export const requestRefund = (orderId: string, userMessage?: string) =>
       ),
     },
   );
-export async function getRefunds(filters = new URLSearchParams()) {
+export async function getRefunds(
+  filters = new URLSearchParams(),
+  signal?: AbortSignal,
+) {
   const result = await apiList(
     "/api/refunds/refund-requests?" + filters,
     refundListSchema,
+    { signal },
   );
   return { refunds: result.data, total: result.meta.total, meta: result.meta };
 }

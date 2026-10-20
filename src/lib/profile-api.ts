@@ -23,7 +23,7 @@ export type CheckoutProfileInput = Pick<
 >;
 
 export { ApiError as ProfileApiError } from "./api-error";
-const profileSchema: z.ZodType<Profile> = z.object({
+export const profileSchema: z.ZodType<Profile> = z.object({
   id: z.uuid(),
   email: z.email(),
   displayName: z.string(),

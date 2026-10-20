@@ -37,8 +37,13 @@ export const getOrder = (orderId: string, signal?: AbortSignal) =>
   apiClient("/api/orders/" + encodeURIComponent(orderId), orderDetailSchema, {
     signal,
   });
-export async function getOrders(filters = new URLSearchParams()) {
-  const result = await apiList("/api/orders?" + filters, orderSchema);
+export async function getOrders(
+  filters = new URLSearchParams(),
+  signal?: AbortSignal,
+) {
+  const result = await apiList("/api/orders?" + filters, orderSchema, {
+    signal,
+  });
   return { orders: result.data, meta: result.meta };
 }
 export const cancelOrder = async (orderId: string) => {

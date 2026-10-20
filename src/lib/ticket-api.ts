@@ -4,8 +4,10 @@ import { ticketSchema, qrSchema } from "./api-schemas";
 import { ApiError } from "./api-error";
 export { ApiError as TicketApiError } from "./api-error";
 export type AttendeeTicket = z.infer<typeof ticketSchema>;
-export const getTickets = async (filters = new URLSearchParams()) =>
-  apiList("/api/tickets?" + filters, ticketSchema);
+export const getTickets = async (
+  filters = new URLSearchParams(),
+  signal?: AbortSignal,
+) => apiList("/api/tickets?" + filters, ticketSchema, { signal });
 export const getTicket = (id: string, signal?: AbortSignal) =>
   apiClient("/api/tickets/" + encodeURIComponent(id), ticketSchema, { signal });
 export async function getTicketQr(id: string, signal?: AbortSignal) {
@@ -73,5 +75,8 @@ export const ticketBookingSchema = z
       ) === group.passCount,
     "Incomplete booking group.",
   );
-export const getTicketBookings = (filters = new URLSearchParams()) =>
-  apiList("/api/tickets/bookings?" + filters, ticketBookingSchema);
+export const getTicketBookings = (
+  filters = new URLSearchParams(),
+  signal?: AbortSignal,
+) =>
+  apiList("/api/tickets/bookings?" + filters, ticketBookingSchema, { signal });

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { useUrlFilters } from "@/components/url-filters";
+import { useUrlFilters, QueryFilterForm } from "@/components/url-filters";
 import {
   getNotifications,
   notificationFilters,
@@ -31,7 +31,7 @@ export function NotificationHistory() {
     queryKey: privateKey("notifications", session?.user.id, "history", {
       query: params.toString(),
     }),
-    queryFn: () => getNotifications(params),
+    queryFn: ({ signal }) => getNotifications(params, signal),
     enabled: !!session && filters.valid && visible,
     refetchInterval: visible ? 30000 : false,
     refetchIntervalInBackground: false,
@@ -78,7 +78,7 @@ export function NotificationHistory() {
         </div>
         <Link href="/account/profile">Notification preferences</Link>
       </div>
-      <form method="GET" key={JSON.stringify(filters.values)}>
+      <QueryFilterForm key={JSON.stringify(filters.values)}>
         <input type="hidden" name="page" value="1" />
         <FilterBar>
           <Field label="Read status">
@@ -110,7 +110,7 @@ export function NotificationHistory() {
           </Field>
           <Button type="submit">Filter inbox</Button>
         </FilterBar>
-      </form>
+      </QueryFilterForm>
       <p role="status">{message}</p>
       {!filters.valid ? (
         <p role="alert">{filters.error}</p>

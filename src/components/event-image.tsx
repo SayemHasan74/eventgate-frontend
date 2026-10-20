@@ -1,42 +1,44 @@
 "use client";
 import { useState } from "react";
+import { eventImageSources } from "@/lib/event-image";
 import styles from "./event-image.module.css";
 function ImagePreview({
   src,
   title,
   publicView,
   priority,
+  sizes,
 }: {
   src: string;
   title: string;
   publicView: boolean;
   priority: boolean;
+  sizes: string;
 }) {
-  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+  const [failed, setFailed] = useState(false);
   return (
     <div className={styles.preview}>
-      {state !== "ready" && (
+      {failed && (
         <p role="status">
-          {state === "failed"
-            ? publicView
-              ? "Cover image unavailable."
-              : "Image could not load. Check the HTTPS address or try another image."
-            : "Loading event image…"}
+          {publicView
+            ? "Cover image unavailable."
+            : "Image could not load. Check the HTTPS address or try another image."}
         </p>
       )}
-      {state !== "failed" && (
+      {!failed && (
         // Arbitrary organizer HTTPS images render in the browser, never through a server-side image proxy.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
+          {...eventImageSources(src)}
+          sizes={sizes}
           alt={title}
           referrerPolicy="no-referrer"
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
           decoding="async"
-          onLoad={() => setState("ready")}
-          onError={() => setState("failed")}
-          className={state === "ready" ? styles.visible : styles.loading}
+          onError={() => setFailed(true)}
+          className={styles.visible}
         />
       )}
     </div>
@@ -47,11 +49,13 @@ export function EventImage({
   title,
   publicView = false,
   priority = false,
+  sizes = "100vw",
 }: {
   src: string | null;
   title: string;
   publicView?: boolean;
   priority?: boolean;
+  sizes?: string;
 }) {
   if (!src || !src.startsWith("https://"))
     return (
@@ -70,6 +74,7 @@ export function EventImage({
       title={title}
       publicView={publicView}
       priority={priority}
+      sizes={sizes}
     />
   );
 }

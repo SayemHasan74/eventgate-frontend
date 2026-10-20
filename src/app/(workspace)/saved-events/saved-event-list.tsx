@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/components/auth-provider";
-import { useUrlFilters } from "@/components/url-filters";
+import { useUrlFilters, QueryFilterForm } from "@/components/url-filters";
 import {
   Button,
   Field,
@@ -200,7 +200,7 @@ export function SavedEventList() {
     queryKey: privateKey("saved-events", session?.user.id, "list", {
       query: params.toString(),
     }),
-    queryFn: () => getSavedEvents(params),
+    queryFn: ({ signal }) => getSavedEvents(params, signal),
     enabled: session?.user.role === "ATTENDEE" && filters.valid && visible,
     refetchInterval: visible ? 30000 : false,
     refetchIntervalInBackground: false,
@@ -218,7 +218,7 @@ export function SavedEventList() {
         </div>
         <Link href="/account/profile">Notification preferences →</Link>
       </div>
-      <form method="GET" key={JSON.stringify(filters.values)}>
+      <QueryFilterForm key={JSON.stringify(filters.values)}>
         <input type="hidden" name="page" value="1" />
         <FilterBar>
           <Field label="Show">
@@ -230,7 +230,7 @@ export function SavedEventList() {
           </Field>
           <Button type="submit">Apply</Button>
         </FilterBar>
-      </form>
+      </QueryFilterForm>
       <p>
         Paid bookings have separate 24-hour and 2-hour reminders when valid
         passes remain. Reminders may be delayed while the hosting service is

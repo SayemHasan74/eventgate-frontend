@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { useUrlFilters } from "@/components/url-filters";
+import { useUrlFilters, QueryFilterForm } from "@/components/url-filters";
 import {
   Button,
   Field,
@@ -32,7 +32,7 @@ export function WaitlistHistory() {
     queryKey: privateKey("waitlists", session?.user.id, "list", {
       query: params.toString(),
     }),
-    queryFn: () => getWaitlists(params),
+    queryFn: ({ signal }) => getWaitlists(params, signal),
     enabled: session?.user.role === "ATTENDEE" && filters.valid && visible,
     refetchInterval: visible ? 30000 : false,
     refetchIntervalInBackground: false,
@@ -55,7 +55,7 @@ export function WaitlistHistory() {
         explicitly re-arm when tickets are sold out again and the 60-minute
         cooldown has passed. Alerts may be delayed while the service sleeps.
       </p>
-      <form method="GET" key={JSON.stringify(filters.values)}>
+      <QueryFilterForm key={JSON.stringify(filters.values)}>
         <input type="hidden" name="page" value="1" />
         <FilterBar>
           <Field label="Membership status">
@@ -72,7 +72,7 @@ export function WaitlistHistory() {
           </Field>
           <Button type="submit">Apply</Button>
         </FilterBar>
-      </form>
+      </QueryFilterForm>
       {!filters.valid ? (
         <p role="alert">{filters.error}</p>
       ) : query.isPending ? (

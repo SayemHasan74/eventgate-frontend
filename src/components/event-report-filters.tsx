@@ -1,4 +1,5 @@
 "use client";
+import { QueryFilterForm } from "@/components/url-filters";
 import { Field, Input, Select, Button, FilterBar } from "./ui";
 export function EventReportFilters({
   values,
@@ -16,7 +17,7 @@ export function EventReportFilters({
   search?: boolean;
 }) {
   return (
-    <form method="GET" key={JSON.stringify(values)}>
+    <QueryFilterForm key={JSON.stringify(values)}>
       <input type="hidden" name="page" value="1" />
       <FilterBar>
         <Field label="From (Bangladesh date)">
@@ -72,6 +73,6 @@ export function EventReportFilters({
           Apply filters
         </Button>
       </FilterBar>
-    </form>
+    </QueryFilterForm>
   );
 }

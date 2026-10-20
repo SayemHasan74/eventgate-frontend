@@ -148,6 +148,7 @@ export function invalidatePrivate(
             "check-in-status",
             "readiness",
             "admin-events",
+            "saved-membership",
           ].includes(domain)
             ? {
                 predicate: (query) =>

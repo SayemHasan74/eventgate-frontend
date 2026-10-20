@@ -29,7 +29,7 @@ export function EventReportOrders({
     queryKey: privateKey("organizer-event-orders", userId, eventId, {
       filters: params.toString(),
     }),
-    queryFn: () => getEventOrders(eventId, params),
+    queryFn: ({ signal }) => getEventOrders(eventId, params, signal),
     enabled: !!userId && valid,
     retry: false,
   });

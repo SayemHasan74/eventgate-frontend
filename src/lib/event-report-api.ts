@@ -64,14 +64,25 @@ export type SalesReport = z.infer<typeof salesReportSchema>;
 export type InventoryReport = z.infer<typeof inventoryReportSchema>;
 const path = (id: string, panel: string, filters: URLSearchParams) =>
   `/api/organizer/events/${encodeURIComponent(id)}/reports/${panel}?${filters}`;
-export const getEventSales = (id: string, filters: URLSearchParams) =>
-  apiClient(path(id, "sales", filters), salesReportSchema);
+export const getEventSales = (
+  id: string,
+  filters: URLSearchParams,
+  signal?: AbortSignal,
+) => apiClient(path(id, "sales", filters), salesReportSchema, { signal });
 export const getEventInventory = (
   id: string,
   filters = new URLSearchParams(),
-) => apiClient(path(id, "inventory", filters), inventoryReportSchema);
-export const getEventAttendance = (id: string, filters: URLSearchParams) =>
-  apiClient(path(id, "attendance", filters), attendanceReportSchema);
+  signal?: AbortSignal,
+) =>
+  apiClient(path(id, "inventory", filters), inventoryReportSchema, { signal });
+export const getEventAttendance = (
+  id: string,
+  filters: URLSearchParams,
+  signal?: AbortSignal,
+) =>
+  apiClient(path(id, "attendance", filters), attendanceReportSchema, {
+    signal,
+  });
 export const eventOrdersExportUrl = (id: string, filters: URLSearchParams) =>
   path(id, "orders/export", filters);
 export function reportParams(values: {

@@ -175,7 +175,7 @@ function EventCatalogue() {
       "list",
       filters.values,
     ),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getManagedEvents(
         new URLSearchParams({
           page: String(page),
@@ -185,6 +185,7 @@ function EventCatalogue() {
           ...(startDate ? { startAfter: dhakaDayBounds(startDate).start } : {}),
           ...(endDate ? { startBefore: dhakaDayBounds(endDate).end } : {}),
         }),
+        signal,
       ),
     enabled: !!session && filters.valid,
   });

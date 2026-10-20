@@ -136,32 +136,34 @@ export const getPublicEvent = cache(
     }
   },
 );
-export async function getPublicFacets(): Promise<
-  | { status: "ready"; categories: string[]; cities: string[] }
-  | { status: "unavailable" }
-> {
-  try {
-    const response = await upstream(
-      "events/facets",
-      {
-        cache: "force-cache",
-        next: { revalidate: 300, tags: ["public-facets"] },
-      },
-      true,
-    );
-    const data = parseEnvelope(
-      response,
-      await response.json(),
-      z.object({
-        categories: z.array(z.string()),
-        cities: z.array(z.string()),
-      }),
-    ).data;
-    return { status: "ready", ...data };
-  } catch {
-    return { status: "unavailable" };
-  }
-}
+export const getPublicFacets = cache(
+  async (): Promise<
+    | { status: "ready"; categories: string[]; cities: string[] }
+    | { status: "unavailable" }
+  > => {
+    try {
+      const response = await upstream(
+        "events/facets",
+        {
+          cache: "force-cache",
+          next: { revalidate: 300, tags: ["public-facets"] },
+        },
+        true,
+      );
+      const data = parseEnvelope(
+        response,
+        await response.json(),
+        z.object({
+          categories: z.array(z.string()),
+          cities: z.array(z.string()),
+        }),
+      ).data;
+      return { status: "ready", ...data };
+    } catch {
+      return { status: "unavailable" };
+    }
+  },
+);
 export async function getUpcomingPublicEvents(): Promise<EventDiscoveryResult> {
   const minute = Math.floor(Date.now() / 60000) * 60000;
   const result = await getPublicEvents({

@@ -52,8 +52,10 @@ const preferences = preferenceFields.extend({
 });
 export type PreferenceFields = z.infer<typeof preferenceFields>;
 export type Preferences = z.infer<typeof preferences>;
-export const getNotifications = (params: URLSearchParams) =>
-  apiList("/api/notifications?" + params, notification);
+export const getNotifications = (
+  params: URLSearchParams,
+  signal?: AbortSignal,
+) => apiList("/api/notifications?" + params, notification, { signal });
 export const readNotification = (id?: string) =>
   apiClient(
     "/api/notifications/" + (id ? `${id}/read` : "read-all"),

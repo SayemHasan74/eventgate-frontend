@@ -40,7 +40,7 @@ export function OrderLedger() {
     }),
     enabled: session?.user.role === "ATTENDEE" && filters.valid,
     retry: false,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getOrders(
         new URLSearchParams({
           page: String(page),
@@ -50,6 +50,7 @@ export function OrderLedger() {
           ...(startDate ? { startAfter: dhakaDayBounds(startDate).start } : {}),
           ...(endDate ? { startBefore: dhakaDayBounds(endDate).end } : {}),
         }),
+        signal,
       ),
   });
   return (

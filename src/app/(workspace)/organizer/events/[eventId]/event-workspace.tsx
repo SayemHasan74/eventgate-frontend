@@ -80,10 +80,11 @@ export function EventWorkspace({
     queryKey: privateKey("organizer-tiers", session?.user.id, eventId, {
       page: tierPage,
     }),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getManagedTiers(
         eventId,
         new URLSearchParams({ page: String(tierPage), limit: "20" }),
+        signal,
       ),
     enabled: !!session && preview,
   });

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { EventLink } from "./event-link";
 import type { PublicEvent } from "@/lib/eventgate-api";
 import { eventSaleSummary } from "@/lib/public-sale";
 import { formatMoney, formatEventRange } from "@/lib/format";
@@ -9,22 +9,33 @@ export function EventCard({
   event,
   now,
   reason,
+  priority = false,
 }: {
   event: PublicEvent;
   now?: number;
   reason?: string | null;
+  priority?: boolean;
 }) {
   const sale = eventSaleSummary(event, now);
   return (
     <article className={styles.card}>
-      <Link href={`/events/${event.slug}`} aria-label={`View ${event.title}`}>
-        <EventImage publicView src={event.imageUrl} title={event.title} />
-      </Link>
+      <EventLink
+        href={`/events/${event.slug}`}
+        aria-label={`View ${event.title}`}
+      >
+        <EventImage
+          publicView
+          priority={priority}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          src={event.imageUrl}
+          title={event.title}
+        />
+      </EventLink>
       <div className={styles.body}>
         {reason && <p>{reason}</p>}
         <small>{event.category}</small>
         <h2>
-          <Link href={`/events/${event.slug}`}>{event.title}</Link>
+          <EventLink href={`/events/${event.slug}`}>{event.title}</EventLink>
         </h2>
         <p>{formatEventRange(event.startAt, event.endAt)}</p>
         <p>
@@ -39,9 +50,9 @@ export function EventCard({
             </strong>
           )}
         </div>
-        <Link className="text-link" href={`/events/${event.slug}`}>
+        <EventLink className="text-link" href={`/events/${event.slug}`}>
           Event details →
-        </Link>
+        </EventLink>
         <SaveEventButton
           eventId={event.id}
           slug={event.slug}

@@ -128,5 +128,5 @@ export const removeSavedEvent = (eventId: string) =>
     z.object({ removed: z.literal(true) }),
     { method: "DELETE", ...jsonBody({}) },
   );
-export const getSavedEvents = (params: URLSearchParams) =>
-  apiList("/api/saved-events?" + params, row);
+export const getSavedEvents = (params: URLSearchParams, signal?: AbortSignal) =>
+  apiList("/api/saved-events?" + params, row, { signal });

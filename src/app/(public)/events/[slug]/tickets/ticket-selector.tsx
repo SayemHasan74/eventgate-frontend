@@ -482,8 +482,9 @@ export function TicketSelector({
               <strong>{price(total)}</strong>
             </div>
             <p>
-              Sign in is required before EventGate reserves tickets and starts
-              the payment timer.
+              {session
+                ? "Reserving holds your selected tickets for 15 minutes. Payment starts on the next screen."
+                : "Sign in is required before EventGate reserves tickets and starts the payment timer."}
             </p>
             <button
               className={`button button-primary ${reservationStyles.reserveButton}`}

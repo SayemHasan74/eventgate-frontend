@@ -52,7 +52,7 @@ export function ReportDashboard() {
       view: "inventory",
       tierId: "",
     }),
-    queryFn: () => getEventInventory(eventId),
+    queryFn: ({ signal }) => getEventInventory(eventId, undefined, signal),
     enabled,
     retry: false,
   });
@@ -61,7 +61,8 @@ export function ReportDashboard() {
       view: "inventory",
       tierId: filters.values.tierId ?? "",
     }),
-    queryFn: () => getEventInventory(eventId, inventoryParams),
+    queryFn: ({ signal }) =>
+      getEventInventory(eventId, inventoryParams, signal),
     enabled,
     retry: false,
   });
@@ -70,7 +71,7 @@ export function ReportDashboard() {
       view: "sales",
       filters: params.toString(),
     }),
-    queryFn: () => getEventSales(eventId, params),
+    queryFn: ({ signal }) => getEventSales(eventId, params, signal),
     enabled,
     retry: false,
   });
@@ -79,7 +80,7 @@ export function ReportDashboard() {
       view: "attendance",
       filters: params.toString(),
     }),
-    queryFn: () => getEventAttendance(eventId, params),
+    queryFn: ({ signal }) => getEventAttendance(eventId, params, signal),
     enabled,
     retry: false,
   });

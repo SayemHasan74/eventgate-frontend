@@ -1,3 +1,5 @@
+import { WorkspaceQuery } from "@/components/workspace-query";
+import { managedEventDetailSchema } from "@/lib/organizer-api";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -11,9 +13,19 @@ export const metadata: Metadata = {
   description: "View EventGate event sales, inventory, and check-in reporting.",
 };
 
-export default function ReportsPage() {
+export default async function ReportsPage({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}) {
+  const { eventId } = await params;
   return (
-    <>
+    <WorkspaceQuery
+      path={`organizer/events/${encodeURIComponent(eventId)}`}
+      domain="organizer-events"
+      resource={eventId}
+      schema={managedEventDetailSchema}
+    >
       <section className={`${styles.page} wrap`}>
         <Link className={styles.back} href="/organizer">
           <ArrowLeft size={16} aria-hidden="true" /> Organizer workspace
@@ -24,6 +36,6 @@ export default function ReportsPage() {
           <ReportDashboard />
         </Suspense>
       </section>
-    </>
+    </WorkspaceQuery>
   );
 }

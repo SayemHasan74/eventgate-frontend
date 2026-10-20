@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
-import { useUrlFilters } from "@/components/url-filters";
+import { useUrlFilters, QueryFilterForm } from "@/components/url-filters";
 import { adminRecordFilterSchema } from "@/lib/filter-schemas";
 import {
   getRecoveryJobs,
@@ -40,7 +40,7 @@ export function RecoveryJobs() {
     queryKey: privateKey("admin-jobs", session?.user.id, "list", {
       query: params.toString(),
     }),
-    queryFn: () => getRecoveryJobs(params),
+    queryFn: ({ signal }) => getRecoveryJobs(params, signal),
     enabled: session?.user.role === "ADMIN" && filters.valid,
     retry: false,
   });
@@ -53,7 +53,7 @@ export function RecoveryJobs() {
         budget. Running, pending and completed work is never reset. Unknown
         refunds without a confirmed provider reference require investigation.
       </p>
-      <form method="GET" key={JSON.stringify(values)}>
+      <QueryFilterForm key={JSON.stringify(values)}>
         <input type="hidden" name="page" value="1" />
         <FilterBar>
           <Field label="Job ID">
@@ -102,7 +102,7 @@ export function RecoveryJobs() {
           </Field>
           <Button type="submit">Apply</Button>
         </FilterBar>
-      </form>
+      </QueryFilterForm>
       <Link href="/admin/operations">Clear filters</Link>
       {!filters.valid ? (
         <p role="alert">{filters.error}</p>

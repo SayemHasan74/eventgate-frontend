@@ -10,11 +10,12 @@ async function request(path: string, init: RequestInit) {
     const response = await sessionFetch(path, {
       ...init,
       headers,
-      signal:
-        init.signal ??
+      signal: AbortSignal.any([
+        ...(init.signal ? [init.signal] : []),
         AbortSignal.timeout(
           path.split("?")[0].endsWith("/checkout") ? 45000 : 35000,
         ),
+      ]),
     });
     return {
       response,

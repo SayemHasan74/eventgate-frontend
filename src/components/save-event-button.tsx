@@ -63,7 +63,7 @@ export function SaveEventButton({
         const confirmed = await saveEvent(eventId);
         client.setQueryData(key, confirmed);
       }
-      void invalidateMutation(client, session.user.id, "save");
+      void invalidateMutation(client, session.user.id, "save", eventId);
       setMessage(
         saved
           ? "Removed from saved events."
@@ -75,7 +75,7 @@ export function SaveEventButton({
           ? error.message
           : "Saved state could not be updated.",
       );
-      await query.refetch();
+      void query.refetch();
     } finally {
       lock.current = false;
       setPending(false);

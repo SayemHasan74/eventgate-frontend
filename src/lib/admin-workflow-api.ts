@@ -120,8 +120,10 @@ export const getAdminAudit = (id: string) =>
     `/api/admin/reports/audit-logs/${encodeURIComponent(id)}`,
     adminAuditDetailSchema,
   );
-export const getRecoveryJobs = (params: URLSearchParams) =>
-  apiList(`/api/admin/reports/jobs?${params}`, jobSchema);
+export const getRecoveryJobs = (
+  params: URLSearchParams,
+  signal?: AbortSignal,
+) => apiList(`/api/admin/reports/jobs?${params}`, jobSchema, { signal });
 export const requestReconciliation = (
   kind: "payments" | "refunds",
   id: string,

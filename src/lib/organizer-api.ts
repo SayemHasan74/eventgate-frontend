@@ -86,73 +86,74 @@ const eventSchema: z.ZodType<ManagedEvent> = z.object({
   createdAt: timestamp,
   updatedAt: timestamp,
 });
+export const managedEventDetailSchema = z.intersection(
+  eventSchema,
+  z.object({
+    capabilities: eventCapabilitiesSchema,
+    publicationReadiness: z.object({
+      ready: z.boolean(),
+      blockers: z.array(
+        z.object({
+          code: z.string(),
+          message: z.string(),
+          field: z.string().optional(),
+          tierId: z.string().optional(),
+        }),
+      ),
+      tiers: z.array(
+        z.object({
+          id: z.uuid(),
+          name: z.string(),
+          pricePaisa: moneySchema,
+          capacity: z.number().int().positive(),
+          reservedQuantity: z.number().int().nonnegative(),
+          soldQuantity: z.number().int().nonnegative(),
+          availableQuantity: z.number().int().nonnegative(),
+          salesStartAt: timestamp,
+          salesEndAt: timestamp,
+          salesPaused: z.boolean(),
+          eligible: z.boolean(),
+          reasons: z.array(z.string()),
+        }),
+      ),
+      checkedAt: timestamp,
+    }),
+    setupChecks: z.object({
+      futureStart: z.boolean(),
+      validDates: z.boolean(),
+      hasActiveTier: z.boolean(),
+    }),
+    checkInWindow: z.object({
+      opensAt: timestamp,
+      closesAt: timestamp,
+      isOpen: z.boolean(),
+    }),
+    interestedCount: z.number().int().nonnegative(),
+    cancellationImpact: z.object({
+      paidOrders: z.number().int().nonnegative(),
+      activeTickets: z.number().int().nonnegative(),
+      pendingOrders: z.number().int().nonnegative(),
+    }),
+    cancellationState: z.object({
+      cancelledAt: timestamp.nullable(),
+      dispatchStatus: z
+        .enum(["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"])
+        .nullable(),
+      dispatchCompletedAt: timestamp.nullable(),
+      refundsByStatus: z.record(z.string(), z.number().int().nonnegative()),
+    }),
+    serverTime: timestamp,
+    _count: z.object({
+      orders: z.number().int().nonnegative(),
+      ticketTiers: z.number().int().nonnegative(),
+    }),
+  }),
+);
 export const getManagedEvent = (id: string, admin = false) =>
   apiClient(
     (admin ? "/api/admin/events/" : "/api/organizer/events/") +
       encodeURIComponent(id),
-    z.intersection(
-      eventSchema,
-      z.object({
-        capabilities: eventCapabilitiesSchema,
-        publicationReadiness: z.object({
-          ready: z.boolean(),
-          blockers: z.array(
-            z.object({
-              code: z.string(),
-              message: z.string(),
-              field: z.string().optional(),
-              tierId: z.string().optional(),
-            }),
-          ),
-          tiers: z.array(
-            z.object({
-              id: z.uuid(),
-              name: z.string(),
-              pricePaisa: moneySchema,
-              capacity: z.number().int().positive(),
-              reservedQuantity: z.number().int().nonnegative(),
-              soldQuantity: z.number().int().nonnegative(),
-              availableQuantity: z.number().int().nonnegative(),
-              salesStartAt: timestamp,
-              salesEndAt: timestamp,
-              salesPaused: z.boolean(),
-              eligible: z.boolean(),
-              reasons: z.array(z.string()),
-            }),
-          ),
-          checkedAt: timestamp,
-        }),
-        setupChecks: z.object({
-          futureStart: z.boolean(),
-          validDates: z.boolean(),
-          hasActiveTier: z.boolean(),
-        }),
-        checkInWindow: z.object({
-          opensAt: timestamp,
-          closesAt: timestamp,
-          isOpen: z.boolean(),
-        }),
-        interestedCount: z.number().int().nonnegative(),
-        cancellationImpact: z.object({
-          paidOrders: z.number().int().nonnegative(),
-          activeTickets: z.number().int().nonnegative(),
-          pendingOrders: z.number().int().nonnegative(),
-        }),
-        cancellationState: z.object({
-          cancelledAt: timestamp.nullable(),
-          dispatchStatus: z
-            .enum(["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"])
-            .nullable(),
-          dispatchCompletedAt: timestamp.nullable(),
-          refundsByStatus: z.record(z.string(), z.number().int().nonnegative()),
-        }),
-        serverTime: timestamp,
-        _count: z.object({
-          orders: z.number().int().nonnegative(),
-          ticketTiers: z.number().int().nonnegative(),
-        }),
-      }),
-    ),
+    managedEventDetailSchema,
   );
 export type ManagedEventDetail = Awaited<ReturnType<typeof getManagedEvent>>;
 const eventSummarySchema = z.object({
@@ -209,8 +210,10 @@ const eventOrderSchema: z.ZodType<EventOrder> = z.object({
 });
 const eventPath = (id: string) =>
   "/api/organizer/events/" + encodeURIComponent(id);
-export const getManagedEvents = async (filters = new URLSearchParams()) =>
-  apiList("/api/organizer/events?" + filters, eventSchema);
+export const getManagedEvents = async (
+  filters = new URLSearchParams(),
+  signal?: AbortSignal,
+) => apiList("/api/organizer/events?" + filters, eventSchema, { signal });
 export const createManagedEvent = (input: CreateEventInput) =>
   apiClient("/api/organizer/events", eventSchema, {
     method: "POST",
@@ -275,8 +278,14 @@ const managedTierSchema = z.intersection(
   }),
 );
 export type ManagedTier = z.infer<typeof managedTierSchema>;
-export const getManagedTiers = (id: string, filters = new URLSearchParams()) =>
-  apiList(eventPath(id) + "/ticket-tiers?" + filters, managedTierSchema);
+export const getManagedTiers = (
+  id: string,
+  filters = new URLSearchParams(),
+  signal?: AbortSignal,
+) =>
+  apiList(eventPath(id) + "/ticket-tiers?" + filters, managedTierSchema, {
+    signal,
+  });
 export async function getCheckInHistory(
   id: string,
   filters = new URLSearchParams(),
@@ -327,7 +336,11 @@ export const getEventReport = (id: string) =>
 export const getEventOrders = async (
   id: string,
   filters = new URLSearchParams(),
-) => apiList(eventPath(id) + "/reports/orders?" + filters, eventOrderSchema);
+  signal?: AbortSignal,
+) =>
+  apiList(eventPath(id) + "/reports/orders?" + filters, eventOrderSchema, {
+    signal,
+  });
 
 export const getCheckInStatus = (id: string) =>
   apiClient(

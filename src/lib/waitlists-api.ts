@@ -77,5 +77,5 @@ export const leaveWaitlist = (eventId: string, tierId: string) =>
     method: "DELETE",
     ...jsonBody({}),
   });
-export const getWaitlists = (params: URLSearchParams) =>
-  apiList("/api/users/me/waitlists?" + params, row);
+export const getWaitlists = (params: URLSearchParams, signal?: AbortSignal) =>
+  apiList("/api/users/me/waitlists?" + params, row, { signal });
