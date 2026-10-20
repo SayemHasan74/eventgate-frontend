@@ -7,7 +7,7 @@ import {
   safeRetryAfter,
   paginationSchema,
 } from "../src/lib/api-error";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { privateKey, invalidatePrivate } from "../src/lib/query-keys";
 import {
   orderSchema,
@@ -300,5 +300,40 @@ test("availability keeps hosting-access cookies and identifies deployment-protec
     );
   } finally {
     globalThis.fetch = original;
+  }
+});
+
+test("confirmed mutations release immediately while active reads refresh, scoped to the edited event", async () => {
+  const client = new QueryClient();
+  const edited = privateKey("organizer-events", id, "edited");
+  const other = privateKey("organizer-events", id, "other");
+  const list = privateKey("organizer-events", id, "list", { page: 2 });
+  for (const key of [edited, other, list])
+    client.setQueryData(key, { title: "before" });
+  let release!: (value: { title: string }) => void;
+  const observer = new QueryObserver(client, {
+    queryKey: edited,
+    staleTime: Infinity,
+    queryFn: () =>
+      new Promise<{ title: string }>((resolve) => {
+        release = resolve;
+      }),
+  });
+  const unsubscribe = observer.subscribe(() => undefined);
+  try {
+    const completed = await Promise.race([
+      invalidatePrivate(client, id, ["organizer-events"], "edited").then(
+        () => true,
+      ),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 50)),
+    ]);
+    assert.equal(completed, true);
+    assert.equal(client.getQueryState(edited)?.fetchStatus, "fetching");
+    assert.equal(client.getQueryState(other)?.isInvalidated, false);
+    assert.equal(client.getQueryState(list)?.isInvalidated, true);
+  } finally {
+    release({ title: "confirmed" });
+    unsubscribe();
+    client.clear();
   }
 });

@@ -27,7 +27,9 @@ Open http://localhost:3000. Set `API_BASE_URL` to the backend API base ending in
 
 Protected pages require a backend session and enforce the account role. Quick demo sign-in requires the matching demo variables to be configured on the backend. Google sign-in requires a matching Google client ID and authorized web origin. SSLCommerz checkout requires working merchant sandbox settings and reachable HTTPS callbacks.
 
-Role-based quick-demo buttons are shown only when `NEXT_PUBLIC_DEMO_LOGIN_ENABLED=true`. Enable them only when the API points to a dedicated demo database: enable `DEMO_LOGIN_ENABLED` and `DEMO_ENVIRONMENT` on that demo API, configure the three `SEED_*` account pairs, and run `npm run db:seed` against the demo database once. The buttons create sessions through the API's `/auth/demo` flow; they do not expose passwords in browser code. Do not enable demo login against the production database, especially for the admin role.
+Quick-access buttons use the backend `/auth/demo` flow for the configured Attendee and Organizer identities (`PUBLIC_DEMO_ENABLED`, `DEMO_ATTENDEE_EMAIL`, `DEMO_ORGANIZER_EMAIL`). There is no public Admin demo. Backend credentials remain on the server; shared-account identity/profile changes are restricted.
+
+Protected URLs share the `(workspace)` layout and shell; section layouts enforce their role requirements. Initial attendee/organizer summaries hydrate request-local React Query data, and every private API request still authenticates independently. Public discovery data uses bounded server caching; availability and financial/admission endpoints remain uncached. `vercel.json` selects Singapore (`sin1`) for the next deployment. Deploy the backend's new count/status endpoints before this frontend.
 
 ## Commands
 

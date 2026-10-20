@@ -27,7 +27,7 @@ export function AdmissionPass({
   const [requested, setRequested] = useState(false);
   const article = useRef<HTMLElement>(null);
   const isVisible = useSyncExternalStore(subscribe, visible, () => false);
-  const eligible = ticket.canShowQr && !refreshing && isVisible;
+  const eligible = ticket.canShowQr && isVisible;
   const query = useQuery({
     queryKey: privateKey("tickets", session?.user.id, ticket.id, {
       view: "qr",
@@ -35,14 +35,11 @@ export function AdmissionPass({
     queryFn: ({ signal }) => getTicketQr(ticket.id, signal),
     enabled: requested && eligible && session?.user.role === "ATTENDEE",
     retry: false,
-    staleTime: 0,
+    staleTime: Infinity,
     gcTime: 0,
-    refetchOnWindowFocus: "always",
+    refetchOnWindowFocus: false,
   });
-  const qr =
-    eligible && !query.isFetching && !query.isError
-      ? query.data?.dataUrl
-      : null;
+  const qr = eligible && !query.isError ? query.data?.dataUrl : null;
   const active = ticket.effectiveAdmissionState === "ACTIVE";
   return (
     <div className={styles.passShadow}>

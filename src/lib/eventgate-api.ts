@@ -91,7 +91,8 @@ export async function getPublicEvents(
     const response = await upstream(
       `events?${parameters.toString()}`,
       {
-        cache: "no-store",
+        cache: "force-cache",
+        next: { revalidate: 30, tags: ["public-events"] },
       },
       true,
     );
@@ -114,7 +115,8 @@ export const getPublicEvent = cache(
       const response = await upstream(
         `events/${encodeURIComponent(slug)}`,
         {
-          cache: "no-store",
+          cache: "force-cache",
+          next: { revalidate: 30, tags: [`public-event:${slug}`] },
         },
         true,
       );
@@ -141,7 +143,10 @@ export async function getPublicFacets(): Promise<
   try {
     const response = await upstream(
       "events/facets",
-      { cache: "no-store" },
+      {
+        cache: "force-cache",
+        next: { revalidate: 300, tags: ["public-facets"] },
+      },
       true,
     );
     const data = parseEnvelope(

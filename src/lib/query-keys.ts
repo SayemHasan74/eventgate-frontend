@@ -22,6 +22,7 @@ export const mutationDomains = {
     "organizer-tiers",
     "organizer-reports",
     "discovery",
+    "check-in-status",
     "readiness",
     "admin-events",
     "admin-operations",
@@ -36,6 +37,7 @@ export const mutationDomains = {
     "organizer-tiers",
     "organizer-reports",
     "discovery",
+    "check-in-status",
     "readiness",
   ],
   order: [
@@ -83,6 +85,7 @@ export const mutationDomains = {
   ],
   checkIn: [
     "check-ins",
+    "check-in-status",
     "organizer-overview",
     "organizer-events",
     "organizer-reports",
@@ -115,7 +118,8 @@ export const invalidateMutation = (
   client: QueryClient,
   userId: string,
   mutation: keyof typeof mutationDomains,
-) => invalidatePrivate(client, userId, mutationDomains[mutation]);
+  resourceId?: string,
+) => invalidatePrivate(client, userId, mutationDomains[mutation], resourceId);
 export const privateKey = (
   domain: string,
   userId: string | undefined,
@@ -127,10 +131,33 @@ export function invalidatePrivate(
   client: QueryClient,
   userId: string,
   domains: readonly string[],
+  resourceId?: string,
 ) {
-  return Promise.all(
-    domains.map((domain) =>
-      client.invalidateQueries({ queryKey: [domain, userId] }),
-    ),
-  );
+  // Mark stale synchronously, but never hold a confirmed mutation open while
+  // active lists/reports refetch. Queries retain and expose their own errors.
+  for (const domain of new Set(domains))
+    void client
+      .invalidateQueries(
+        {
+          queryKey: [domain, userId],
+          ...(resourceId &&
+          [
+            "organizer-events",
+            "organizer-tiers",
+            "organizer-reports",
+            "check-in-status",
+            "readiness",
+            "admin-events",
+          ].includes(domain)
+            ? {
+                predicate: (query) =>
+                  query.queryKey[2] === resourceId ||
+                  query.queryKey[2] === "list",
+              }
+            : {}),
+        },
+        { cancelRefetch: false },
+      )
+      .catch(() => undefined);
+  return Promise.resolve();
 }

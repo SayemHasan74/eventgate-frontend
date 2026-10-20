@@ -45,7 +45,12 @@ function EventDetails({ event }: { event: PublicEvent }) {
       <div className={styles.layout}>
         <div>
           <div className={styles.cover}>
-            <EventImage publicView src={event.imageUrl} title={event.title} />
+            <EventImage
+              publicView
+              priority
+              src={event.imageUrl}
+              title={event.title}
+            />
           </div>
           <header className={styles.hero}>
             <p className="eyebrow">
@@ -96,8 +101,8 @@ function EventDetails({ event }: { event: PublicEvent }) {
           >
             <h2 id="ticket-tiers-heading">Choose your ticket tier</h2>
             <p>
-              Availability updated recently. Listings may be cached for up to 60
-              seconds. We check fresh stock before reservation.
+              Availability updated recently. Listings are cached. We check fresh
+              stock before reservation.
             </p>
             {event.ticketTiers.length ? (
               <ul className={styles.list}>

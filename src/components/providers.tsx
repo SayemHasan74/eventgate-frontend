@@ -6,7 +6,7 @@ import { Suspense, useState } from "react";
 import { NavigationHistory } from "./navigation-history";
 import { Toaster } from "sonner";
 
-import { EventAi } from "./event-ai";
+import { EventAiLauncher } from "./event-ai-launcher";
 
 import { AuthProvider } from "@/components/auth-provider";
 
@@ -28,7 +28,7 @@ export function Providers({ children }: ProvidersProps) {
             <NavigationHistory />
           </Suspense>
           {children}
-          <EventAi />
+          <EventAiLauncher />
         </AuthProvider>
         <Toaster richColors position="top-right" />
       </QueryClientProvider>

@@ -51,7 +51,11 @@ export function AuthProvider({
   const apply = useCallback(
     (next: AuthSession | null) => {
       const identity = next ? next.user.id + ":" + next.user.role : undefined;
-      if (currentIdentity.current !== identity) client.clear();
+      if (
+        currentIdentity.current !== undefined &&
+        currentIdentity.current !== identity
+      )
+        client.clear();
       currentIdentity.current = identity;
       updateSession(next);
       setAccessDenied(false);

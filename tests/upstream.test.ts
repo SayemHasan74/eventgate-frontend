@@ -72,3 +72,33 @@ test("server transport preserves queries/bodies, uses bounded timeouts, and reje
     else process.env.API_BASE_URL = base;
   }
 });
+
+test("shared public facts preserve cache policy and strip visitor credentials from cache keys", async () => {
+  const original = globalThis.fetch,
+    base = process.env.API_BASE_URL;
+  process.env.API_BASE_URL = "https://backend.test/api/v1";
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init?.cache, "force-cache");
+    assert.deepEqual(init?.next, { revalidate: 30, tags: ["public-events"] });
+    assert.equal(
+      new Headers(init?.headers).has("x-eventgate-client-ip"),
+      false,
+    );
+    return Response.json({ success: true, data: [] });
+  };
+  try {
+    await upstream(
+      "events",
+      {
+        cache: "force-cache",
+        next: { revalidate: 30, tags: ["public-events"] },
+        headers: { "x-eventgate-client-ip": "untrusted" },
+      },
+      true,
+    );
+  } finally {
+    globalThis.fetch = original;
+    if (base === undefined) delete process.env.API_BASE_URL;
+    else process.env.API_BASE_URL = base;
+  }
+});

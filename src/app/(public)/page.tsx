@@ -1,4 +1,4 @@
-import { HomeEntry } from "@/components/home-entry";
+import { Suspense } from "react";
 import { currentSession, sessionIdentity } from "@/lib/server/browser-session";
 import { SessionError } from "@/lib/server/session-store";
 import { SessionUnavailable } from "@/components/session-unavailable";
@@ -40,7 +40,7 @@ const promises = [
   "Cancellation and refund progress",
 ];
 
-export default async function Home() {
+async function HomeRedirect() {
   let destination: string | null = null;
   try {
     const session = await currentSession();
@@ -51,14 +51,90 @@ export default async function Home() {
       return <SessionUnavailable />;
   }
   if (destination) redirect(destination);
+  return null;
+}
+
+async function HomeCities() {
+  const facets = await getPublicFacets();
+  return (
+    <datalist id="home-cities">
+      {facets.status === "ready" &&
+        facets.cities.map((city) => <option key={city} value={city} />)}
+    </datalist>
+  );
+}
+
+async function HomeProgramme() {
   const [events, facets] = await Promise.all([
     getUpcomingPublicEvents(),
     getPublicFacets(),
   ]);
   const upcoming = events.status === "ready" ? events.events : [];
-  const cities = facets.status === "ready" ? facets.cities : [];
   return (
-    <HomeEntry>
+    <section
+      className={`wrap ${styles.discovery}`}
+      aria-labelledby="upcoming-title"
+    >
+      <div className={styles.discoveryHeading}>
+        <div>
+          <p className="eyebrow">
+            <span /> From the programme
+          </p>
+          <h2 id="upcoming-title">Coming up.</h2>
+        </div>
+        <Link href="/events" className="text-link">
+          Browse all events →
+        </Link>
+      </div>
+      <p>
+        Availability updated recently. Listings are cached; stock is checked
+        again before reservation.
+      </p>
+      {events.status === "unavailable" ? (
+        <EmptyState
+          title="The programme could not load."
+          description="You can still search or explore how EventGate works. Retry when the events service is available."
+          action={<PublicRetry />}
+        />
+      ) : upcoming.length ? (
+        <div className={styles.homeEvents}>
+          {upcoming.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No upcoming published events yet."
+          description="Check the event catalogue for the full programme."
+          action={
+            <Link href="/events" className="button">
+              Browse events
+            </Link>
+          }
+        />
+      )}
+      {facets.status === "ready" && facets.categories.length > 0 && (
+        <nav className={styles.categories} aria-label="Event categories">
+          {facets.categories.map((category) => (
+            <Link
+              key={category}
+              href={`/events?category=${encodeURIComponent(category)}`}
+            >
+              {category}
+            </Link>
+          ))}
+        </nav>
+      )}
+    </section>
+  );
+}
+
+export default function Home() {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <HomeRedirect />
+      </Suspense>
       <div className={[styles["ticker"]].join(" ")} aria-hidden="true">
         <div>
           ADMIT ONE <em>✺</em> PAYMENTS VERIFIED <em>✺</em> EVERY QR WORKS ONCE{" "}
@@ -99,11 +175,9 @@ export default async function Home() {
                   maxLength={100}
                   placeholder="Any city"
                 />
-                <datalist id="home-cities">
-                  {cities.map((city) => (
-                    <option key={city} value={city} />
-                  ))}
-                </datalist>
+                <Suspense fallback={null}>
+                  <HomeCities />
+                </Suspense>
               </label>
               <button className="button button-primary" type="submit">
                 Find events <ArrowRight size={17} />
@@ -200,61 +274,15 @@ export default async function Home() {
         </section>
 
         <Recommendations />
-        <section
-          className={`wrap ${styles.discovery}`}
-          aria-labelledby="upcoming-title"
+        <Suspense
+          fallback={
+            <section className="wrap" aria-busy="true">
+              <p>Loading upcoming events…</p>
+            </section>
+          }
         >
-          <div className={styles.discoveryHeading}>
-            <div>
-              <p className="eyebrow">
-                <span /> From the programme
-              </p>
-              <h2 id="upcoming-title">Coming up.</h2>
-            </div>
-            <Link href="/events" className="text-link">
-              Browse all events →
-            </Link>
-          </div>
-          <p>
-            Availability updated recently. Listings may be cached for up to 60
-            seconds; stock is checked again before reservation.
-          </p>
-          {events.status === "unavailable" ? (
-            <EmptyState
-              title="The programme could not load."
-              description="You can still search or explore how EventGate works. Retry when the events service is available."
-              action={<PublicRetry />}
-            />
-          ) : upcoming.length ? (
-            <div className={styles.homeEvents}>
-              {upcoming.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="No upcoming published events yet."
-              description="Check the event catalogue for the full programme."
-              action={
-                <Link href="/events" className="button">
-                  Browse events
-                </Link>
-              }
-            />
-          )}
-          {facets.status === "ready" && facets.categories.length > 0 && (
-            <nav className={styles.categories} aria-label="Event categories">
-              {facets.categories.map((category) => (
-                <Link
-                  key={category}
-                  href={`/events?category=${encodeURIComponent(category)}`}
-                >
-                  {category}
-                </Link>
-              ))}
-            </nav>
-          )}
-        </section>
+          <HomeProgramme />
+        </Suspense>
 
         <section
           className={[styles["how-section"], "wrap"].join(" ")}
@@ -330,6 +358,6 @@ export default async function Home() {
           </Link>
         </section>
       </main>
-    </HomeEntry>
+    </>
   );
 }

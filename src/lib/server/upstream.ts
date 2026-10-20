@@ -4,7 +4,9 @@ import { appConfig } from "../env";
 import { SessionError } from "./session-store";
 export async function upstream(
   path: string,
-  init: RequestInit = {},
+  init: RequestInit & {
+    next?: { revalidate?: number | false; tags?: string[] };
+  } = {},
   publicRead = false,
 ) {
   const base =
@@ -24,21 +26,29 @@ export async function upstream(
       "x-eventgate-proxy-signature",
     ])
       headers.delete(name);
-    (await proxyIdentityHeaders(init.method ?? "GET", url)).forEach(
-      (value, key) => headers.set(key, value),
-    );
+    const sharedPublicRead =
+      publicRead &&
+      init.cache === "force-cache" &&
+      (!init.method || init.method === "GET");
+    if (!sharedPublicRead)
+      (await proxyIdentityHeaders(init.method ?? "GET", url)).forEach(
+        (value, key) => headers.set(key, value),
+      );
     return await fetch(url, {
       ...init,
       headers,
       ...(publicRead ? {} : { cache: "no-store" as const }),
       redirect: "error",
-      signal: AbortSignal.timeout(
-        /^auth\/(login|register|google|demo)$/.test(path.split("?")[0])
-          ? 75000
-          : /^payments\/orders\/[^/]+\/checkout$/.test(path.split("?")[0])
-            ? 25000
-            : 15000,
-      ),
+      signal: AbortSignal.any([
+        ...(init.signal ? [init.signal] : []),
+        AbortSignal.timeout(
+          /^auth\/(login|register|google|demo)$/.test(path.split("?")[0])
+            ? 75000
+            : /^payments\/orders\/[^/]+\/checkout$/.test(path.split("?")[0])
+              ? 25000
+              : 15000,
+        ),
+      ]),
     });
   } catch (error) {
     throw new SessionError(

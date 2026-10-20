@@ -166,19 +166,17 @@ const eventSummarySchema = z.object({
   endAt: timestamp,
   deletedAt: timestamp.nullable(),
 });
+export const organizerOverviewSchema = z.object({
+  eventsByStatus: z.record(z.string(), z.number().int().nonnegative()),
+  paidOrders: z.number().int().nonnegative(),
+  activeTickets: z.number().int().nonnegative(),
+  recentEvents: z.array(eventSummarySchema),
+  upcomingEvents: z.array(eventSummarySchema),
+  draftEvents: z.array(eventSummarySchema),
+  serverTime: timestamp,
+});
 export const getOrganizerOverview = () =>
-  apiClient(
-    "/api/organizer/overview",
-    z.object({
-      eventsByStatus: z.record(z.string(), z.number().int().nonnegative()),
-      paidOrders: z.number().int().nonnegative(),
-      activeTickets: z.number().int().nonnegative(),
-      recentEvents: z.array(eventSummarySchema),
-      upcomingEvents: z.array(eventSummarySchema),
-      draftEvents: z.array(eventSummarySchema),
-      serverTime: timestamp,
-    }),
-  );
+  apiClient("/api/organizer/overview", organizerOverviewSchema);
 const tierSchema: z.ZodType<TicketTier> = z.object({
   salesPaused: z.boolean(),
   reservedQuantity: z.number().int().nonnegative(),
@@ -330,3 +328,17 @@ export const getEventOrders = async (
   id: string,
   filters = new URLSearchParams(),
 ) => apiList(eventPath(id) + "/reports/orders?" + filters, eventOrderSchema);
+
+export const getCheckInStatus = (id: string) =>
+  apiClient(
+    eventPath(id) + "/check-ins/status",
+    eventSummarySchema.extend({
+      category: z.string(),
+      checkInWindow: z.object({
+        opensAt: timestamp,
+        closesAt: timestamp,
+        isOpen: z.boolean(),
+      }),
+      serverTime: timestamp,
+    }),
+  );

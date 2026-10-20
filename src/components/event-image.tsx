@@ -5,10 +5,12 @@ function ImagePreview({
   src,
   title,
   publicView,
+  priority,
 }: {
   src: string;
   title: string;
   publicView: boolean;
+  priority: boolean;
 }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   return (
@@ -29,7 +31,8 @@ function ImagePreview({
           src={src}
           alt={title}
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
           decoding="async"
           onLoad={() => setState("ready")}
           onError={() => setState("failed")}
@@ -43,10 +46,12 @@ export function EventImage({
   src,
   title,
   publicView = false,
+  priority = false,
 }: {
   src: string | null;
   title: string;
   publicView?: boolean;
+  priority?: boolean;
 }) {
   if (!src || !src.startsWith("https://"))
     return (
@@ -59,6 +64,12 @@ export function EventImage({
       </div>
     );
   return (
-    <ImagePreview key={src} src={src} title={title} publicView={publicView} />
+    <ImagePreview
+      key={src}
+      src={src}
+      title={title}
+      publicView={publicView}
+      priority={priority}
+    />
   );
 }

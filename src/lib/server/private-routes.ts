@@ -9,6 +9,7 @@ const routes: Array<[string, string]> = [
   ["GET", "saved-events/memberships"],
   ["GET|PUT|DELETE", `saved-events/${id}`],
   ["GET", "notifications"],
+  ["GET", "notifications/unread-count"],
   ["PATCH", `notifications/${id}/read`],
   ["POST", "notifications/read-all"],
   ["GET|PATCH", "users/me/notification-preferences"],
@@ -30,6 +31,7 @@ const routes: Array<[string, string]> = [
   ["GET|POST", `organizer/events/${id}/ticket-tiers`],
   ["PATCH|DELETE", `organizer/events/${id}/ticket-tiers/${id}`],
   ["GET|POST", `organizer/events/${id}/check-ins`],
+  ["GET", `organizer/events/${id}/check-ins/status`],
   [
     "GET",
     `organizer/events/${id}/reports/(orders|statistics|sales|inventory|attendance|orders/export)`,

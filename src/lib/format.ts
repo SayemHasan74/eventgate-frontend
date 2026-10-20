@@ -1,9 +1,10 @@
+const moneyFormatter = new Intl.NumberFormat("en-BD", {
+  style: "currency",
+  currency: "BDT",
+});
 export const formatMoney = (paisa: number) =>
   Number.isSafeInteger(paisa)
-    ? new Intl.NumberFormat("en-BD", {
-        style: "currency",
-        currency: "BDT",
-      }).format(paisa / 100)
+    ? moneyFormatter.format(paisa / 100)
     : "Unavailable";
 export const formatCurrency = formatMoney;
 export function bdtToPaisa(value: string) {

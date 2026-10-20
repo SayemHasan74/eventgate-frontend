@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { upstream } from "./upstream";
@@ -40,9 +41,9 @@ export const backendAuthSchema = z.object({
   accessTokenExpiresIn: z.number().positive(),
 });
 export { upstream } from "./upstream";
-export async function currentSession() {
-  return loadSession((await cookies()).get(sessionCookie)?.value);
-}
+export const currentSession = cache(async () =>
+  loadSession((await cookies()).get(sessionCookie)?.value),
+);
 export async function clearBrowserCookies(includeGuest = true) {
   const jar = await cookies();
   for (const name of [
@@ -196,26 +197,26 @@ export async function authenticatedFetch(
   }
   return response;
 }
-export async function sessionIdentity(
-  session: StoredSession,
-): Promise<AuthUser> {
-  let response = await authenticatedFetch(session, "users/me/identity");
-  // Permit frontend/backend rolling deployments in either order.
-  if (response.status === 404)
-    response = await authenticatedFetch(session, "users/me");
-  if (!response.ok)
-    throw new SessionError(
-      response.status === 403 ? "FORBIDDEN" : "API_UNAVAILABLE",
-      response.status === 403 ? 403 : 503,
-    );
-  const payload = await response.json();
-  const user = authUserSchema.parse(payload.data);
-  if (user.id !== session.record.user.id) {
-    await invalidate(session);
-    throw new SessionError("SESSION_INVALID", 401);
-  }
-  return user;
-}
+export const sessionIdentity = cache(
+  async (session: StoredSession): Promise<AuthUser> => {
+    let response = await authenticatedFetch(session, "users/me/identity");
+    // Permit frontend/backend rolling deployments in either order.
+    if (response.status === 404)
+      response = await authenticatedFetch(session, "users/me");
+    if (!response.ok)
+      throw new SessionError(
+        response.status === 403 ? "FORBIDDEN" : "API_UNAVAILABLE",
+        response.status === 403 ? 403 : 503,
+      );
+    const payload = await response.json();
+    const user = authUserSchema.parse(payload.data);
+    if (user.id !== session.record.user.id) {
+      await invalidate(session);
+      throw new SessionError("SESSION_INVALID", 401);
+    }
+    return user;
+  },
+);
 export async function logoutSession(session: StoredSession) {
   // Delete first: a concurrent refresh CAS cannot resurrect a logged-out record.
   try {

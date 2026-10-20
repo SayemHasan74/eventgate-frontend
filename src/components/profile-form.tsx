@@ -84,7 +84,7 @@ export function ProfileForm({
         });
       form.reset(values);
       await invalidateMutation(client, profile.id, "profile");
-      await retrySession();
+      void retrySession();
       toast.success(checkout ? "Checkout profile saved." : "Profile saved.");
       onSaved?.();
     } catch (error) {

@@ -8,7 +8,17 @@ export function EventTicket({
   children,
   actions,
 }: {
-  event: ManagedEventDetail;
+  event: Pick<
+    ManagedEventDetail,
+    | "id"
+    | "title"
+    | "status"
+    | "startAt"
+    | "endAt"
+    | "venue"
+    | "city"
+    | "category"
+  >;
   children: ReactNode;
   actions?: ReactNode;
 }) {

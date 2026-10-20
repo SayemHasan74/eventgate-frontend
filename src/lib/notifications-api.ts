@@ -100,3 +100,9 @@ export const getEmailIncidents = (page: number) =>
     `/api/admin/reports/notification-deliveries?page=${page}&limit=20`,
     incident,
   );
+
+export const getUnreadCount = () =>
+  apiClient(
+    "/api/notifications/unread-count",
+    z.object({ unread: z.number().int().nonnegative() }),
+  );

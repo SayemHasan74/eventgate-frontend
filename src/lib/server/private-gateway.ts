@@ -1,5 +1,5 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import {
   authenticatedFetch,
   invalidate,
@@ -35,6 +35,7 @@ export async function forwardPrivate(request: Request, path: string) {
       path + new URL(request.url).search,
       {
         method: request.method,
+        signal: request.signal,
         headers,
         ...(hasBody ? { body: await request.text() } : {}),
       },
@@ -114,13 +115,16 @@ export async function forwardPrivate(request: Request, path: string) {
     if (
       payload.success &&
       hasBody &&
-      /^(organizer\/events|admin\/events|orders|refund-requests|admin\/refunds|payments\/orders)(\/|$)/.test(
+      /^(organizer|admin)\/events(?:\/[0-9a-f-]+(?:\/(?:publish|cancel|ticket-tiers(?:\/[0-9a-f-]+)?))?)?$/i.test(
         path,
       )
     ) {
-      revalidatePath("/(public)/events", "page");
-      revalidatePath("/(public)/events/[slug]", "page");
-      revalidatePath("/(public)/events/[slug]/tickets", "page");
+      revalidateTag("public-events", { expire: 0 });
+      const slug = payload.data?.slug ?? payload.data?.eventSlug;
+      if (typeof slug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
+        revalidateTag(`public-event:${slug}`, { expire: 0 });
+      if (!path.includes("/ticket-tiers"))
+        revalidateTag("public-facets", { expire: 0 });
     }
     result.headers.set(
       "x-request-id",

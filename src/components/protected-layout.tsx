@@ -10,11 +10,9 @@ import { ThemeToggle } from "./theme-toggle";
 
 export async function ProtectedLayout({
   children,
-  roles,
   next,
 }: Readonly<{
   children: React.ReactNode;
-  roles?: AuthUser["role"][];
   next: string;
 }>) {
   let user: AuthUser | null = null;
@@ -46,15 +44,6 @@ export async function ProtectedLayout({
         : next;
     redirect("/auth/sign-in?next=" + encodeURIComponent(destination));
   }
-  if (roles && !roles.includes(user.role))
-    return (
-      <section className="not-found">
-        <ThemeToggle />
-        <h1>Access denied</h1>
-        <p>This workspace is not available for your account role.</p>
-        <a href="/account">My account</a>
-      </section>
-    );
   return (
     <ServerSessionBootstrap user={user}>
       <WorkspaceShell initialUser={user}>{children}</WorkspaceShell>
